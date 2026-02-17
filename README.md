@@ -20,6 +20,6 @@ BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/flash_frdmmcxn947.sh
 - `src/`: firmware source
 - `sdk_example/`: MCUX SDK overlay wrapper
 - `tools/`: setup/build/flash scripts
-- `docs/`: runbook, state, restore and logs
+- `docs/`: runbook, state, full design/process docs, restore and logs
 - `data/`: replay telemetry assets
 - `failsafe/`: pinned recovery binaries/checksums

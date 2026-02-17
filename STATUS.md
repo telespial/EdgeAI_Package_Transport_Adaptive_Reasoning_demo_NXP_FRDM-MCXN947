@@ -3,14 +3,14 @@
 Last updated: 2026-02-17
 
 - Project build target: `edgeai_package_transport_anomaly_demo` (`frdmmcxn947/cm33_core0`)
-- Current build status: PASS (`mcuxsdk_ws/build_adaptive_reasoning`)
-- Flash status: not run in this restore-point cut (last known PASS on FRDM-MCXN947 probe `UYLKOJI11H2B3`)
+- Current build status: PASS (`mcuxsdk_ws/build`)
+- Flash status: PASS (FRDM-MCXN947 probe `UYLKOJI11H2B3`)
 
 ## Golden Baseline (Active)
-- Golden tag: `GOLDEN-20260217-222344Z`
+- Golden tag: `GOLDEN-20260217-233044Z`
 - Active failsafe: `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_failsafe_active.bin`
-- Golden image: `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_golden_20260217T222344Z.bin`
-- sha256: `e480f4d64645d3b60d78e2463ae0e3e602f41db7388285d405e2d7f086d17e9f`
+- Golden image: `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_golden_20260217T233044Z.bin`
+- sha256: `33398a0634891d6346019d018a01e99f9361b9d765e5b81752451489e5f23f9a`
 
 ## Frozen Features in Golden
 - Accelerometer sphere gauge with fast redraw.
@@ -45,3 +45,7 @@ Last updated: 2026-02-17
 - REC/PLAY stepping now runs at 10 Hz; display refresh also runs at 10 Hz for smoother playback.
 - Scope graph sampling cadence is now aligned to 10 Hz (`SCOPE_FAST_STEP_US=100000`) to keep plotted timeline pace matched to recorded/playback data pace.
 - PLAY mode scope plotting now advances on playhead movement (timeline-relative), preventing rapid full-window cycling that looked faster than recorded timeline pace.
+- Added shield auxiliary sensor terminal telemetry integration:
+  - `MAG X/Y/Z` (LIS2MDL),
+  - compact environmental line for `BARO` (LPS22DF), `RH` + `SHT` temp (SHT40).
+- Terminal TEMP + left temperature bargraph now prioritize shield temperature (`STTS22H`, fallback `SHT40`, fallback board sensor).

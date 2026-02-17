@@ -41,17 +41,47 @@
 #define SHIELD_GYRO_REG_CTRL3_C 0x12u
 #define SHIELD_GYRO_REG_OUTX_L_G 0x22u
 #define SHIELD_GYRO_REG_OUTX_L_A 0x28u
+#define SHIELD_GYRO_REG_FUNC_CFG_ACCESS 0x01u
 #define SHIELD_IMU_WHOAMI_LSM6DSO16IS 0x22u
 #define SHIELD_IMU_WHOAMI_LSM6DSV16X 0x70u
+#define SHIELD_SHUB_FUNC_CFG_ACCESS 0x40u
+#define SHIELD_SHUB_REG_SENSOR_HUB_1 0x02u
+#define SHIELD_SHUB_REG_MASTER_CONFIG 0x14u
+#define SHIELD_SHUB_REG_SLV0_ADD 0x15u
+#define SHIELD_SHUB_REG_SLV0_SUBADD 0x16u
+#define SHIELD_SHUB_REG_SLV0_CONFIG 0x17u
+#define SHIELD_SHUB_REG_DATAWRITE_SLV0 0x21u
+#define SHIELD_SHUB_REG_STATUS_MASTER 0x22u
+#define SHIELD_SHUB_STATUS_ENDOP 0x01u
+#define SHIELD_SHUB_STATUS_NACK_MASK 0x78u
+#define SHIELD_SHUB_MASTER_SHUB_PU_EN 0x08u
+#define SHIELD_SHUB_MASTER_ON 0x04u
+#define SHIELD_SHUB_MASTER_WRITE_ONCE 0x40u
+#define SHIELD_SHUB_MASTER_RST_REGS 0x80u
 #define SHIELD_LIS2DUXS12_ADDR0 0x18u
 #define SHIELD_LIS2DUXS12_ADDR1 0x19u
 #define SHIELD_LIS2DUXS12_WHOAMI 0x47u
 #define SHIELD_LIS2MDL_ADDR 0x1Eu
+#define SHIELD_LIS2MDL_ADDR_ALT 0x1Cu
 #define SHIELD_LIS2MDL_REG_WHO_AM_I 0x4Fu
 #define SHIELD_LIS2MDL_WHOAMI 0x40u
+#define SHIELD_LIS2MDL_REG_CFG_A 0x60u
+#define SHIELD_LIS2MDL_REG_CFG_C 0x62u
+#define SHIELD_LIS2MDL_REG_OUTX_L 0x68u
 #define SHIELD_LPS22DF_ADDR0 0x5Cu
 #define SHIELD_LPS22DF_ADDR1 0x5Du
 #define SHIELD_LPS22DF_WHOAMI 0xB4u
+#define SHIELD_LPS22DF_REG_CTRL1 0x10u
+#define SHIELD_LPS22DF_REG_OUT_P_XL 0x28u
+#define SHIELD_LPS22DF_PRESS_LSB_PER_HPA 4096
+#define SHIELD_SHT40_ADDR0 0x44u
+#define SHIELD_SHT40_ADDR1 0x45u
+#define SHIELD_SHT40_CMD_MEASURE_LP 0xE0u
+#define SHIELD_STTS22H_WHOAMI 0xA0u
+#define SHIELD_STTS22H_REG_WHO_AM_I 0x01u
+#define SHIELD_STTS22H_REG_CTRL 0x04u
+#define SHIELD_STTS22H_REG_TEMP_L 0x06u
+#define SHIELD_AUX_POLL_PERIOD_US 500000u
 
 #define TOUCH_POLL_DELAY_US 10000u
 #define POWER_TICK_PERIOD_US 1000000u
@@ -74,6 +104,9 @@
 #ifndef EDGEAI_I2C_RETRY_COUNT
 #define EDGEAI_I2C_RETRY_COUNT 3u
 #endif
+#ifndef EDGEAI_SENSOR_SCAN_MODE
+#define EDGEAI_SENSOR_SCAN_MODE 0
+#endif
 
 static gt911_handle_t s_touch_handle;
 static bool s_touch_ready = false;
@@ -95,6 +128,29 @@ static uint8_t s_shield_gyro_read_fail_streak = 0u;
 static int16_t s_ui_gyro_x = 0;
 static int16_t s_ui_gyro_y = 0;
 static int16_t s_ui_gyro_z = 0;
+static bool s_shield_mag_ready = false;
+static bool s_shield_baro_ready = false;
+static bool s_shield_sht_ready = false;
+static bool s_shield_stts_ready = false;
+static bool s_shield_aux_init_done = false;
+static bool s_shield_mag_use_shub = false;
+static bool s_shield_baro_use_shub = false;
+static bool s_shield_stts_use_shub = false;
+static bool s_shield_mag_use_touch_bus = true;
+static uint8_t s_shield_mag_addr = SHIELD_LIS2MDL_ADDR;
+static bool s_shield_baro_use_touch_bus = true;
+static bool s_shield_sht_use_touch_bus = true;
+static bool s_shield_stts_use_touch_bus = true;
+static uint8_t s_shield_baro_addr = 0u;
+static uint8_t s_shield_sht_addr = 0u;
+static uint8_t s_shield_stts_addr = 0u;
+static int16_t s_mag_x_mgauss = 0;
+static int16_t s_mag_y_mgauss = 0;
+static int16_t s_mag_z_mgauss = 0;
+static int16_t s_baro_dhpa = 10132;
+static int16_t s_sht_temp_c10 = 250;
+static int16_t s_sht_rh_dpct = 500;
+static int16_t s_stts_temp_c10 = 250;
 static bool s_temp_ready = false;
 static bool s_temp_i3c_inited = false;
 static uint8_t s_temp_addr = 0u;
@@ -106,6 +162,7 @@ static anomaly_output_t s_anom_out;
 static bool BoardTempI3CInit(void);
 static bool TouchI2CInit(void);
 static bool AccelI2CInit(void);
+static void ShieldGyroInit(void);
 
 typedef struct
 {
@@ -492,6 +549,564 @@ static bool ShieldBusProbeAddress(bool use_touch_bus, uint8_t deviceAddress)
     return ShieldBusTransferWithRetry(use_touch_bus, &xfer);
 }
 
+static bool ShieldBusWriteRaw(bool use_touch_bus, uint8_t deviceAddress, const uint8_t *txBuff, uint32_t txLen)
+{
+    lpi2c_master_transfer_t xfer;
+
+    memset(&xfer, 0, sizeof(xfer));
+    xfer.flags = kLPI2C_TransferDefaultFlag;
+    xfer.slaveAddress = deviceAddress;
+    xfer.direction = kLPI2C_Write;
+    xfer.subaddress = 0u;
+    xfer.subaddressSize = 0u;
+    xfer.data = (uint8_t *)(uintptr_t)txBuff;
+    xfer.dataSize = txLen;
+    return ShieldBusTransferWithRetry(use_touch_bus, &xfer);
+}
+
+static bool ShieldBusReadRaw(bool use_touch_bus, uint8_t deviceAddress, uint8_t *rxBuff, uint32_t rxLen)
+{
+    lpi2c_master_transfer_t xfer;
+
+    memset(&xfer, 0, sizeof(xfer));
+    xfer.flags = kLPI2C_TransferDefaultFlag;
+    xfer.slaveAddress = deviceAddress;
+    xfer.direction = kLPI2C_Read;
+    xfer.subaddress = 0u;
+    xfer.subaddressSize = 0u;
+    xfer.data = rxBuff;
+    xfer.dataSize = rxLen;
+    return ShieldBusTransferWithRetry(use_touch_bus, &xfer);
+}
+
+static bool ShieldShubSetAccess(bool enable)
+{
+    uint8_t value = enable ? SHIELD_SHUB_FUNC_CFG_ACCESS : 0u;
+    return ShieldBusWriteReg(s_shield_use_touch_bus, s_shield_gyro_addr, SHIELD_GYRO_REG_FUNC_CFG_ACCESS, value);
+}
+
+static bool ShieldShubResetMaster(uint8_t master_cfg)
+{
+    if (!ShieldBusWriteReg(s_shield_use_touch_bus,
+                           s_shield_gyro_addr,
+                           SHIELD_SHUB_REG_MASTER_CONFIG,
+                           (uint8_t)(master_cfg | SHIELD_SHUB_MASTER_RST_REGS)))
+    {
+        return false;
+    }
+    return ShieldBusWriteReg(s_shield_use_touch_bus, s_shield_gyro_addr, SHIELD_SHUB_REG_MASTER_CONFIG, master_cfg);
+}
+
+static bool ShieldShubReadRegs(uint8_t ext_addr7, uint8_t reg, uint8_t *rx, uint8_t len)
+{
+    uint8_t master_cfg = 0u;
+    uint8_t status = 0u;
+    bool ok = false;
+
+    if ((rx == NULL) || (len == 0u) || (len > 6u) || !s_shield_gyro_ready || (s_shield_gyro_addr == 0u))
+    {
+        return false;
+    }
+
+    if (!ShieldShubSetAccess(true))
+    {
+        return false;
+    }
+
+    do
+    {
+        if (!ShieldBusRead(s_shield_use_touch_bus, s_shield_gyro_addr, SHIELD_SHUB_REG_MASTER_CONFIG, &master_cfg, 1u))
+        {
+            break;
+        }
+        if (!ShieldShubResetMaster(master_cfg))
+        {
+            break;
+        }
+        if (!ShieldBusWriteReg(s_shield_use_touch_bus, s_shield_gyro_addr, SHIELD_SHUB_REG_SLV0_ADD, (uint8_t)((ext_addr7 << 1) | 0x01u)))
+        {
+            break;
+        }
+        if (!ShieldBusWriteReg(s_shield_use_touch_bus, s_shield_gyro_addr, SHIELD_SHUB_REG_SLV0_SUBADD, reg))
+        {
+            break;
+        }
+        if (!ShieldBusWriteReg(s_shield_use_touch_bus, s_shield_gyro_addr, SHIELD_SHUB_REG_SLV0_CONFIG, (uint8_t)(len & 0x07u)))
+        {
+            break;
+        }
+        if (!ShieldBusWriteReg(s_shield_use_touch_bus,
+                               s_shield_gyro_addr,
+                               SHIELD_SHUB_REG_MASTER_CONFIG,
+                               (uint8_t)((master_cfg & 0xF0u) | SHIELD_SHUB_MASTER_SHUB_PU_EN | SHIELD_SHUB_MASTER_ON)))
+        {
+            break;
+        }
+
+        for (uint32_t attempt = 0u; attempt < 16u; attempt++)
+        {
+            if (!ShieldBusRead(s_shield_use_touch_bus, s_shield_gyro_addr, SHIELD_SHUB_REG_STATUS_MASTER, &status, 1u))
+            {
+                break;
+            }
+            if ((status & SHIELD_SHUB_STATUS_ENDOP) != 0u)
+            {
+                break;
+            }
+            SDK_DelayAtLeastUs(1200u, SDK_DEVICE_MAXIMUM_CPU_CLOCK_FREQUENCY);
+        }
+
+        if (((status & SHIELD_SHUB_STATUS_ENDOP) == 0u) || ((status & SHIELD_SHUB_STATUS_NACK_MASK) != 0u))
+        {
+            break;
+        }
+        if (!ShieldBusRead(s_shield_use_touch_bus, s_shield_gyro_addr, SHIELD_SHUB_REG_SENSOR_HUB_1, rx, len))
+        {
+            break;
+        }
+        ok = true;
+    } while (false);
+
+    (void)ShieldBusWriteReg(s_shield_use_touch_bus, s_shield_gyro_addr, SHIELD_SHUB_REG_MASTER_CONFIG, master_cfg);
+    (void)ShieldShubSetAccess(false);
+    return ok;
+}
+
+static bool ShieldShubWriteReg(uint8_t ext_addr7, uint8_t reg, uint8_t value)
+{
+    uint8_t master_cfg = 0u;
+    uint8_t status = 0u;
+    bool ok = false;
+
+    if (!s_shield_gyro_ready || (s_shield_gyro_addr == 0u))
+    {
+        return false;
+    }
+
+    if (!ShieldShubSetAccess(true))
+    {
+        return false;
+    }
+
+    do
+    {
+        if (!ShieldBusRead(s_shield_use_touch_bus, s_shield_gyro_addr, SHIELD_SHUB_REG_MASTER_CONFIG, &master_cfg, 1u))
+        {
+            break;
+        }
+        if (!ShieldShubResetMaster(master_cfg))
+        {
+            break;
+        }
+        if (!ShieldBusWriteReg(s_shield_use_touch_bus, s_shield_gyro_addr, SHIELD_SHUB_REG_SLV0_ADD, (uint8_t)(ext_addr7 << 1)))
+        {
+            break;
+        }
+        if (!ShieldBusWriteReg(s_shield_use_touch_bus, s_shield_gyro_addr, SHIELD_SHUB_REG_SLV0_SUBADD, reg))
+        {
+            break;
+        }
+        if (!ShieldBusWriteReg(s_shield_use_touch_bus, s_shield_gyro_addr, SHIELD_SHUB_REG_DATAWRITE_SLV0, value))
+        {
+            break;
+        }
+        if (!ShieldBusWriteReg(s_shield_use_touch_bus, s_shield_gyro_addr, SHIELD_SHUB_REG_SLV0_CONFIG, 0x00u))
+        {
+            break;
+        }
+        if (!ShieldBusWriteReg(s_shield_use_touch_bus,
+                               s_shield_gyro_addr,
+                               SHIELD_SHUB_REG_MASTER_CONFIG,
+                               (uint8_t)((master_cfg & 0xB0u) | SHIELD_SHUB_MASTER_WRITE_ONCE |
+                                         SHIELD_SHUB_MASTER_SHUB_PU_EN | SHIELD_SHUB_MASTER_ON)))
+        {
+            break;
+        }
+
+        for (uint32_t attempt = 0u; attempt < 16u; attempt++)
+        {
+            if (!ShieldBusRead(s_shield_use_touch_bus, s_shield_gyro_addr, SHIELD_SHUB_REG_STATUS_MASTER, &status, 1u))
+            {
+                break;
+            }
+            if ((status & SHIELD_SHUB_STATUS_ENDOP) != 0u)
+            {
+                break;
+            }
+            SDK_DelayAtLeastUs(1200u, SDK_DEVICE_MAXIMUM_CPU_CLOCK_FREQUENCY);
+        }
+
+        if (((status & SHIELD_SHUB_STATUS_ENDOP) == 0u) || ((status & SHIELD_SHUB_STATUS_NACK_MASK) != 0u))
+        {
+            break;
+        }
+        ok = true;
+    } while (false);
+
+    (void)ShieldBusWriteReg(s_shield_use_touch_bus, s_shield_gyro_addr, SHIELD_SHUB_REG_MASTER_CONFIG, master_cfg);
+    (void)ShieldShubSetAccess(false);
+    return ok;
+}
+
+static bool ShieldSht40CrcOk(const uint8_t *buf2, uint8_t crc)
+{
+    uint8_t c = 0xFFu;
+    for (uint32_t i = 0u; i < 2u; i++)
+    {
+        c ^= buf2[i];
+        for (uint32_t b = 0u; b < 8u; b++)
+        {
+            c = (c & 0x80u) ? (uint8_t)((c << 1) ^ 0x31u) : (uint8_t)(c << 1);
+        }
+    }
+    return (c == crc);
+}
+
+static void ShieldAuxSetRenderState(void)
+{
+    GaugeRender_SetMag(s_mag_x_mgauss, s_mag_y_mgauss, s_mag_z_mgauss, s_shield_mag_ready);
+    GaugeRender_SetBaro(s_baro_dhpa, s_shield_baro_ready);
+    GaugeRender_SetSht(s_sht_temp_c10, s_sht_rh_dpct, s_shield_sht_ready);
+    GaugeRender_SetStts(s_stts_temp_c10, s_shield_stts_ready);
+}
+
+static void ShieldAuxInit(void)
+{
+    static const bool buses[2] = {true, false};
+    static const char *bus_name[2] = {"FC2", "FC3"};
+    static const uint8_t stts_addrs[] = {0x3Cu, 0x3Du, 0x3Eu, 0x3Fu, 0x38u};
+    uint8_t who = 0u;
+
+    s_shield_mag_ready = false;
+    s_shield_baro_ready = false;
+    s_shield_sht_ready = false;
+    s_shield_stts_ready = false;
+    s_shield_mag_use_shub = false;
+    s_shield_baro_use_shub = false;
+    s_shield_stts_use_shub = false;
+    s_shield_mag_use_touch_bus = true;
+    s_shield_mag_addr = SHIELD_LIS2MDL_ADDR;
+    s_shield_baro_use_touch_bus = true;
+    s_shield_sht_use_touch_bus = true;
+    s_shield_stts_use_touch_bus = true;
+    s_shield_baro_addr = 0u;
+    s_shield_sht_addr = 0u;
+    s_shield_stts_addr = 0u;
+
+    for (uint32_t bi = 0u; bi < 2u; bi++)
+    {
+        if (ShieldBusRead(buses[bi], SHIELD_LIS2MDL_ADDR, SHIELD_LIS2MDL_REG_WHO_AM_I, &who, 1u) &&
+            (who == SHIELD_LIS2MDL_WHOAMI))
+        {
+            s_shield_mag_use_touch_bus = buses[bi];
+            s_shield_mag_addr = SHIELD_LIS2MDL_ADDR;
+            s_shield_mag_ready = true;
+            break;
+        }
+        if (ShieldBusRead(buses[bi], SHIELD_LIS2MDL_ADDR_ALT, SHIELD_LIS2MDL_REG_WHO_AM_I, &who, 1u) &&
+            (who == SHIELD_LIS2MDL_WHOAMI))
+        {
+            s_shield_mag_use_touch_bus = buses[bi];
+            s_shield_mag_addr = SHIELD_LIS2MDL_ADDR_ALT;
+            s_shield_mag_ready = true;
+            break;
+        }
+    }
+    if (!s_shield_mag_ready && s_shield_gyro_ready && (s_shield_gyro_who == SHIELD_IMU_WHOAMI_LSM6DSO16IS))
+    {
+        if (ShieldShubReadRegs(SHIELD_LIS2MDL_ADDR, SHIELD_LIS2MDL_REG_WHO_AM_I, &who, 1u) &&
+            (who == SHIELD_LIS2MDL_WHOAMI))
+        {
+            s_shield_mag_addr = SHIELD_LIS2MDL_ADDR;
+            s_shield_mag_ready = true;
+            s_shield_mag_use_shub = true;
+        }
+        else if (ShieldShubReadRegs(SHIELD_LIS2MDL_ADDR_ALT, SHIELD_LIS2MDL_REG_WHO_AM_I, &who, 1u) &&
+                 (who == SHIELD_LIS2MDL_WHOAMI))
+        {
+            s_shield_mag_addr = SHIELD_LIS2MDL_ADDR_ALT;
+            s_shield_mag_ready = true;
+            s_shield_mag_use_shub = true;
+        }
+    }
+
+    if (s_shield_mag_ready)
+    {
+        if (s_shield_mag_use_shub)
+        {
+            (void)ShieldShubWriteReg(s_shield_mag_addr, SHIELD_LIS2MDL_REG_CFG_A, 0x00u);
+            (void)ShieldShubWriteReg(s_shield_mag_addr, SHIELD_LIS2MDL_REG_CFG_C, 0x10u);
+            PRINTF("SHIELD_MAG ready bus=SHUB addr=0x%02x\r\n", (unsigned int)s_shield_mag_addr);
+        }
+        else
+        {
+            (void)ShieldBusWriteReg(s_shield_mag_use_touch_bus, s_shield_mag_addr, SHIELD_LIS2MDL_REG_CFG_A, 0x00u);
+            (void)ShieldBusWriteReg(s_shield_mag_use_touch_bus, s_shield_mag_addr, SHIELD_LIS2MDL_REG_CFG_C, 0x10u);
+            PRINTF("SHIELD_MAG ready bus=%s addr=0x%02x\r\n",
+                   s_shield_mag_use_touch_bus ? bus_name[0] : bus_name[1],
+                   (unsigned int)s_shield_mag_addr);
+        }
+    }
+
+    for (uint32_t bi = 0u; bi < 2u; bi++)
+    {
+        if (ShieldBusRead(buses[bi], SHIELD_LPS22DF_ADDR0, SHIELD_GYRO_REG_WHO_AM_I, &who, 1u) &&
+            (who == SHIELD_LPS22DF_WHOAMI))
+        {
+            s_shield_baro_addr = SHIELD_LPS22DF_ADDR0;
+            s_shield_baro_use_touch_bus = buses[bi];
+            break;
+        }
+        if (ShieldBusRead(buses[bi], SHIELD_LPS22DF_ADDR1, SHIELD_GYRO_REG_WHO_AM_I, &who, 1u) &&
+            (who == SHIELD_LPS22DF_WHOAMI))
+        {
+            s_shield_baro_addr = SHIELD_LPS22DF_ADDR1;
+            s_shield_baro_use_touch_bus = buses[bi];
+            break;
+        }
+    }
+    if ((s_shield_baro_addr == 0u) && s_shield_gyro_ready && (s_shield_gyro_who == SHIELD_IMU_WHOAMI_LSM6DSO16IS))
+    {
+        if (ShieldShubReadRegs(SHIELD_LPS22DF_ADDR0, SHIELD_GYRO_REG_WHO_AM_I, &who, 1u) &&
+            (who == SHIELD_LPS22DF_WHOAMI))
+        {
+            s_shield_baro_addr = SHIELD_LPS22DF_ADDR0;
+            s_shield_baro_use_shub = true;
+        }
+        else if (ShieldShubReadRegs(SHIELD_LPS22DF_ADDR1, SHIELD_GYRO_REG_WHO_AM_I, &who, 1u) &&
+                 (who == SHIELD_LPS22DF_WHOAMI))
+        {
+            s_shield_baro_addr = SHIELD_LPS22DF_ADDR1;
+            s_shield_baro_use_shub = true;
+        }
+    }
+
+    if (s_shield_baro_addr != 0u)
+    {
+        if (s_shield_baro_use_shub)
+        {
+            (void)ShieldShubWriteReg(s_shield_baro_addr, SHIELD_LPS22DF_REG_CTRL1, 0x22u);
+        }
+        else
+        {
+            (void)ShieldBusWriteReg(s_shield_baro_use_touch_bus, s_shield_baro_addr, SHIELD_LPS22DF_REG_CTRL1, 0x22u);
+        }
+        s_shield_baro_ready = true;
+        if (s_shield_baro_use_shub)
+        {
+            PRINTF("SHIELD_BARO ready bus=SHUB addr=0x%02x\r\n", (unsigned int)s_shield_baro_addr);
+        }
+        else
+        {
+            PRINTF("SHIELD_BARO ready bus=%s addr=0x%02x\r\n",
+                   s_shield_baro_use_touch_bus ? bus_name[0] : bus_name[1],
+                   (unsigned int)s_shield_baro_addr);
+        }
+    }
+
+    for (uint32_t bi = 0u; bi < 2u; bi++)
+    {
+        if (ShieldBusProbeAddress(buses[bi], SHIELD_SHT40_ADDR0))
+        {
+            s_shield_sht_addr = SHIELD_SHT40_ADDR0;
+            s_shield_sht_use_touch_bus = buses[bi];
+            break;
+        }
+        if (ShieldBusProbeAddress(buses[bi], SHIELD_SHT40_ADDR1))
+        {
+            s_shield_sht_addr = SHIELD_SHT40_ADDR1;
+            s_shield_sht_use_touch_bus = buses[bi];
+            break;
+        }
+    }
+    if (s_shield_sht_addr != 0u)
+    {
+        s_shield_sht_ready = true;
+        PRINTF("SHIELD_SHT ready bus=%s addr=0x%02x\r\n",
+               s_shield_sht_use_touch_bus ? bus_name[0] : bus_name[1],
+               (unsigned int)s_shield_sht_addr);
+    }
+
+    for (uint32_t bi = 0u; bi < 2u; bi++)
+    {
+        for (uint32_t i = 0u; i < (sizeof(stts_addrs) / sizeof(stts_addrs[0])); i++)
+        {
+            if (!ShieldBusRead(buses[bi], stts_addrs[i], SHIELD_STTS22H_REG_WHO_AM_I, &who, 1u))
+            {
+                continue;
+            }
+            if ((who == SHIELD_STTS22H_WHOAMI) || ((who != 0x00u) && (who != 0xFFu)))
+            {
+                s_shield_stts_addr = stts_addrs[i];
+                s_shield_stts_use_touch_bus = buses[bi];
+                break;
+            }
+        }
+        if (s_shield_stts_addr != 0u)
+        {
+            break;
+        }
+    }
+    if ((s_shield_stts_addr == 0u) && s_shield_gyro_ready && (s_shield_gyro_who == SHIELD_IMU_WHOAMI_LSM6DSO16IS))
+    {
+        for (uint32_t i = 0u; i < (sizeof(stts_addrs) / sizeof(stts_addrs[0])); i++)
+        {
+            if (!ShieldShubReadRegs(stts_addrs[i], SHIELD_STTS22H_REG_WHO_AM_I, &who, 1u))
+            {
+                continue;
+            }
+            if ((who == SHIELD_STTS22H_WHOAMI) || ((who != 0x00u) && (who != 0xFFu)))
+            {
+                s_shield_stts_addr = stts_addrs[i];
+                s_shield_stts_use_shub = true;
+                break;
+            }
+        }
+    }
+
+    if (s_shield_stts_addr != 0u)
+    {
+        if (s_shield_stts_use_shub)
+        {
+            (void)ShieldShubWriteReg(s_shield_stts_addr, SHIELD_STTS22H_REG_CTRL, 0x0Cu);
+        }
+        else
+        {
+            (void)ShieldBusWriteReg(s_shield_stts_use_touch_bus, s_shield_stts_addr, SHIELD_STTS22H_REG_CTRL, 0x0Cu);
+        }
+        s_shield_stts_ready = true;
+        if (s_shield_stts_use_shub)
+        {
+            PRINTF("SHIELD_STTS ready bus=SHUB addr=0x%02x\r\n", (unsigned int)s_shield_stts_addr);
+        }
+        else
+        {
+            PRINTF("SHIELD_STTS ready bus=%s addr=0x%02x\r\n",
+                   s_shield_stts_use_touch_bus ? bus_name[0] : bus_name[1],
+                   (unsigned int)s_shield_stts_addr);
+        }
+    }
+
+    s_shield_aux_init_done = true;
+    ShieldAuxSetRenderState();
+}
+
+static void ShieldAuxUpdate(void)
+{
+    uint8_t raw[6];
+
+    if (!s_shield_aux_init_done)
+    {
+        ShieldAuxInit();
+    }
+
+    if (s_shield_mag_ready)
+    {
+        bool ok = true;
+        for (uint32_t i = 0u; i < 6u; i++)
+        {
+            if (s_shield_mag_use_shub)
+            {
+                if (!ShieldShubReadRegs(s_shield_mag_addr, (uint8_t)(SHIELD_LIS2MDL_REG_OUTX_L + i), &raw[i], 1u))
+                {
+                    ok = false;
+                    break;
+                }
+            }
+            else if (!ShieldBusRead(s_shield_mag_use_touch_bus, s_shield_mag_addr, (uint8_t)(SHIELD_LIS2MDL_REG_OUTX_L + i), &raw[i], 1u))
+            {
+                ok = false;
+                break;
+            }
+        }
+        if (ok)
+        {
+            int16_t mx = (int16_t)(((uint16_t)raw[1] << 8) | raw[0]);
+            int16_t my = (int16_t)(((uint16_t)raw[3] << 8) | raw[2]);
+            int16_t mz = (int16_t)(((uint16_t)raw[5] << 8) | raw[4]);
+            s_mag_x_mgauss = (int16_t)((mx * 15) / 10);
+            s_mag_y_mgauss = (int16_t)((my * 15) / 10);
+            s_mag_z_mgauss = (int16_t)((mz * 15) / 10);
+        }
+        else
+        {
+            s_shield_mag_ready = false;
+        }
+    }
+
+    if (s_shield_baro_ready)
+    {
+        if ((s_shield_baro_use_shub && ShieldShubReadRegs(s_shield_baro_addr, SHIELD_LPS22DF_REG_OUT_P_XL, raw, 5u)) ||
+            (!s_shield_baro_use_shub &&
+             ShieldBusRead(s_shield_baro_use_touch_bus, s_shield_baro_addr, SHIELD_LPS22DF_REG_OUT_P_XL, raw, 5u)))
+        {
+            int32_t p_raw = (int32_t)((((uint32_t)raw[2]) << 16) | (((uint32_t)raw[1]) << 8) | raw[0]);
+            if ((p_raw & 0x00800000) != 0)
+            {
+                p_raw |= (int32_t)0xFF000000;
+            }
+            s_baro_dhpa = (int16_t)((p_raw * 10) / SHIELD_LPS22DF_PRESS_LSB_PER_HPA);
+        }
+        else
+        {
+            s_shield_baro_ready = false;
+        }
+    }
+
+    if (s_shield_sht_ready)
+    {
+        uint8_t cmd = SHIELD_SHT40_CMD_MEASURE_LP;
+        if (ShieldBusWriteRaw(s_shield_sht_use_touch_bus, s_shield_sht_addr, &cmd, 1u))
+        {
+            uint16_t raw_t;
+            uint16_t raw_rh;
+            SDK_DelayAtLeastUs(2500u, SDK_DEVICE_MAXIMUM_CPU_CLOCK_FREQUENCY);
+            if (ShieldBusReadRaw(s_shield_sht_use_touch_bus, s_shield_sht_addr, raw, 6u) &&
+                ShieldSht40CrcOk(&raw[0], raw[2]) &&
+                ShieldSht40CrcOk(&raw[3], raw[5]))
+            {
+                raw_t = (uint16_t)(((uint16_t)raw[0] << 8) | raw[1]);
+                raw_rh = (uint16_t)(((uint16_t)raw[3] << 8) | raw[4]);
+                s_sht_temp_c10 = (int16_t)(((1750 * (int32_t)raw_t) / 65535) - 450);
+                s_sht_rh_dpct = (int16_t)(((1250 * (int32_t)raw_rh) / 65535) - 60);
+                if (s_sht_rh_dpct < 0)
+                {
+                    s_sht_rh_dpct = 0;
+                }
+                if (s_sht_rh_dpct > 1000)
+                {
+                    s_sht_rh_dpct = 1000;
+                }
+            }
+            else
+            {
+                s_shield_sht_ready = false;
+            }
+        }
+        else
+        {
+            s_shield_sht_ready = false;
+        }
+    }
+
+    if (s_shield_stts_ready)
+    {
+        if ((s_shield_stts_use_shub && ShieldShubReadRegs(s_shield_stts_addr, SHIELD_STTS22H_REG_TEMP_L, raw, 2u)) ||
+            (!s_shield_stts_use_shub &&
+             ShieldBusRead(s_shield_stts_use_touch_bus, s_shield_stts_addr, SHIELD_STTS22H_REG_TEMP_L, raw, 2u)))
+        {
+            int16_t t_raw = (int16_t)(((uint16_t)raw[1] << 8) | raw[0]);
+            s_stts_temp_c10 = (int16_t)(t_raw / 10);
+        }
+        else
+        {
+            s_shield_stts_ready = false;
+        }
+    }
+
+    ShieldAuxSetRenderState();
+}
+
 static void __attribute__((unused)) ShieldScanI2CAddresses(bool use_touch_bus, const char *bus_name)
 {
     bool found = false;
@@ -681,6 +1296,7 @@ static void ShieldSensorScanLog(void)
 #if EDGEAI_ENABLE_SHIELD_SENSOR_SCAN_LOG
     static const bool buses[2] = {true, false};
     static const char *bus_name[2] = {"FC2", "FC3"};
+    static const uint8_t stts_addrs[] = {0x3Cu, 0x3Du, 0x3Eu, 0x3Fu, 0x38u};
     uint8_t who = 0u;
 
     for (uint32_t bi = 0u; bi < 2u; bi++)
@@ -724,9 +1340,137 @@ static void ShieldSensorScanLog(void)
         {
             PRINTF("SHIELD probe %s LIS2MDL not_found\r\n", bus_name[bi]);
         }
+
+        if (ShieldBusRead(use_touch_bus, SHIELD_LIS2MDL_ADDR_ALT, SHIELD_LIS2MDL_REG_WHO_AM_I, &who, 1u))
+        {
+            PRINTF("SHIELD probe %s LIS2MDL_ALT who=0x%02x %s\r\n",
+                   bus_name[bi],
+                   (unsigned int)who,
+                   (who == SHIELD_LIS2MDL_WHOAMI) ? "ok" : "unexpected");
+        }
+        else
+        {
+            PRINTF("SHIELD probe %s LIS2MDL_ALT not_found\r\n", bus_name[bi]);
+        }
+
+        if (ShieldBusProbeAddress(use_touch_bus, SHIELD_SHT40_ADDR0) || ShieldBusProbeAddress(use_touch_bus, SHIELD_SHT40_ADDR1))
+        {
+            PRINTF("SHIELD probe %s SHT4x present\r\n", bus_name[bi]);
+        }
+        else
+        {
+            PRINTF("SHIELD probe %s SHT4x not_found\r\n", bus_name[bi]);
+        }
+
+        {
+            bool stts_found = false;
+            for (uint32_t i = 0u; i < (sizeof(stts_addrs) / sizeof(stts_addrs[0])); i++)
+            {
+                if (ShieldBusRead(use_touch_bus, stts_addrs[i], SHIELD_STTS22H_REG_WHO_AM_I, &who, 1u))
+                {
+                    PRINTF("SHIELD probe %s STTS22H addr=0x%02x who=0x%02x %s\r\n",
+                           bus_name[bi],
+                           (unsigned int)stts_addrs[i],
+                           (unsigned int)who,
+                           (who == SHIELD_STTS22H_WHOAMI) ? "ok" : "candidate");
+                    stts_found = true;
+                    break;
+                }
+            }
+            if (!stts_found)
+            {
+                PRINTF("SHIELD probe %s STTS22H not_found\r\n", bus_name[bi]);
+            }
+        }
+    }
+
+    if (!s_shield_gyro_ready)
+    {
+        ShieldGyroInit();
+    }
+    if (s_shield_gyro_ready && (s_shield_gyro_who == SHIELD_IMU_WHOAMI_LSM6DSO16IS))
+    {
+        static const uint8_t stts_addrs[] = {0x3Cu, 0x3Du, 0x3Eu, 0x3Fu, 0x38u};
+        uint8_t who = 0u;
+        bool stts_found = false;
+
+        if (ShieldShubReadRegs(SHIELD_LIS2MDL_ADDR, SHIELD_LIS2MDL_REG_WHO_AM_I, &who, 1u) ||
+            ShieldShubReadRegs(SHIELD_LIS2MDL_ADDR_ALT, SHIELD_LIS2MDL_REG_WHO_AM_I, &who, 1u))
+        {
+            PRINTF("SHIELD_SHUB probe LIS2MDL who=0x%02x %s\r\n",
+                   (unsigned int)who,
+                   (who == SHIELD_LIS2MDL_WHOAMI) ? "ok" : "unexpected");
+        }
+        else
+        {
+            PRINTF("SHIELD_SHUB probe LIS2MDL not_found\r\n");
+        }
+
+        if (ShieldShubReadRegs(SHIELD_LPS22DF_ADDR0, SHIELD_GYRO_REG_WHO_AM_I, &who, 1u) ||
+            ShieldShubReadRegs(SHIELD_LPS22DF_ADDR1, SHIELD_GYRO_REG_WHO_AM_I, &who, 1u))
+        {
+            PRINTF("SHIELD_SHUB probe LPS22DF who=0x%02x %s\r\n",
+                   (unsigned int)who,
+                   (who == SHIELD_LPS22DF_WHOAMI) ? "ok" : "unexpected");
+        }
+        else
+        {
+            PRINTF("SHIELD_SHUB probe LPS22DF not_found\r\n");
+        }
+
+        for (uint32_t i = 0u; i < (sizeof(stts_addrs) / sizeof(stts_addrs[0])); i++)
+        {
+            if (ShieldShubReadRegs(stts_addrs[i], SHIELD_STTS22H_REG_WHO_AM_I, &who, 1u))
+            {
+                PRINTF("SHIELD_SHUB probe STTS22H addr=0x%02x who=0x%02x %s\r\n",
+                       (unsigned int)stts_addrs[i],
+                       (unsigned int)who,
+                       (who == SHIELD_STTS22H_WHOAMI) ? "ok" : "candidate");
+                stts_found = true;
+                break;
+            }
+        }
+        if (!stts_found)
+        {
+            PRINTF("SHIELD_SHUB probe STTS22H not_found\r\n");
+        }
+    }
+    else if (s_shield_gyro_ready)
+    {
+        PRINTF("SHIELD_SHUB probe skipped: unsupported imu who=0x%02x\r\n", (unsigned int)s_shield_gyro_who);
+    }
+    else
+    {
+        PRINTF("SHIELD_SHUB probe skipped: gyro_not_ready\r\n");
     }
 #endif
 }
+
+#if EDGEAI_SENSOR_SCAN_MODE
+static int SensorScanModeMain(void)
+{
+    uint32_t core_hz;
+
+    BOARD_InitHardware();
+    core_hz = CLOCK_GetCoreSysClkFreq();
+    if (core_hz == 0u)
+    {
+        core_hz = SDK_DEVICE_MAXIMUM_CPU_CLOCK_FREQUENCY;
+    }
+
+    PRINTF("SENSOR_SCAN_MODE active\r\n");
+    PRINTF("Tip: remove LCD, keep shield attached, then reboot this scan image.\r\n");
+
+    for (;;)
+    {
+        ShieldRunDatastreamDiagnostics();
+        ShieldSensorScanLog();
+        SDK_DelayAtLeastUs(2000000u, core_hz);
+    }
+
+    return 0;
+}
+#endif
 
 static void TouchConfigIntPin(gt911_int_pin_mode_t mode)
 {
@@ -1512,6 +2256,9 @@ static bool TouchInSettingsTuneIndex(int32_t x, int32_t y, uint8_t idx)
 
 int main(void)
 {
+#if EDGEAI_SENSOR_SCAN_MODE
+    return SensorScanModeMain();
+#else
     bool ai_enabled = true;
     bool lcd_ok;
     bool ext_flash_ok;
@@ -1529,6 +2276,7 @@ int main(void)
     uint32_t accel_live_tick_accum_us = 0u;
     uint32_t runtime_clock_tick_accum_us = 0u;
     uint32_t temp_tick_accum_us = 0u;
+    uint32_t shield_aux_tick_accum_us = 0u;
     uint32_t accel_test_tick_accum_us = 0u;
     uint32_t rtc_ds = 0u;
     uint32_t rtc_ss = 0u;
@@ -1563,6 +2311,7 @@ int main(void)
     BoardTempInit();
     BoardTempUpdate();
     ShieldGyroUpdate();
+    ShieldAuxInit();
     GaugeRender_SetRuntimeClock(0u, 0u, 0u, 0u, true);
     GaugeRender_SetHelpVisible(false);
     GaugeRender_SetSettingsVisible(false);
@@ -1882,6 +2631,7 @@ int main(void)
             gyro_tick_accum_us += elapsed_loop_us;
             accel_live_tick_accum_us += elapsed_loop_us;
             temp_tick_accum_us += elapsed_loop_us;
+            shield_aux_tick_accum_us += elapsed_loop_us;
             accel_test_tick_accum_us += elapsed_loop_us;
 
             if (data_tick_accum_us > (POWER_TICK_PERIOD_US * 2u))
@@ -1899,6 +2649,10 @@ int main(void)
             if (temp_tick_accum_us > (TEMP_REFRESH_PERIOD_US * 2u))
             {
                 temp_tick_accum_us = TEMP_REFRESH_PERIOD_US * 2u;
+            }
+            if (shield_aux_tick_accum_us > (SHIELD_AUX_POLL_PERIOD_US * 2u))
+            {
+                shield_aux_tick_accum_us = SHIELD_AUX_POLL_PERIOD_US * 2u;
             }
             if (accel_test_tick_accum_us > (ACCEL_TEST_LOG_PERIOD_US * 2u))
             {
@@ -1920,6 +2674,12 @@ int main(void)
         {
             accel_live_tick_accum_us -= ACCEL_LIVE_PERIOD_US;
             /* Gyro/accel live update now runs in the gyro refresh loop above. */
+        }
+
+        while (shield_aux_tick_accum_us >= SHIELD_AUX_POLL_PERIOD_US)
+        {
+            shield_aux_tick_accum_us -= SHIELD_AUX_POLL_PERIOD_US;
+            ShieldAuxUpdate();
         }
 
         while (runtime_clock_tick_accum_us >= RUNTIME_CLOCK_PERIOD_US)
@@ -2058,4 +2818,5 @@ int main(void)
 
         SDK_DelayAtLeastUs(TOUCH_POLL_DELAY_US, core_hz);
     }
+#endif
 }

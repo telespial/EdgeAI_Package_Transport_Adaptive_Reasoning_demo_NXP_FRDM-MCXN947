@@ -27,7 +27,7 @@ static uint16_t gTraceCount = 0u;
 static bool gTraceReady = false;
 static uint32_t gFrameCounter = 0u;
 static uint8_t gPrevBarLevel = 255u;
-static uint8_t gPrevBarTemp = 255u;
+static int16_t gPrevBarTempC10 = -32768;
 static bool gPrevOverTemp = false;
 static bool gPrevAiEnabled = false;
 static uint8_t gPrevAiStatus = 255u;
@@ -56,6 +56,17 @@ static int16_t gLinAccelXmg = 0;
 static int16_t gLinAccelYmg = 0;
 static int16_t gLinAccelZmg = 1000;
 static bool gLinAccelValid = false;
+static int16_t gMagXmgauss = 0;
+static int16_t gMagYmgauss = 0;
+static int16_t gMagZmgauss = 0;
+static bool gMagValid = false;
+static int16_t gBaroDhpa = 10132;
+static bool gBaroValid = false;
+static int16_t gShtTempC10 = 250;
+static int16_t gShtRhDpct = 500;
+static bool gShtValid = false;
+static int16_t gSttsTempC10 = 250;
+static bool gSttsValid = false;
 static uint8_t gBoardTempC = 25u;
 static int16_t gBoardTempC10 = 250;
 static bool gBoardTempValid = false;
@@ -217,6 +228,62 @@ static void FormatAccelGCompact(char *out, size_t out_len, int16_t ax_mg, int16_
              (az_mg < 0) ? '-' : '+', (int)(az_abs / 1000), (int)(az_abs % 1000));
 }
 
+static void FormatShieldEnvCompact(char *out, size_t out_len)
+{
+    int16_t p_abs = (gBaroDhpa < 0) ? (int16_t)-gBaroDhpa : gBaroDhpa;
+    int16_t rh_abs = (gShtRhDpct < 0) ? (int16_t)-gShtRhDpct : gShtRhDpct;
+    int16_t sht_abs = (gShtTempC10 < 0) ? (int16_t)-gShtTempC10 : gShtTempC10;
+
+    snprintf(out,
+             out_len,
+             "B%s%4d.%1dh H%s%2d.%1d S%s%2d.%1d",
+             gBaroValid ? "" : "-",
+             (int)(p_abs / 10),
+             (int)(p_abs % 10),
+             gShtValid ? "" : "-",
+             (int)(rh_abs / 10),
+             (int)(rh_abs % 10),
+             gShtValid ? ((gShtTempC10 < 0) ? "-" : "+") : "-",
+             (int)(sht_abs / 10),
+             (int)(sht_abs % 10));
+}
+
+static int16_t DisplayTempC10(const power_sample_t *sample)
+{
+    if (gSttsValid)
+    {
+        return gSttsTempC10;
+    }
+    if (gShtValid)
+    {
+        return gShtTempC10;
+    }
+    if (gBoardTempValid)
+    {
+        return gBoardTempC10;
+    }
+    if (sample != NULL)
+    {
+        return (int16_t)sample->temp_c * 10;
+    }
+    return 250;
+}
+
+static uint8_t DisplayTempC(const power_sample_t *sample)
+{
+    int16_t c10 = DisplayTempC10(sample);
+    int32_t c = c10 / 10;
+    if (c < 0)
+    {
+        c = 0;
+    }
+    if (c > 100)
+    {
+        c = 100;
+    }
+    return (uint8_t)c;
+}
+
 static uint16_t DisplayPowerW(const power_sample_t *sample)
 {
     uint32_t p_w = ((uint32_t)sample->voltage_mV * (uint32_t)sample->current_mA) / 100000u;
@@ -267,7 +334,7 @@ static const char *AnomModeText(uint8_t mode, bool training_active)
     return "M1 ADAPT";
 }
 
-static const char *AnomTuneText(uint8_t tune)
+static __attribute__((unused)) const char *AnomTuneText(uint8_t tune)
 {
     if (tune == 2u)
     {
@@ -317,7 +384,7 @@ static char AnomLevelTag(uint8_t level)
 static void PushScopeSample(void)
 {
     uint16_t cap = (uint16_t)sizeof(gTraceAx);
-    uint8_t t = gBoardTempValid ? gBoardTempC : 25u;
+    uint8_t t = DisplayTempC(NULL);
     uint8_t ax = ScaleSignedTo8(gAccelXmg, 2000);
     uint8_t ay = ScaleSignedTo8(gAccelYmg, 2000);
     uint8_t az = ScaleSignedTo8(gAccelZmg, 2000);
@@ -1038,10 +1105,7 @@ static void DrawTerminalDynamic(const gauge_style_preset_t *style, const power_s
     snprintf(line, sizeof(line), "MODE %s SYS %s", gScopePaused ? "PLAY" : "REC", sys_text);
     DrawTerminalLine(TERM_Y + 42, line, style->palette.text_secondary);
 
-    {
-        int16_t temp_c10 = gBoardTempValid ? gBoardTempC10 : (int16_t)sample->temp_c * 10;
-        FormatTempCF(line, sizeof(line), temp_c10);
-    }
+    FormatTempCF(line, sizeof(line), DisplayTempC10(sample));
     DrawTerminalLine(TERM_Y + 58, line, style->palette.text_primary);
 
     snprintf(line, sizeof(line), "GYR X%+4d Y%+4d Z%+4d", (int)gAccelXmg, (int)gAccelYmg, (int)gAccelZmg);
@@ -1056,11 +1120,18 @@ static void DrawTerminalDynamic(const gauge_style_preset_t *style, const power_s
         snprintf(line, sizeof(line), "ACC +0.000 +0.000 +1.000g");
     }
     DrawTerminalLine(TERM_Y + 90, line, RGB565(170, 240, 255));
+    if (gMagValid)
+    {
+        snprintf(line, sizeof(line), "MAG X%+4d Y%+4d Z%+4d", (int)gMagXmgauss, (int)gMagYmgauss, (int)gMagZmgauss);
+    }
+    else
+    {
+        snprintf(line, sizeof(line), "MAG X ---- Y ---- Z ----");
+    }
+    DrawTerminalLine(TERM_Y + 106, line, RGB565(170, 240, 255));
 
-    DrawTerminalLine(TERM_Y + 106, " ", RGB565(170, 240, 255));
-
-    snprintf(line, sizeof(line), "%s %s", AnomModeText(gAnomMode, gAnomTraining), gAnomTrainedReady ? "RDY" : "");
-    DrawTerminalLine(TERM_Y + 122, line, AnomLevelColor(gAnomOverall));
+    FormatShieldEnvCompact(line, sizeof(line));
+    DrawTerminalLine(TERM_Y + 122, line, RGB565(176, 218, 238));
 
     snprintf(line,
              sizeof(line),
@@ -1071,8 +1142,8 @@ static void DrawTerminalDynamic(const gauge_style_preset_t *style, const power_s
              AnomLevelTag(gAnomLevelTemp));
     DrawTerminalLine(TERM_Y + 138, line, AnomLevelColor(gAnomOverall));
 
-    snprintf(line, sizeof(line), "SET %s", AnomTuneText(gAnomTune));
-    DrawTerminalLine(TERM_Y + 154, line, RGB565(176, 218, 238));
+    snprintf(line, sizeof(line), "%s %s", AnomModeText(gAnomMode, gAnomTraining), gAnomTrainedReady ? "RDY" : "");
+    DrawTerminalLine(TERM_Y + 154, line, AnomLevelColor(gAnomOverall));
 
     if (gHelpVisible)
     {
@@ -1234,9 +1305,10 @@ static void DrawLeftBargraphFrame(const gauge_style_preset_t *style)
     DrawTextUi(BAR_X0 + 2, 294, 1, "TEMP: --.-C/--.-F", style->palette.text_secondary);
 }
 
-static void DrawLeftBargraphDynamic(const gauge_style_preset_t *style, uint8_t temp_c)
+static void DrawLeftBargraphDynamic(const gauge_style_preset_t *style, int16_t temp_c10)
 {
     int32_t i;
+    uint8_t temp_c = (uint8_t)ClampI32((int32_t)(temp_c10 / 10), 0, 100);
     int32_t level = ClampI32(((int32_t)temp_c * BAR_SEGMENTS) / 100, 0, BAR_SEGMENTS);
     int32_t inner_x0 = BAR_X0 + 3;
     int32_t inner_x1 = BAR_X1 - 3;
@@ -1244,10 +1316,10 @@ static void DrawLeftBargraphDynamic(const gauge_style_preset_t *style, uint8_t t
     int32_t inner_y1 = BAR_Y1 - 3;
     int32_t inner_h = (inner_y1 - inner_y0 + 1);
     int32_t seg_step = inner_h / BAR_SEGMENTS;
-    bool over_temp = (temp_c >= 70u);
+    bool over_temp = (temp_c10 >= 700);
     char line[16];
 
-    if (((uint8_t)level == gPrevBarLevel) && (temp_c == gPrevBarTemp) && (over_temp == gPrevOverTemp))
+    if (((uint8_t)level == gPrevBarLevel) && (temp_c10 == gPrevBarTempC10) && (over_temp == gPrevOverTemp))
     {
         return;
     }
@@ -1296,7 +1368,6 @@ static void DrawLeftBargraphDynamic(const gauge_style_preset_t *style, uint8_t t
 
     par_lcd_s035_fill_rect(BAR_X0, 292, BAR_X0 + 96, 304, RGB565(2, 3, 5));
     {
-        int16_t temp_c10 = gBoardTempValid ? gBoardTempC10 : (int16_t)temp_c * 10;
         int16_t temp_f10 = TempC10ToF10(temp_c10);
         int16_t c_abs = (temp_c10 < 0) ? (int16_t)-temp_c10 : temp_c10;
         int16_t f_abs = (temp_f10 < 0) ? (int16_t)-temp_f10 : temp_f10;
@@ -1311,7 +1382,7 @@ static void DrawLeftBargraphDynamic(const gauge_style_preset_t *style, uint8_t t
     DrawTextUi(BAR_X0 + 2, 294, 1, line, over_temp ? style->palette.accent_red : style->palette.text_secondary);
 
     gPrevBarLevel = (uint8_t)level;
-    gPrevBarTemp = temp_c;
+    gPrevBarTempC10 = temp_c10;
     gPrevOverTemp = over_temp;
 }
 
@@ -1363,7 +1434,7 @@ bool GaugeRender_Init(void)
         gTraceReady = false;
         gFrameCounter = 0u;
         gPrevBarLevel = 255u;
-        gPrevBarTemp = 255u;
+        gPrevBarTempC10 = -32768;
         gPrevOverTemp = false;
         gPrevAnomaly = 0u;
         gPrevWear = 0u;
@@ -1397,6 +1468,33 @@ void GaugeRender_SetLinearAccel(int16_t ax_mg, int16_t ay_mg, int16_t az_mg, boo
     gLinAccelYmg = ay_mg;
     gLinAccelZmg = az_mg;
     gLinAccelValid = valid;
+}
+
+void GaugeRender_SetMag(int16_t mx_mgauss, int16_t my_mgauss, int16_t mz_mgauss, bool valid)
+{
+    gMagXmgauss = mx_mgauss;
+    gMagYmgauss = my_mgauss;
+    gMagZmgauss = mz_mgauss;
+    gMagValid = valid;
+}
+
+void GaugeRender_SetBaro(int16_t pressure_dhpa, bool valid)
+{
+    gBaroDhpa = pressure_dhpa;
+    gBaroValid = valid;
+}
+
+void GaugeRender_SetSht(int16_t temp_c10, int16_t rh_dpct, bool valid)
+{
+    gShtTempC10 = temp_c10;
+    gShtRhDpct = rh_dpct;
+    gShtValid = valid;
+}
+
+void GaugeRender_SetStts(int16_t temp_c10, bool valid)
+{
+    gSttsTempC10 = temp_c10;
+    gSttsValid = valid;
 }
 
 void GaugeRender_SetBoardTempC(uint8_t temp_c, bool valid)
@@ -1509,7 +1607,7 @@ void GaugeRender_DrawFrame(const power_sample_t *sample, bool ai_enabled, power_
         gDynamicReady = false;
         gPrevSoc = 0u;
         gPrevBarLevel = 255u;
-        gPrevBarTemp = 255u;
+        gPrevBarTempC10 = -32768;
         gPrevOverTemp = false;
         gPrevAiEnabled = !ai_enabled;
         gAlertVisualValid = false;
@@ -1521,7 +1619,7 @@ void GaugeRender_DrawFrame(const power_sample_t *sample, bool ai_enabled, power_
         gStaticReady = true;
         gDynamicReady = false;
         gPrevBarLevel = 255u;
-        gPrevBarTemp = 255u;
+        gPrevBarTempC10 = -32768;
         gPrevOverTemp = false;
         gPrevAnomaly = 0u;
         gPrevWear = 0u;
@@ -1583,7 +1681,7 @@ void GaugeRender_DrawFrame(const power_sample_t *sample, bool ai_enabled, power_
     {
         int32_t lx = SCOPE_X + 8;
         int32_t ly = SCOPE_Y + SCOPE_H + 1;
-        uint16_t t_color = TempTraceColorFromC10(gBoardTempValid ? gBoardTempC10 : (int16_t)sample->temp_c * 10);
+        uint16_t t_color = TempTraceColorFromC10(DisplayTempC10(sample));
         DrawTextUi(lx, ly, 1, "GX", TRACE_AX_COLOR);
         lx += edgeai_text5x7_width(1, "GX ");
         DrawTextUi(lx, ly, 1, "GY", TRACE_AY_COLOR);
@@ -1592,7 +1690,7 @@ void GaugeRender_DrawFrame(const power_sample_t *sample, bool ai_enabled, power_
         lx += edgeai_text5x7_width(1, "GZ ");
         DrawTextUi(lx, ly, 1, "T", t_color);
     }
-    DrawLeftBargraphDynamic(style, sample->temp_c);
+    DrawLeftBargraphDynamic(style, DisplayTempC10(sample));
     if (!(gSettingsVisible || gHelpVisible))
     {
         DrawAiAlertOverlay(style, sample, ai_enabled);

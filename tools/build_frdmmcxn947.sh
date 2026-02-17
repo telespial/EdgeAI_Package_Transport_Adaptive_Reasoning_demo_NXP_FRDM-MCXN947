@@ -5,6 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WS_DIR="${WS_DIR:-$ROOT_DIR/mcuxsdk_ws}"
 BUILD_DIR="${BUILD_DIR:-$WS_DIR/build}"
 BUILD_TYPE="${1:-debug}"
+EXTRA_WEST_BUILD_ARGS="${EDGEAI_WEST_BUILD_ARGS:-}"
 
 # Normalize relative BUILD_DIR values from repo-root context.
 if [[ "$BUILD_DIR" != /* ]]; then
@@ -24,11 +25,17 @@ MCUX_EXAMPLES_DIR="$WS_DIR/mcuxsdk/examples" "$ROOT_DIR/sdk_example/install_mcux
 
 (
   cd "$WS_DIR"
+  WEST_ARGS=()
+  if [[ -n "$EXTRA_WEST_BUILD_ARGS" ]]; then
+    # shellcheck disable=SC2206
+    WEST_ARGS=($EXTRA_WEST_BUILD_ARGS)
+  fi
   west build -d "$BUILD_DIR" mcuxsdk/examples/demo_apps/edgeai_package_transport_anomaly_demo \
     --toolchain armgcc \
     --config "$BUILD_TYPE" \
     -b frdmmcxn947 \
-    -Dcore_id=cm33_core0
+    -Dcore_id=cm33_core0 \
+    "${WEST_ARGS[@]}"
 )
 
 echo "Built: $BUILD_DIR/edgeai_package_transport_anomaly_demo_cm33_core0.bin"

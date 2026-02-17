@@ -42,4 +42,18 @@ mcux_add_include(
 
 include(${SdkRootDirPath}/${board_root}/${board}/demo_apps/edgeai_package_transport_anomaly_demo/reconfig.cmake OPTIONAL)
 
+option(EDGEAI_SENSOR_SCAN_MODE "Build firmware in UART-only sensor scan mode" OFF)
+option(EDGEAI_SHIELD_SCAN_DIAG "Enable broad shield datastream diagnostics" OFF)
+option(EDGEAI_SHIELD_SENSOR_SCAN_LOG "Enable shield sensor probe logging" OFF)
+
+if(EDGEAI_SENSOR_SCAN_MODE)
+    add_compile_definitions(EDGEAI_SENSOR_SCAN_MODE=1)
+endif()
+if(EDGEAI_SHIELD_SCAN_DIAG)
+    add_compile_definitions(EDGEAI_ENABLE_SHIELD_SCAN_DIAG=1)
+endif()
+if(EDGEAI_SHIELD_SENSOR_SCAN_LOG)
+    add_compile_definitions(EDGEAI_ENABLE_SHIELD_SENSOR_SCAN_LOG=1)
+endif()
+
 mcux_convert_binary(BINARY ${APPLICATION_BINARY_DIR}/${MCUX_SDK_PROJECT_NAME}.bin)

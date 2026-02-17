@@ -7,9 +7,45 @@ Project: `EdgeAI_Package_Transport_Anomaly_demo_NXP_FRDM-MCXN947`
 - Lifecycle: initialized
 - App target: `edgeai_package_transport_anomaly_demo`
 - Build target: `frdmmcxn947` / `cm33_core0`
-- Golden tag: `GOLDEN-20260217-222344Z`
+- Golden tag: `GOLDEN-20260217-233044Z`
 - Lock tag: `FAILSAFE-ACTIVE`
 - Failsafe binary: `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_failsafe_active.bin`
+
+## Update 2026-02-17 (System Design + New Golden/Failsafe Baseline - 23:30:44Z)
+- Added comprehensive architecture/process/sensor design documentation:
+  - `docs/SYSTEM_DESIGN.md`
+- Wired shield sensor-hub runtime support and UI integration status finalized:
+  - `LIS2MDL` (mag), `LPS22DF` (baro), `SHT40` (humidity + temp), `STTS22H` (temp)
+  - terminal compact environment line now `B H S` only
+  - terminal `TEMP` and left temp bargraph now prioritize shield temperature (`STTS22H -> SHT40 -> board temp`)
+- Cut a new timestamped golden artifact and promoted active failsafe from current validated build output:
+  - `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_golden_20260217T233044Z.bin`
+  - `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_failsafe_active.bin`
+- sha256 (golden + failsafe + current build):
+  - `33398a0634891d6346019d018a01e99f9361b9d765e5b81752451489e5f23f9a`
+- Documentation synchronized in:
+  - `docs/START_HERE.md`
+  - `docs/SYSTEM_DESIGN.md`
+  - `docs/RESTORE_POINTS.md`
+  - `docs/failsafe.md`
+  - `failsafe/README_GOLDEN.txt`
+  - `STATUS.md`
+  - `docs/TODO.md`
+  - `docs/COMMAND_LOG.md`
+
+## Update 2026-02-17 (Shield Aux Sensors Integrated)
+- Added shield auxiliary sensor pipeline on shared shield I2C bus:
+  - LIS2MDL magnetometer
+  - LPS22DF barometer
+  - SHT40 humidity + temperature
+  - STTS22H temperature (address probe set)
+- Wired new terminal telemetry lines:
+  - `MAG X/Y/Z`
+  - compact environmental line (`BARO`, `RH`, `SHT`, `STTS`)
+- Added new renderer setters and app-side periodic auxiliary sensor polling (`500 ms`).
+- Build/flash verification:
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` (PASS)
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh` (PASS, probe `UYLKOJI11H2B3`)
 
 ## Update 2026-02-17 (Golden/Failsafe Refresh From Current Code - 22:23:44Z)
 - Rebuilt current source from:

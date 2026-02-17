@@ -1,0 +1,219 @@
+# Command Log
+
+Format:
+- YYYY-MM-DD HH:MM:SS | <command> | <purpose>
+
+- 2026-02-16 00:00:01 | scaffold files from sibling anomaly demo | initialize standalone project structure (`docs/`, `tools/`, `src/`, `sdk_example/`, `data/`)
+- 2026-02-16 00:00:02 | rename overlay/app target to `edgeai_package_transport_anomaly_demo` | align app naming across scripts, source entrypoint, and MCUX wrapper
+- 2026-02-16 00:00:03 | rewrite core docs (`README.md`, `STATUS.md`, `docs/*`) | establish clean baseline state and runbook for this project
+- 2026-02-16 00:00:04 | `./tools/setup_mcuxsdk_ws.sh` | attempted full west workspace sync; completed most repos but reported update failures for optional projects (`canopennode`, `mcux-sdk-middleware-mpp`, `metering`, `g2d_dpu`, `qcbor`, `touch`)
+- 2026-02-16 00:00:05 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/build_frdmmcxn947.sh debug` | successful build and binary generation (`edgeai_package_transport_anomaly_demo_cm33_core0.bin`)
+- 2026-02-16 00:00:06 | patch `tools/build_frdmmcxn947.sh` + `tools/flash_frdmmcxn947.sh` | normalize relative `BUILD_DIR` values to repository-root absolute paths
+- 2026-02-16 00:00:07 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/build_frdmmcxn947.sh debug` | verified build output now lands at `mcuxsdk_ws/build_anomaly/...` (non-nested)
+- 2026-02-16 00:00:08 | generate `src/spacebox_bg.h` from `docs/spacebox.jpg` | create 480x320 RGB565 background asset for LCD
+- 2026-02-16 00:00:09 | patch `src/gauge_render.c` | render spacebox image as full-screen background in static dashboard path
+- 2026-02-16 00:00:10 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/build_frdmmcxn947.sh debug` | compile firmware with integrated spacebox background
+- 2026-02-16 00:00:11 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/flash_frdmmcxn947.sh` | flash updated firmware to FRDM-MCXN947 via LinkServer probe `#1`
+- 2026-02-16 00:00:12 | verify no cross-project references via `rg` + confirm local binary path/hash | confirmed operations scoped to this repository only
+- 2026-02-16 00:00:13 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/build_frdmmcxn947.sh debug` | rebuilt package transport firmware from local project workspace
+- 2026-02-16 00:00:14 | `/home/user/.local/bin/LinkServer flash --probe '#1' MCXN947:FRDM-MCXN947 load --addr 0x0 mcuxsdk_ws/build_anomaly/edgeai_package_transport_anomaly_demo_cm33_core0.bin` | flashed board from local package transport binary path
+- 2026-02-16 00:00:15 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/flash_frdmmcxn947.sh` | reflashed using project-local script only, from authorized project directory
+- 2026-02-16 00:00:16 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/build_frdmmcxn947.sh debug` | rebuild requested by user; build completed successfully
+- 2026-02-16 00:00:17 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/flash_frdmmcxn947.sh` | flash requested by user; deployment completed via probe `#1`
+- 2026-02-16 00:00:18 | patch `src/gauge_render.c` | removed center/main gauge visuals and center `VAC` text update path
+- 2026-02-16 00:00:19 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/build_frdmmcxn947.sh debug` + flash attempt | build failed due `-Werror` unused function (`DrawGaugeTicks13`) after gauge removal
+- 2026-02-16 00:00:20 | patch `src/gauge_render.c` | removed leftover unused `DrawGaugeTicks13` helper
+- 2026-02-16 00:00:21 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/build_frdmmcxn947.sh debug` | rebuild succeeded after cleanup
+- 2026-02-16 00:00:22 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/flash_frdmmcxn947.sh` | flashed updated firmware (no big center gauge/text)
+- 2026-02-16 00:00:23 | patch `src/gauge_render.c` | removed elapsed-time box/text and removed wired/outlet profile box/text render paths
+- 2026-02-16 00:00:24 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/build_frdmmcxn947.sh debug` | rebuilt firmware after UI removals
+- 2026-02-16 00:00:25 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/flash_frdmmcxn947.sh` | flashed firmware with elapsed/profile UI elements removed
+- 2026-02-16 00:00:26 | patch `src/gauge_render.c` right-column coordinates | moved far-right column widgets to the panel edge (`SCOPE_X`/`TERM_X`) and shifted matching connector lines
+- 2026-02-16 00:00:27 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/build_frdmmcxn947.sh debug` | validated compile after right-column alignment update
+- 2026-02-16 00:00:28 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/flash_frdmmcxn947.sh` | flashed latest edge-aligned right-column firmware from project-local build output
+- 2026-02-16 00:00:29 | patch `src/gauge_render.c` left-column coordinates | shifted first-column anchors left to screen edge (`BAR_X0/BAR_X1`, `MID_TOP_CX`, `MID_BOT_CX`, `BATT_X`) and updated left connector guide lines
+- 2026-02-16 00:00:30 | patch `src/gauge_render.c` temp-band bounds | converted fixed left-column label band right bound to `BAR_X0 + 96` so it tracks shifted column
+- 2026-02-16 00:00:31 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/build_frdmmcxn947.sh debug` | validated compile after left-column edge alignment update
+- 2026-02-16 00:00:32 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/flash_frdmmcxn947.sh` | flashed latest build with left+right edge-aligned column layout
+- 2026-02-16 00:00:33 | patch `src/gauge_render.c` timeline bar style | removed horizontal dark timeline bar/background layer behind upper timeline buttons while keeping the buttons
+- 2026-02-16 00:00:34 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/build_frdmmcxn947.sh debug` | validated compile after upper-button bar removal
+- 2026-02-16 00:00:35 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/flash_frdmmcxn947.sh` | flashed latest build with upper timeline bar removed
+- 2026-02-16 00:00:36 | patch `src/gauge_render.c` | restored timeline background bar layer behind upper buttons in both static and dynamic draw paths (rollback of last UI removal)
+- 2026-02-16 00:00:37 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/build_frdmmcxn947.sh debug` | rebuilt rollback target firmware
+- 2026-02-16 00:00:38 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/flash_frdmmcxn947.sh` | flashed rollback target (restored upper-button timeline bar)
+- 2026-02-16 04:56:17 | copy build artifact to failsafe golden + active bins | created `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_golden_20260216T045617Z.bin` and `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_failsafe_active.bin`
+- 2026-02-16 04:56:17 | `sha256sum failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_golden_20260216T045617Z.bin failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_failsafe_active.bin` | recorded checksum `955da19d95a17fc8b0635e4923feea63873b67065eeaa5cb3f8cc73d51ade3e6`
+- 2026-02-16 04:57:00 | update restore/failsafe/state/status docs | marked current firmware state as golden restore point and active failsafe
+- 2026-02-16 08:46:00 | inspect MCUX local examples + FRDM board files | verified official `driver_examples/i3c/master_read_sensor_p3t1755` flow and FRDM I3C1 board support paths
+- 2026-02-16 08:49:10 | patch `src/edgeai_package_transport_anomaly_demo.c` temp init path | added explicit I3C `RSTDAA+SETDASA` dynamic assignment (`0x48 -> 0x08`) and updated I3C master config to SDK example behavior
+- 2026-02-16 08:49:25 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/build_frdmmcxn947.sh debug` | compile check after temp path patch
+- 2026-02-16 08:49:35 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/flash_frdmmcxn947.sh` | flashed temp-path patch for runtime validation
+- 2026-02-16 08:50:20 | `pdftotext datasheets/90818-MCXN947SH.pdf` + text inspection | confirmed U6 sensor is `P3T1755DP` on `P1_16/P1_17/P1_11` and printed address `1001000` (`0x48`)
+- 2026-02-16 08:53:10 | temporary temp debug logging + rebuild/flash + UART capture | observed `TEMP setdasa status=0` and dynamic raw bytes (`0x18 0x60`) proving sensor comms path works
+- 2026-02-16 08:55:40 | patch `src/edgeai_package_transport_anomaly_demo.c` decode math | fixed P3T1755 decode scaling to 12-bit `1/16 C` (`raw12 / 16`)
+- 2026-02-16 08:56:35 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/build_frdmmcxn947.sh debug` + flash + UART capture | validated runtime line `TEMP ready dyn=0x08 bus=i3c T=24C`
+- 2026-02-16 08:58:10 | patch `src/edgeai_package_transport_anomaly_demo.c` fallback flow | prevented fallback block from overriding detected dynamic I3C bus mode
+- 2026-02-16 08:58:30 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/build_frdmmcxn947.sh debug` + flash + UART capture | final verification pass: temp sensor stable on I3C dynamic path
+- 2026-02-16 09:03:20 | patch `src/gauge_render.c` temp formatting | changed terminal/bar labels to show Celsius and Fahrenheit side-by-side
+- 2026-02-16 09:03:40 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/build_frdmmcxn947.sh debug` | rebuilt after C/F UI update
+- 2026-02-16 09:03:55 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/flash_frdmmcxn947.sh` + UART capture | flashed C/F build and confirmed sensor path still active (`TEMP ready dyn=0x08 bus=i3c T=24C`)
+- 2026-02-16 09:07:20 | patch `src/edgeai_package_transport_anomaly_demo.c` temp boot proof | added one-time raw-byte print with derived C/F at init
+- 2026-02-16 09:07:40 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/build_frdmmcxn947.sh debug` + flash + UART capture | validated `TEMP init raw=0x18 0xf0 -> 24C/75F` from live board
+- 2026-02-16 09:10:40 | patch `src/gauge_render.h`, `src/gauge_render.c`, `src/edgeai_package_transport_anomaly_demo.c` | added tenths-of-degree temp pipeline and one-decimal C/F rendering in terminal + left bar
+- 2026-02-16 09:11:10 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/build_frdmmcxn947.sh debug` | rebuilt after decimal temperature rendering integration
+- 2026-02-16 09:11:30 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/flash_frdmmcxn947.sh` + UART capture | flashed decimal build and verified live temp init path (`TEMP init raw=0x19 0x90 -> 25C/77F`)
+- 2026-02-16 09:14:40 | patch `src/gauge_render.c` gyro geometry | shifted sphere center right by +24px (5%) and centered `ACCEL VECTOR` text to sphere center
+- 2026-02-16 09:15:00 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/build_frdmmcxn947.sh debug` | rebuilt after sphere/text alignment change
+- 2026-02-16 09:15:10 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/flash_frdmmcxn947.sh` | flashed aligned sphere/text build to FRDM-MCXN947
+- 2026-02-16 09:16:35 | patch `src/gauge_render.c` gyro geometry | moved sphere center left by 12px (2.5%) while retaining centered `ACCEL VECTOR` alignment
+- 2026-02-16 09:16:55 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/build_frdmmcxn947.sh debug` | rebuilt after 2.5% left shift request
+- 2026-02-16 09:17:05 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/flash_frdmmcxn947.sh` | flashed updated sphere/text position to FRDM-MCXN947
+- 2026-02-16 09:20:30 | patch `src/gauge_render.c` horizon dynamics | increased horizon roll coupling to use `roll_px`-scaled tilt so line rotation matches sphere marker movement
+- 2026-02-16 09:20:55 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/build_frdmmcxn947.sh debug` | rebuilt after horizon tilt calibration
+- 2026-02-16 09:21:05 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/flash_frdmmcxn947.sh` | flashed calibrated horizon behavior to FRDM-MCXN947
+- 2026-02-16 09:24:40 | patch `src/gauge_render.c` dynamic clear radius | increased gyro fast redraw clear radius (`r-11` -> `r-6`) to remove motion edge artifacts/trails
+- 2026-02-16 09:25:05 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/build_frdmmcxn947.sh debug` | rebuilt after gyro edge-artifact cleanup
+- 2026-02-16 09:25:15 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/flash_frdmmcxn947.sh` | flashed edge-artifact cleanup build to FRDM-MCXN947
+- 2026-02-16 09:28:20 | patch `src/gauge_render.c` gyro fast path | changed fast draw to render full sphere frame + dynamic overlay each cycle to eliminate remaining square-edge artifacts
+- 2026-02-16 09:28:45 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/build_frdmmcxn947.sh debug` | rebuilt after full-frame fast redraw change
+- 2026-02-16 09:29:00 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/flash_frdmmcxn947.sh` | flashed full-frame fast redraw build to FRDM-MCXN947
+- 2026-02-16 17:32:40 | patch `src/gauge_render.c` gyro draw clipping + fast path + demo battery | added circle-clipped dynamic line rendering, restored dynamic-only fast redraw to remove visible blanking, and pinned battery draw value to 82%
+- 2026-02-16 17:33:00 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/build_frdmmcxn947.sh debug` | rebuilt after refresh-blanking fix and battery demo-value update
+- 2026-02-16 17:33:10 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/flash_frdmmcxn947.sh` | flashed updated firmware to FRDM-MCXN947 via LinkServer probe `#1`
+- 2026-02-16 17:38:45 | patch `src/ext_flash_recorder.h`, `src/ext_flash_recorder.c`, `src/edgeai_package_transport_anomaly_demo.c` | converted external-flash recording to packed FIFO pages (multi-sample per page), added gyro-ready fields (`gx/gy/gz`) + `temp_c10` storage, and wired app to `ExtFlashRecorder_AppendSampleEx(...)`
+- 2026-02-16 17:39:00 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/build_frdmmcxn947.sh debug` | rebuilt after packed FIFO external-flash recorder update
+- 2026-02-16 17:39:10 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/flash_frdmmcxn947.sh` | flashed packed FIFO recorder build to FRDM-MCXN947 via LinkServer probe `#1`
+- 2026-02-16 17:40:45 | patch `src/ext_flash_recorder.c` recorder window size | removed fixed 512 KiB cap and switched recorder region to upper half of external NOR to maximize FIFO timeline depth
+- 2026-02-16 17:40:55 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/build_frdmmcxn947.sh debug` | rebuilt after maximizing external-flash FIFO region
+- 2026-02-16 17:41:05 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/flash_frdmmcxn947.sh` | flashed max-depth external-flash FIFO build to FRDM-MCXN947 via LinkServer probe `#1`
+- 2026-02-16 18:45:10 | patch `src/gauge_render.c`, `src/edgeai_package_transport_anomaly_demo.c` | set timeline default to PLAY on boot and auto-start playback path at startup when data exists
+- 2026-02-16 18:45:25 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/build_frdmmcxn947.sh debug` | rebuilt after default-play boot behavior update
+- 2026-02-16 18:45:35 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/flash_frdmmcxn947.sh` | flashed default-play boot behavior update to FRDM-MCXN947 via LinkServer probe `#1`
+- 2026-02-16 18:47:45 | patch `src/gauge_render.c`, `src/edgeai_package_transport_anomaly_demo.c` | changed PLAY button behavior to restart playback from beginning of recorded FIFO window on each PLAY press
+- 2026-02-16 18:48:00 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/build_frdmmcxn947.sh debug` | rebuilt after PLAY-restart behavior update
+- 2026-02-16 18:48:10 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/flash_frdmmcxn947.sh` | flashed PLAY-restart behavior update to FRDM-MCXN947 via LinkServer probe `#1`
+- 2026-02-16 18:52:45 | patch `src/gauge_render.h`, `src/gauge_render.c`, `src/ext_flash_recorder.h`, `src/ext_flash_recorder.c`, `src/edgeai_package_transport_anomaly_demo.c` | added RECORD confirmation popup flow, YES-path external-flash erase (`ExtFlashRecorder_ClearAll`), and start-record only after successful clear
+- 2026-02-16 18:53:00 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/build_frdmmcxn947.sh debug` | rebuilt after confirm-before-record + clear-on-start integration
+- 2026-02-16 18:53:10 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/flash_frdmmcxn947.sh` | flashed confirm-before-record + clear-on-start build to FRDM-MCXN947 via LinkServer probe `#1`
+- 2026-02-16 19:06:10 | patch `src/ext_flash_recorder.c`, `src/gauge_render.c` | fixed RECORD-YES freeze by replacing blocking full-region erase with fast logical clear reset; fixed popup layering by forcing modal redraw/priority in fast gyro path
+- 2026-02-16 19:06:25 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/build_frdmmcxn947.sh debug` | rebuilt after non-blocking clear + modal topmost fix
+- 2026-02-16 19:06:35 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/flash_frdmmcxn947.sh` | flashed non-blocking clear + modal topmost fix to FRDM-MCXN947 via LinkServer probe `#1`
+- 2026-02-16 19:16:10 | patch `src/ext_flash_recorder.c`, `src/gauge_render.c` | fixed playback reliability by replacing multi-write-per-page recorder with robust one-record-per-page FIFO (`REC2`), kept fast logical clear, and added modal-close full static refresh cleanup
+- 2026-02-16 19:16:30 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/build_frdmmcxn947.sh debug` | rebuilt after recorder logging/playback reliability fix
+- 2026-02-16 19:16:40 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/flash_frdmmcxn947.sh` | flashed recorder reliability + popup cleanup fix to FRDM-MCXN947 via LinkServer probe `#1`
+- 2026-02-16 19:32:30 | patch `src/ext_flash_recorder.h`, `src/ext_flash_recorder.c`, `src/gauge_render.h`, `src/gauge_render.c`, `src/edgeai_package_transport_anomaly_demo.c` | added graph vertical playhead line, wired playhead to real playback offset, and added recorder playback/record stats logging for REC/PLAY diagnostics
+- 2026-02-16 19:32:45 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/build_frdmmcxn947.sh debug` | rebuilt after playhead + recorder diagnostics integration
+- 2026-02-16 19:33:00 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/flash_frdmmcxn947.sh` | flashed playhead + recorder diagnostics build to FRDM-MCXN947 via LinkServer probe `#1`
+- 2026-02-16 19:52:50 | patch `src/gauge_render.c` | fixed missing battery/temp visuals after modal transitions by forcing battery redraw each frame and invalidating cached dynamic state after modal-close static redraw
+- 2026-02-16 19:53:05 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/build_frdmmcxn947.sh debug` | rebuilt after battery/temp redraw reliability fix
+- 2026-02-16 19:53:15 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/flash_frdmmcxn947.sh` | flashed battery/temp redraw reliability fix to FRDM-MCXN947 via LinkServer probe `#1`
+- 2026-02-16 20:01:45 | patch `src/edgeai_package_transport_anomaly_demo.c`, `src/gauge_render.c` | moved REC/PLAY stepping to 100 ms tick (10 Hz), raised frame refresh to 100 ms, and increased scope sample ingestion rate for smoother playback visualization
+- 2026-02-16 20:02:00 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/build_frdmmcxn947.sh debug` | rebuilt after 10 Hz playback timing update
+- 2026-02-16 20:02:10 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/flash_frdmmcxn947.sh` | flashed 10 Hz playback timing update to FRDM-MCXN947 via LinkServer probe `#1`
+- 2026-02-16 20:06:50 | patch `src/ext_flash_recorder.c` | added persistent metadata generation sector + boot-time flash scan recovery of recorder indices/count, so recordings survive reboot and clear state is durable across power cycles
+- 2026-02-16 20:07:10 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/build_frdmmcxn947.sh debug` | rebuilt after NV recorder persistence/recovery implementation
+- 2026-02-16 20:07:20 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/flash_frdmmcxn947.sh` | flashed NV recorder persistence/recovery implementation to FRDM-MCXN947 via LinkServer probe `#1`
+- 2026-02-16 12:16:31 | patch `src/gauge_render.c` graph sampler cadence | aligned scope sample step (`SCOPE_FAST_STEP_US`) to 100000 us so graph ingestion matches 10 Hz REC/PLAY timing and avoids apparent playback skipping
+- 2026-02-16 12:16:31 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/build_frdmmcxn947.sh debug` | rebuilt after graph sampler cadence alignment for REC/PLAY timeline pacing
+- 2026-02-16 12:16:31 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/flash_frdmmcxn947.sh` | flashed graph sampler cadence alignment build to FRDM-MCXN947 via LinkServer probe `#1`
+- 2026-02-16 12:39:56 | patch `src/gauge_render.c` playback graph progression | changed scope sampling in PLAY mode to update on playhead movement (timeline-relative) and restored REC sampling step to 40000 us accumulator path
+- 2026-02-16 12:39:56 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/build_frdmmcxn947.sh debug` | rebuilt after playback graph progression fix (prevent rapid full-window cycling)
+- 2026-02-16 12:39:56 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/flash_frdmmcxn947.sh` | flashed playback graph progression fix to FRDM-MCXN947 via LinkServer probe `#1`
+- 2026-02-16 12:47:29 | patch `src/edgeai_package_transport_anomaly_demo.c`, `src/gauge_render.c` timebase normalization | unified gyro, temp update, scope sample, display, and REC/PLAY tick cadence to 100000 us (10 Hz) for matched record/playback timing
+- 2026-02-16 12:47:29 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/build_frdmmcxn947.sh debug` | rebuilt after 10 Hz normalized timebase update
+- 2026-02-16 12:47:29 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/flash_frdmmcxn947.sh` | flashed 10 Hz normalized timebase build to FRDM-MCXN947 via LinkServer probe `#1`
+- 2026-02-16 12:49:43 | patch `src/edgeai_package_transport_anomaly_demo.c` modal z-order stability | while record-confirm popup is active, disable gyro fast redraw and periodic frame redraw to prevent background/sphere overdraw and popup blinking
+- 2026-02-16 12:49:43 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/build_frdmmcxn947.sh debug` | rebuilt after modal z-order stability fix
+- 2026-02-16 12:49:43 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/flash_frdmmcxn947.sh` | flashed modal z-order stability fix to FRDM-MCXN947 via LinkServer probe `#1`
+- 2026-02-16 12:53:41 | patch `src/gauge_render.c`, `src/edgeai_package_transport_anomaly_demo.c` sphere render isolation + smoothness | removed sphere redraw from periodic full-frame pass, kept sphere on dedicated fast path only, moved accel acquisition to 10 Hz REC/PLAY tick, and restored fast sphere draw cadence to 40000 us
+- 2026-02-16 12:53:41 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/build_frdmmcxn947.sh debug` | rebuilt after sphere render isolation / smoothness update
+- 2026-02-16 12:53:41 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/flash_frdmmcxn947.sh` | flashed sphere render isolation / smoothness build to FRDM-MCXN947 via LinkServer probe `#1`
+- 2026-02-16 12:56:12 | patch `src/edgeai_package_transport_anomaly_demo.c` sphere response tuning | added dedicated live accel sampling tick `ACCEL_LIVE_PERIOD_US=200000` so sphere state updates every 200 ms in RECORD mode while retaining fast sphere redraw path
+- 2026-02-16 12:56:12 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/build_frdmmcxn947.sh debug` | rebuilt after sphere response cadence tuning to 200 ms
+- 2026-02-16 12:56:12 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/flash_frdmmcxn947.sh` | flashed sphere response cadence tuning build to FRDM-MCXN947 via LinkServer probe `#1`
+- 2026-02-16 13:00:16 | patch `src/edgeai_package_transport_anomaly_demo.c`, `src/gauge_render.c` sphere + scope color response | hardened live accel scheduling (`while` catch-up; live updates whenever not in active playback), mapped AX/AY/AZ legend text colors to plot colors, and made temperature legend/trace color dynamic by temp threshold (green/yellow/red)
+- 2026-02-16 13:00:16 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/build_frdmmcxn947.sh debug` | rebuilt after sphere response and scope color-threshold updates
+- 2026-02-16 13:00:16 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/flash_frdmmcxn947.sh` | flashed sphere response and scope color-threshold build to FRDM-MCXN947 via LinkServer probe `#1`
+- 2026-02-16 13:44:01 | patch `src/gauge_render.h`, `src/gauge_render.c`, `src/edgeai_package_transport_anomaly_demo.c` runtime clock overlay | added `HH:MM:SS:s` (10 Hz step) runtime clock above `NXP EDGEAI` and wired 100 ms tick updates from main loop into renderer
+- 2026-02-16 13:44:01 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/build_frdmmcxn947.sh debug` | rebuilt after runtime clock overlay integration
+- 2026-02-16 13:44:01 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/flash_frdmmcxn947.sh` | flashed runtime clock overlay build to FRDM-MCXN947 via LinkServer probe `#1`
+- 2026-02-16 13:46:05 | patch `src/edgeai_package_transport_anomaly_demo.c` clock drift fix | switched runtime clock accumulation from nominal loop-delay increments to measured elapsed CPU cycle time (DWT CYCCNT), with fallback to delay-based tick if cycle timer unavailable
+- 2026-02-16 13:46:05 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/build_frdmmcxn947.sh debug` | rebuilt after runtime clock drift fix
+- 2026-02-16 13:46:05 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/flash_frdmmcxn947.sh` | flashed runtime clock drift-fix build to FRDM-MCXN947 via LinkServer probe `#1`
+- 2026-02-16 13:48:58 | patch `src/ext_flash_recorder.h`, `src/ext_flash_recorder.c`, `src/edgeai_package_transport_anomaly_demo.c` per-row record timestamps | added decisecond timestamp field to each stored flash row (`ts_ds`), reset timeline to `00:00:00:0` on record start, and drove RECORD/PLAY on-screen clock from row timestamps
+- 2026-02-16 13:48:58 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/build_frdmmcxn947.sh debug` | rebuilt after per-row timestamp logging integration
+- 2026-02-16 13:48:58 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/flash_frdmmcxn947.sh` | flashed per-row timestamp logging build to FRDM-MCXN947 via LinkServer probe `#1`
+- 2026-02-16 22:04:45 | patch `src/anomaly_engine.h`, `src/anomaly_engine.c`, `src/edgeai_package_transport_anomaly_demo.c`, `src/gauge_render.h`, `src/gauge_render.c`, `sdk_example/mcuxsdk_examples_overlay/demo_apps/edgeai_package_transport_anomaly_demo/CMakeLists.txt` | added 3-mode anomaly engine (adaptive baseline, trained monitor, static limits), per-channel AX/AY/AZ/TEMP severity output, app-side mode/train integration, and terminal anomaly status rendering
+- 2026-02-16 22:04:45 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/build_frdmmcxn947.sh debug` | rebuilt after anomaly-engine integration
+- 2026-02-16 22:04:45 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/flash_frdmmcxn947.sh` | flashed anomaly-engine integration build to FRDM-MCXN947 via LinkServer probe `#1`
+- 2026-02-17 00:31:19 | `date -u +%Y%m%dT%H%M%SZ` + `date -u '+%Y-%m-%d %H:%M:%S'` | captured UTC tag/time for new local golden restore point metadata
+- 2026-02-17 00:31:20 | `cp mcuxsdk_ws/build_anomaly/edgeai_package_transport_anomaly_demo_cm33_core0.bin failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_golden_20260217T003119Z.bin` + `cp ... failsafe_active.bin` | refreshed golden artifact and active failsafe from current local build output
+- 2026-02-17 00:31:21 | `sha256sum failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_golden_20260217T003119Z.bin failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_failsafe_active.bin mcuxsdk_ws/build_anomaly/edgeai_package_transport_anomaly_demo_cm33_core0.bin` | recorded checksum `e40c8416da2f125814aaf4ad886aad484b5ecbe879b0fb1e5f54a11275d7a1d2` for restore parity
+- 2026-02-17 00:31:22 | update `docs/START_HERE.md`, `docs/PROJECT_STATE.md`, `docs/RESTORE_POINTS.md`, `docs/failsafe.md`, `docs/TODO.md` | documented local golden restore point refresh and marked no remote push
+- 2026-02-17 00:31:23 | update `failsafe/README_GOLDEN.txt` | synchronized failsafe package metadata to `GOLDEN-20260217-003119Z` and checksum `e40c8416da2f125814aaf4ad886aad484b5ecbe879b0fb1e5f54a11275d7a1d2`
+- 2026-02-17 00:31:24 | read `src/edgeai_package_transport_anomaly_demo.c`, `src/gauge_render.c`, `src/ext_flash_recorder.c` and project docs | produced exact runtime handoff summary (timebases, data flow, popup paths, and open defects)
+- 2026-02-17 00:31:25 | add `docs/CODER_HANDOFF.md` | documented exact current device behavior, code ownership map, repro steps, and active popup freeze/layer bugs for next coder
+- 2026-02-17 00:31:26 | update `docs/START_HERE.md`, `docs/PROJECT_STATE.md`, `docs/OPS_RUNBOOK.md`, `docs/TODO.md` | wired handoff doc into read order and made open defects explicit for takeover
+- 2026-02-17 00:31:27 | rewrite `docs/TODO.md` | removed legacy long-form planning block and replaced with concise, actionable handoff tasks (done/active blockers/verification/secondary)
+- 2026-02-17 17:14:01 | patch `src/gauge_render.c`, `src/power_data_source.c`, `src/real_telemetry.c` | fixed popup/timeline touch cross-talk, replay-profile derived-state reseed behavior, and real-telemetry opamp gain scaling mismatch
+- 2026-02-17 17:14:01 | `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/build_frdmmcxn947.sh debug` | build refused due stale CMake source-dir mismatch after project path rename; requires pristine or new build dir
+- 2026-02-17 17:14:01 | `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` | compile verification PASS for fix set; generated `mcuxsdk_ws/build_adaptive_reasoning/edgeai_package_transport_anomaly_demo_cm33_core0.bin`
+- 2026-02-17 17:14:01 | update `docs/TODO.md`, `docs/PROJECT_STATE.md`, `STATUS.md` | recorded candidate fix status and pending hardware validation tasks
+- 2026-02-17 17:17:34 | `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh` | flash PASS via LinkServer on probe `2PZWMSBKUXU22` using `mcuxsdk_ws/build_adaptive_reasoning`
+- 2026-02-17 17:21:20 | patch `src/gauge_render.c`, `src/edgeai_package_transport_anomaly_demo.c` | hardened modal transition rendering: disabled gyro fast-path during any modal, unified modal-close static redraw handling for help/settings/record-confirm, and blocked fast redraw while modal active
+- 2026-02-17 17:21:20 | `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` | compile verification PASS after modal stability fix
+- 2026-02-17 17:21:20 | `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh` | flash PASS on probe `2PZWMSBKUXU22` with modal stability fix build
+- 2026-02-17 17:23:08 | patch `src/gauge_render.c` modal rendering order | moved runtime clock redraw behind help/settings modal early-return so popups render without clock-layer updates during modal activity
+- 2026-02-17 17:23:08 | `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` | compile verification PASS after clock/modal priority fix
+- 2026-02-17 17:23:08 | `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh` | flash PASS on probe `2PZWMSBKUXU22` with clock/modal priority fix build
+- 2026-02-17 17:25:05 | patch `src/gauge_render.c`, `src/edgeai_package_transport_anomaly_demo.c` | removed duplicate modal base clears inside popup panel draw functions and switched modal rendering to event-driven path (skip periodic full-frame refresh while modal active)
+- 2026-02-17 17:25:05 | `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` | compile verification PASS after modal event-driven redraw change
+- 2026-02-17 17:25:05 | `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh` | flash PASS on probe `2PZWMSBKUXU22` with modal event-driven redraw build
+- 2026-02-17 17:27:49 | patch `src/edgeai_package_transport_anomaly_demo.c` anomaly status mapping | changed watch-level mapping to remain `AI_STATUS_NORMAL` (warning now requires at least `ANOMALY_LEVEL_MINOR`) to remove deterministic early warning-overlay trigger
+- 2026-02-17 17:27:49 | `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` | compile verification PASS after warning-threshold adjustment
+- 2026-02-17 17:27:49 | `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh` | flash PASS on probe `2PZWMSBKUXU22` with warning-threshold adjustment
+- 2026-02-17 17:31:24 | patch `src/gauge_render.c`, `src/edgeai_package_transport_anomaly_demo.c` warning overlay isolation | disabled center warning popup draw region (kept warning status in terminal), marked legacy overlay function `unused`, and retained modal event-driven redraw gating
+- 2026-02-17 17:31:24 | `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` | initial compile failed (`-Werror` unused `DrawAiAlertOverlay`), then PASS after `__attribute__((unused))` annotation
+- 2026-02-17 17:31:24 | `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh` | flash PASS on probe `2PZWMSBKUXU22` with warning-overlay isolation build
+- 2026-02-17 17:35:10 | patch `src/gauge_render.c`, `src/edgeai_package_transport_anomaly_demo.c` root-cause fix + behavior restore | fixed terminal text clipping to panel width in `DrawTerminalLine` (prevents out-of-bounds draw on longer status strings like `WARNING`), restored center warning popup rendering, and restored `WATCH -> WARNING` anomaly mapping
+- 2026-02-17 17:35:10 | `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` | compile verification PASS after clipping fix and warning behavior restore
+- 2026-02-17 17:35:10 | `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh` | flash PASS on probe `2PZWMSBKUXU22` with clipping/root-cause fix build
+- 2026-02-17 17:38:22 | patch `src/gauge_render.c` AI side-button icon rendering | replaced `*` and `?` text glyph dependency with explicit vector icon drawing in AI side buttons to ensure visibility regardless font glyph availability
+- 2026-02-17 17:38:22 | `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` | compile verification PASS after AI side-button icon rendering change
+- 2026-02-17 17:38:22 | `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh` | flash PASS on probe `2PZWMSBKUXU22` with AI side-button icon rendering build
+- 2026-02-17 17:41:42 | patch `src/gauge_render.c` help-side question icon | replaced the 5x7 bitmap `?` with a bold vector-segment glyph to eliminate garbled pixel appearance on the AI help button
+- 2026-02-17 17:41:42 | `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` | compile verification PASS after help-side `?` vector glyph update
+- 2026-02-17 17:41:42 | `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh` | flash PASS on probe `2PZWMSBKUXU22` with help-side `?` vector glyph update
+- 2026-02-17 17:44:55 | patch `src/text5x7.c`, `src/gauge_render.c` UI typography refresh | added native 5x7 glyphs for `*` and `?`, switched AI side buttons back to font glyph rendering at scale 2 using crisp draw path, and upgraded `AI ON/OFF` pill text to scale-aware crisp rendering
+- 2026-02-17 17:44:55 | `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` | compile verification PASS after UI typography refresh
+- 2026-02-17 17:44:55 | `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh` | flash PASS on probe `2PZWMSBKUXU22` with UI typography refresh build
+- 2026-02-17 17:47:30 | patch `src/gauge_render.c` alert banner normal-text behavior | when in record mode, normal alert banner text now shows `RECORDING` (play mode remains `SYSTEM NORMAL`), and alert redraw cache now keys on record/play mode to force correct label refresh on mode toggle
+- 2026-02-17 17:47:30 | `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` | compile verification PASS after normal-banner recording label update
+- 2026-02-17 17:47:30 | `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh` | flash PASS on probe `2PZWMSBKUXU22` with normal-banner recording label update
+- 2026-02-17 17:52:30 | patch `src/edgeai_package_transport_anomaly_demo.c` scheduler timing source | fixed rec/play and UI scheduler drift by driving all periodic accumulators from measured loop elapsed time (DWT-based) instead of fixed `TOUCH_POLL_DELAY_US`; converted periodic `if` gates to `while` catch-up loops for power, rec/play, temp, accel-test, and render tasks
+- 2026-02-17 17:52:30 | `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` | compile verification PASS after scheduler timing-source fix
+- 2026-02-17 17:52:30 | `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh` | flash PASS on probe `2PZWMSBKUXU22` with scheduler timing-source fix
+- 2026-02-17 17:55:35 | patch `src/edgeai_package_transport_anomaly_demo.c` elapsed-time safeguard | added robust fallback from DWT timing to fixed loop delay when cycle delta is invalid/zero, and clamped elapsed-loop microseconds to prevent scheduler runaway or starvation freeze
+- 2026-02-17 17:55:35 | `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` | compile verification PASS after elapsed-time safeguard
+- 2026-02-17 17:55:35 | `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh` | flash PASS on probe `2PZWMSBKUXU22` with elapsed-time safeguard
+- 2026-02-17 17:59:20 | patch `src/edgeai_package_transport_anomaly_demo.c` scheduler smoothing | removed bursty multi-iteration catch-up for heavy tasks (power/recplay/temp/accel-test/render back to single-step per loop), capped accumulator backlog to 2 periods, and changed DWT zero-delta handling to transient fallback without disabling measured timing
+- 2026-02-17 17:59:20 | `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` | compile verification PASS after scheduler smoothing pass
+- 2026-02-17 17:59:20 | `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh` | flash PASS on probe `2PZWMSBKUXU22` with scheduler smoothing pass
+- 2026-02-17 18:03:10 | patch `src/edgeai_package_transport_anomaly_demo.c` 1-second jitter mitigation | disabled periodic `ACCEL_TEST` UART logging path by default via `EDGEAI_ENABLE_ACCEL_TEST_LOG=0` and removed per-second `NOT_READY` print from loop to prevent blocking render cadence once per second
+- 2026-02-17 18:03:10 | `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` | compile verification PASS after disabling periodic accel test logging
+- 2026-02-17 18:03:10 | `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh` | flash PASS on probe `2PZWMSBKUXU22` with periodic accel logging disabled
+- 2026-02-17 19:48:18 | `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` | compile verification PASS for current-code golden/failsafe refresh point
+- 2026-02-17 19:48:18 | `cp mcuxsdk_ws/build_adaptive_reasoning/edgeai_package_transport_anomaly_demo_cm33_core0.bin failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_golden_20260217T194818Z.bin` + `cp ... failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_failsafe_active.bin` | published new golden artifact and promoted active failsafe from current build output
+- 2026-02-17 19:48:18 | `sha256sum failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_golden_20260217T194818Z.bin failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_failsafe_active.bin mcuxsdk_ws/build_adaptive_reasoning/edgeai_package_transport_anomaly_demo_cm33_core0.bin` | recorded checksum `408422db46e4caf20212f61ffda9e28629ed10a09ee85cd9220dfdf771ec13e4` for restore parity
+- 2026-02-17 19:48:18 | update `docs/START_HERE.md`, `docs/PROJECT_STATE.md`, `docs/RESTORE_POINTS.md`, `docs/failsafe.md`, `failsafe/README_GOLDEN.txt` | synchronized restore metadata to `GOLDEN-20260217-194818Z`
+- 2026-02-17 20:00:20 | patch `src/edgeai_package_transport_anomaly_demo.c`, `src/gauge_render.c` shield gyro integration | added Arduino-I2C (FC2) LSM6-family gyro probe/config/read path for STM shield (`0x6A/0x6B`), routed sphere widget data source to shield gyro stream with accel fallback, and changed sphere label text from `ACCEL VECTOR` to `GYRO`
+- 2026-02-17 20:00:20 | `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` | compile verification PASS after shield gyro sphere integration
+- 2026-02-17 20:00:20 | `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh` | flash PASS on probe `ESBJIMUPK2DL3` with shield gyro sphere integration
+- 2026-02-17 22:05:15 | `cp mcuxsdk_ws/build_adaptive_reasoning/edgeai_package_transport_anomaly_demo_cm33_core0.bin failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_golden_20260217T220515Z.bin` + `cp ... failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_failsafe_active.bin` | published new golden artifact and promoted active failsafe from current GT911-alt build output
+- 2026-02-17 22:05:15 | `sha256sum failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_golden_20260217T220515Z.bin failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_failsafe_active.bin mcuxsdk_ws/build_adaptive_reasoning/edgeai_package_transport_anomaly_demo_cm33_core0.bin` | recorded checksum `f32bc485b0e0051228dd995f7c77d67ade9ea1be635d7d4e945f93d4ca305fdd` for restore parity
+- 2026-02-17 22:23:44 | `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` | compile verification PASS for golden/failsafe restore-point cut from current code
+- 2026-02-17 22:23:44 | `cp mcuxsdk_ws/build_adaptive_reasoning/edgeai_package_transport_anomaly_demo_cm33_core0.bin failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_golden_20260217T222344Z.bin` + `cp ... failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_failsafe_active.bin` | published new golden artifact and promoted active failsafe from same build output
+- 2026-02-17 22:23:44 | `sha256sum failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_golden_20260217T222344Z.bin failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_failsafe_active.bin mcuxsdk_ws/build_adaptive_reasoning/edgeai_package_transport_anomaly_demo_cm33_core0.bin` | recorded checksum `e480f4d64645d3b60d78e2463ae0e3e602f41db7388285d405e2d7f086d17e9f` for restore parity
+- 2026-02-17 22:24:02 | update `docs/START_HERE.md`, `docs/PROJECT_STATE.md`, `STATUS.md`, `docs/RESTORE_POINTS.md`, `docs/failsafe.md`, `failsafe/README_GOLDEN.txt` | synchronized baseline metadata to `GOLDEN-20260217-222344Z` and active failsafe checksum
+- 2026-02-17 22:24:15 | `git rev-parse HEAD` | verified repository has no commit `HEAD`; git tag creation for `GOLDEN_*` / `GOLDEN_LOCK_*` is currently blocked until first commit exists
+- 2026-02-17 22:24:18 | patch `docs/failsafe.md` validation basis text | corrected baseline note to reflect build-only restore-point cut (flash not run in this cut)

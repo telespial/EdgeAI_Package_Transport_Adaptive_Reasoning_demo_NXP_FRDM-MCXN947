@@ -1,0 +1,38 @@
+#ifndef EDGEAI_EXT_FLASH_RECORDER_H
+#define EDGEAI_EXT_FLASH_RECORDER_H
+
+#include <stdbool.h>
+#include <stdint.h>
+
+typedef struct
+{
+    uint32_t seq;
+    uint32_t ts_ds;
+    int16_t ax_mg;
+    int16_t ay_mg;
+    int16_t az_mg;
+    int16_t gx_mdps;
+    int16_t gy_mdps;
+    int16_t gz_mdps;
+    int16_t temp_c10;
+    uint8_t temp_c;
+} ext_flash_sample_t;
+
+bool ExtFlashRecorder_Init(void);
+bool ExtFlashRecorder_AppendSample(int16_t ax_mg, int16_t ay_mg, int16_t az_mg, uint8_t temp_c);
+bool ExtFlashRecorder_AppendSampleEx(int16_t ax_mg,
+                                     int16_t ay_mg,
+                                     int16_t az_mg,
+                                     int16_t gx_mdps,
+                                     int16_t gy_mdps,
+                                     int16_t gz_mdps,
+                                     int16_t temp_c10,
+                                     uint32_t ts_ds);
+bool ExtFlashRecorder_IsReady(void);
+bool ExtFlashRecorder_ClearAll(void);
+bool ExtFlashRecorder_StartPlayback(void);
+bool ExtFlashRecorder_ReadNextSample(ext_flash_sample_t *sample);
+bool ExtFlashRecorder_GetPlaybackInfo(uint32_t *offset, uint32_t *count);
+bool ExtFlashRecorder_GetRecordInfo(uint32_t *count);
+
+#endif

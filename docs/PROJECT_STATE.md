@@ -1,0 +1,603 @@
+# Project State
+
+Last updated: 2026-02-17
+Project: `EdgeAI_Package_Transport_Anomaly_demo_NXP_FRDM-MCXN947`
+
+## Current Baseline
+- Lifecycle: initialized
+- App target: `edgeai_package_transport_anomaly_demo`
+- Build target: `frdmmcxn947` / `cm33_core0`
+- Golden tag: `GOLDEN-20260217-222344Z`
+- Lock tag: `FAILSAFE-ACTIVE`
+- Failsafe binary: `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_failsafe_active.bin`
+
+## Update 2026-02-17 (Golden/Failsafe Refresh From Current Code - 22:23:44Z)
+- Rebuilt current source from:
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug`
+- Cut a new timestamped golden artifact and promoted active failsafe from the same built binary:
+  - `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_golden_20260217T222344Z.bin`
+  - `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_failsafe_active.bin`
+- sha256 (golden + failsafe + current build):
+  - `e480f4d64645d3b60d78e2463ae0e3e602f41db7388285d405e2d7f086d17e9f`
+- Documentation synchronized in:
+  - `docs/START_HERE.md`
+  - `docs/PROJECT_STATE.md`
+  - `docs/RESTORE_POINTS.md`
+  - `docs/failsafe.md`
+  - `failsafe/README_GOLDEN.txt`
+  - `STATUS.md`
+  - `docs/COMMAND_LOG.md`
+
+## Update 2026-02-17 (Golden/Failsafe Refresh From Current Code)
+- Rebuilt current source from:
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug`
+- Cut a new timestamped golden artifact and promoted active failsafe from the same built binary:
+  - `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_golden_20260217T194818Z.bin`
+  - `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_failsafe_active.bin`
+- sha256 (golden + failsafe + current build):
+  - `408422db46e4caf20212f61ffda9e28629ed10a09ee85cd9220dfdf771ec13e4`
+- Documentation synchronized in:
+  - `docs/START_HERE.md`
+  - `docs/RESTORE_POINTS.md`
+  - `docs/failsafe.md`
+  - `failsafe/README_GOLDEN.txt`
+  - `docs/COMMAND_LOG.md`
+
+## Current Runtime Handoff
+- Detailed behavior and open-defect handoff is maintained in:
+  - `docs/CODER_HANDOFF.md`
+- Current blocker:
+  - settings/help popup close path still intermittently freezes board on hardware.
+- Current UX defect:
+  - popup layering can desync during transitions and appear behind graph/terminal/sphere.
+
+## Update 2026-02-17 (Popup/Replay Reliability Fix Pass)
+- Applied three targeted fixes:
+  - `src/gauge_render.c`: blocked timeline/record touch handling while help/settings popup is visible.
+  - `src/power_data_source.c`: on replay profile switch, reseed derived AI state when in replay mode; avoid forcing replay sample into live-override mode.
+  - `src/real_telemetry.c`: aligned `TELEMETRY_OPAMP_GAIN` with actual configured OPAMP gain (1x) to fix current scaling math if live telemetry path is enabled.
+- Build verification:
+  - stale-cache build dir mismatch observed for old `mcuxsdk_ws/build_anomaly` path after project rename.
+  - compile verification passed with fresh build dir:
+    - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug`
+- Flash verification:
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh`
+  - PASS on probe `2PZWMSBKUXU22`.
+- Hardware popup stress validation is still pending for final close-cycle confirmation.
+
+## Update 2026-02-17 (Modal Freeze Mitigation Pass)
+- Added additional modal-stability hardening for popup close/open transitions:
+  - `src/gauge_render.c`
+    - fast gyro path now exits immediately while any modal is active (`help/settings/record-confirm`), preventing mixed-layer draw contention.
+    - modal-close cleanup now uses unified modal state transition logic, so closing help/settings also triggers static dashboard recompose before returning to dynamic layers.
+  - `src/edgeai_package_transport_anomaly_demo.c`
+    - main loop now skips `GaugeRender_DrawGyroFast()` when modal is active.
+- Build/flash verification:
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` (PASS)
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh` (PASS, probe `2PZWMSBKUXU22`)
+
+## Update 2026-02-17 (Clock Priority Isolation During Modal)
+- Incorporated additional modal isolation based on hardware report that runtime clock redraw remained active over help/settings:
+  - `src/gauge_render.c`: moved runtime clock redraw block to execute only after help/settings modal early-return.
+- Effect:
+  - No periodic clock layer writes while help/settings popup is visible.
+  - Popup composition is now modal-only during help/settings display.
+- Build/flash verification:
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` (PASS)
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh` (PASS, probe `2PZWMSBKUXU22`)
+
+## Expected Build Output
+- `mcuxsdk_ws/build_adaptive_reasoning/edgeai_package_transport_anomaly_demo_cm33_core0.bin`
+
+## Update 2026-02-16
+- Created standalone project scaffold from proven FRDM-MCXN947 anomaly demo structure.
+- Renamed SDK overlay/build target and app entrypoint to `edgeai_package_transport_anomaly_demo`.
+- Initialized runbook/state/restore docs for first bring-up and future golden release.
+
+## Update 2026-02-17 (Golden Restore Point Refresh - Local Only)
+- Created a new timestamped golden artifact from the current build output:
+  - `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_golden_20260217T003119Z.bin`
+- Refreshed active failsafe image to the same binary:
+  - `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_failsafe_active.bin`
+- sha256 (golden + failsafe + current build):
+  - `e40c8416da2f125814aaf4ad886aad484b5ecbe879b0fb1e5f54a11275d7a1d2`
+- Documentation synchronized in:
+  - `docs/START_HERE.md`
+  - `docs/RESTORE_POINTS.md`
+  - `docs/failsafe.md`
+  - `docs/TODO.md`
+  - `docs/COMMAND_LOG.md`
+- Source control note:
+  - No push requested; no remote operations performed.
+
+## Update 2026-02-16 (Workspace + Build Validation)
+- Ran `./tools/setup_mcuxsdk_ws.sh` to initialize the local west workspace.
+- Workspace sync reported non-blocking failures for optional repos (`canopennode`, `mcux-sdk-middleware-mpp`, `metering`, `g2d_dpu`, `qcbor`, `touch`).
+- Verified project build succeeded with:
+  - `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/build_frdmmcxn947.sh debug`
+- Produced binary:
+  - `mcuxsdk_ws/build_anomaly/edgeai_package_transport_anomaly_demo_cm33_core0.bin`
+
+## Update 2026-02-16 (Build Path Normalization)
+- Fixed `tools/build_frdmmcxn947.sh` and `tools/flash_frdmmcxn947.sh` to normalize relative `BUILD_DIR` values.
+- This prevents accidental nested paths like `mcuxsdk_ws/mcuxsdk_ws/build_anomaly`.
+- Re-ran build successfully; binary output is now at:
+  - `mcuxsdk_ws/build_anomaly/edgeai_package_transport_anomaly_demo_cm33_core0.bin`
+
+## Update 2026-02-16 (Spacebox Background + Flash)
+- Added full-screen LCD background image generated from `docs/spacebox.jpg`.
+- Generated RGB565 asset header:
+  - `src/spacebox_bg.h`
+- Integrated background draw into static dashboard render:
+  - `src/gauge_render.c`
+- Rebuilt and flashed successfully:
+  - `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/build_frdmmcxn947.sh debug`
+  - `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/flash_frdmmcxn947.sh`
+
+## Update 2026-02-16 (Scope Enforcement Rebuild/Flash)
+- Re-verified repository scope and found no cross-project path references in this repo.
+- Rebuilt and reflashed using only project-local paths and artifact:
+  - `mcuxsdk_ws/build_anomaly/edgeai_package_transport_anomaly_demo_cm33_core0.bin`
+
+## Update 2026-02-16 (User Requested Rebuild + Flash)
+- Executed fresh rebuild and flash from project-local workflow.
+- Commands:
+  - `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/build_frdmmcxn947.sh debug`
+  - `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/flash_frdmmcxn947.sh`
+- Result: build PASS, flash PASS.
+
+## Update 2026-02-16 (Removed Big Gauge + Text)
+- Removed center/main gauge graphics and the associated center `VAC` text rendering path in `src/gauge_render.c`.
+- First rebuild attempt failed under `-Werror` due an unused helper left after removal; helper was deleted and rebuild succeeded.
+- Flashed successful build from project-local path using:
+  - `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/flash_frdmmcxn947.sh`
+
+## Update 2026-02-16 (Removed Elapsed + Profile Boxes)
+- Removed elapsed-time box/text render path from dashboard UI (`src/gauge_render.c`).
+- Removed wired/outlet profile switch box/text render path from dashboard UI (`src/gauge_render.c`).
+- Rebuilt and flashed from project-local workflow:
+  - `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/build_frdmmcxn947.sh debug`
+  - `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/flash_frdmmcxn947.sh`
+
+## Update 2026-02-16 (Right Column Edge Alignment)
+- Shifted far-right column UI blocks further right to align with screen edge by updating layout constants in `src/gauge_render.c`:
+  - `SCOPE_X: 324 -> 351`
+  - `TERM_X: 324 -> 351`
+- Updated associated right-side connector guide lines to match new column position.
+- Rebuild result: PASS.
+
+## Update 2026-02-16 (Flash Right-Column Alignment Build)
+- Flashed latest build after right-column edge alignment update using project-local flash script.
+
+## Update 2026-02-16 (Left Column Edge Alignment)
+- Shifted first-column UI further left to align with screen edge in `src/gauge_render.c`:
+  - `BAR_X0: 22 -> 0`, `BAR_X1: 47 -> 25`
+  - `MID_TOP_CX: 98 -> 76`, `MID_BOT_CX: 98 -> 76`
+  - `BATT_X: 48 -> 26`
+- Updated left-side connector guide lines to match the new positions.
+- Updated temperature-strip right bound to be relative (`BAR_X0 + 96`) so it follows column shifts.
+- Rebuild result: PASS.
+
+## Update 2026-02-16 (Flash Edge-Aligned Layout Build)
+- Flashed latest edge-aligned dashboard layout build (left and right column shifts) via project-local flash script.
+
+## Update 2026-02-16 (Removed Upper-Button Horizontal Bar)
+- Removed the horizontal dark bar layer behind the upper timeline buttons in `src/gauge_render.c`.
+- Left/right timeline buttons remain rendered.
+- Rebuild result: PASS.
+
+## Update 2026-02-16 (Flash Upper-Bar Removal Build)
+- Flashed latest build after removing the horizontal dark bar behind upper timeline buttons via project-local flash script.
+
+## Update 2026-02-16 (Rollback To Previous Build State)
+- Reverted the last UI removal by restoring the timeline background bar behind upper buttons.
+- Rebuilt and flashed to return hardware behavior to the prior build state.
+
+
+## Update 2026-02-16 (Golden Restore + Failsafe Freeze)
+- Published first golden restore point and promoted it to active failsafe.
+- Golden binary:
+  - `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_golden_20260216T045617Z.bin`
+- Active failsafe binary:
+  - `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_failsafe_active.bin`
+- sha256:
+  - `955da19d95a17fc8b0635e4923feea63873b67065eeaa5cb3f8cc73d51ade3e6`
+- Runtime baseline frozen:
+  - sphere accelerometer gauge + fast redraw
+  - PLAY/RECORD controls
+  - AX/AY/AZ/TEMP scope traces with persistent FIFO
+  - board digital temp sensor wired into temp gauge and trace
+
+## Update 2026-02-16 (Golden Restore Re-Cut for Git Checkpoint)
+- Created a new timestamped golden artifact for this exact Git restore point:
+  - `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_golden_20260216T045918Z.bin`
+- Kept active failsafe image unchanged and locked:
+  - `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_failsafe_active.bin`
+- sha256 (golden + failsafe):
+  - `955da19d95a17fc8b0635e4923feea63873b67065eeaa5cb3f8cc73d51ade3e6`
+
+## Update 2026-02-16 (On-board Temp Sensor Fix: P3T1755 on I3C1)
+- Investigated local MCUX examples and confirmed official flow:
+  - `driver_examples/i3c/master_read_sensor_p3t1755`
+  - dynamic assignment by `RSTDAA + SETDASA` (static `0x48` -> dynamic `0x08`), then SDR read.
+- Updated `src/edgeai_package_transport_anomaly_demo.c` temp path to match that flow:
+  - added explicit dynamic-address assignment on I3C1
+  - aligned I3C master config with SDK example (`enableOpenDrainStop=false`, `disableTimeout=true`)
+  - retained legacy `0x48..0x4B` fallback probe only if dynamic path fails
+- Root cause found and fixed:
+  - temperature decode math used a 10x-too-large scale
+  - corrected conversion to 12-bit `1/16 C` (`raw12 / 16`)
+- Runtime UART validation after flash:
+  - `TEMP ready dyn=0x08 bus=i3c T=24C`
+  - confirms real on-board U6 (`P3T1755DP`) data path is active.
+
+## Update 2026-02-16 (Display C/F + Real Data Proof)
+- Updated temperature UI formatting to show Celsius and Fahrenheit together:
+  - right terminal line now renders `TEMP XXC YYYF`
+  - left temperature bar label now renders `TEMP:XXC/YYYF`
+- Added one-time boot validation print from the same I3C read path:
+  - `TEMP init raw=0x18 0xf0 -> 24C/75F`
+- Rebuilt and flashed successfully; confirms conversion and display are tied to real U6 sensor bytes.
+
+## Update 2026-02-16 (One-Decimal Temp Display)
+- Extended temp rendering path to carry tenths-of-degree (`C x10`) from sensor raw bytes.
+- Added `GaugeRender_SetBoardTempC10(...)` and wired it from:
+  - temp init/update read path
+  - playback path (uses `.0` from recorded integer samples)
+- Terminal and left bar now render one decimal for both units:
+  - terminal: `TEMP 25.5C 77.9F` (example)
+  - left bar: `T:25.5C/77.9F`
+- Hardware validation after flash showed fresh raw value:
+  - `TEMP init raw=0x19 0x90 -> 25C/77F`
+  - raw `0x199` implies ~`25.5C`, matching new decimal conversion path.
+
+## Update 2026-02-16 (Sphere + Label Recenter)
+- Shifted accelerometer sphere center right by 5% of screen width (`+24 px`).
+  - Gyro frame center `cx: 76 -> 100`
+  - Gyro dynamic center `cx: 76 -> 100`
+- Recentered `ACCEL VECTOR` label using measured text width so it stays aligned with sphere center.
+- Rebuilt and flashed successfully.
+
+## Update 2026-02-16 (Sphere Nudge Left by 2.5%)
+- Shifted accelerometer sphere center left by 2.5% of screen width (`-12 px`) from prior position.
+  - Gyro frame center `cx: 100 -> 88`
+  - Gyro dynamic center `cx: 100 -> 88`
+- `ACCEL VECTOR` label remains centered to sphere center via text-width centering logic.
+- Rebuilt and flashed successfully.
+
+## Update 2026-02-16 (Horizon Tilt Calibration)
+- Adjusted gyro horizon-line tilt math to track roll more like an aircraft attitude indicator.
+- Previous line tilt used a shallow scale (`nx * span / 3000`) that under-rotated relative to sphere vector movement.
+- New line tilt derives from `roll_px` (same roll signal as the marker), scaled by line span:
+  - `tilt_long = (roll_px * span) / (r - 18)`
+  - `tilt_short = (roll_px * span_short) / (r - 18)`
+- Keeps pitch center shift (`y_mid`) unchanged while making horizon rotation visually consistent with board tilt.
+- Rebuilt and flashed successfully.
+
+## Update 2026-02-16 (Gyro Edge Artifact Cleanup)
+- Fixed residual edge trails around moving horizon/marker by expanding dynamic clear radius in the gyro fast redraw path:
+  - dynamic clear fill changed from `r - 11` to `r - 6`
+- This ensures prior line/marker pixels near the inner boundary are fully erased each frame.
+- Rebuilt and flashed successfully.
+
+## Update 2026-02-16 (Square-Edge Artifact Elimination)
+- Addressed remaining square-edge artifacts by changing fast gyro redraw strategy:
+  - `GaugeRender_DrawGyroFast()` now redraws the full sphere widget frame plus dynamic overlay each fast cycle.
+- This removes stale pixels outside the prior partial redraw mask that could appear as square-edge remnants.
+- Rebuilt and flashed successfully.
+
+## Update 2026-02-16 (Refresh Blanking + Battery Demo Lock)
+- User reported visible slow blanking during gyro refresh after full-frame fast redraw.
+- Updated `src/gauge_render.c` to restore dynamic-only fast redraw in `GaugeRender_DrawGyroFast()` for responsive updates.
+- Added line clipping against the sphere circle in dynamic rendering to keep horizon/vector/crosshair pixels inside the round gauge and prevent square-edge artifacts.
+- Demo battery indicator is now intentionally pinned to `82%` fill for stable showcase behavior.
+- Rebuilt and flashed successfully from project-local workflow:
+  - `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/build_frdmmcxn947.sh debug`
+  - `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/flash_frdmmcxn947.sh`
+
+## Update 2026-02-16 (External Flash Packed FIFO + Gyro Headroom)
+- Replaced one-sample-per-page recorder with packed page format in `src/ext_flash_recorder.c`:
+  - Added page header (`magic`, `count`, `first_seq`) and multiple sample records per page.
+  - Implemented circular FIFO write pointer across pages/slots.
+  - Kept sector-erase rotation behavior for safe overwrite on wrap.
+- Extended stored sample schema to include future gyro channels (`gx/gy/gz`) and `temp_c10`:
+  - `src/ext_flash_recorder.h` `ext_flash_sample_t` now carries accel + gyro-ready fields + decimal temp.
+  - Added `ExtFlashRecorder_AppendSampleEx(...)` for explicit extended writes.
+- Updated runtime loop in `src/edgeai_package_transport_anomaly_demo.c` to record using:
+  - `ExtFlashRecorder_AppendSampleEx(s_accel_x_mg, s_accel_y_mg, s_accel_z_mg, 0, 0, 0, s_temp_c10)`
+  - Playback now restores `temp_c10` directly for decimal-accurate temp rendering.
+- Retention with current flash geometry (512 KiB region, 256-byte pages) is now:
+  - 12 samples/page, 2048 pages, 24,576 samples total.
+  - At 10 Hz: ~2,457.6 s (~40.96 minutes) in FIFO loop.
+- Rebuilt and flashed successfully from project-local workflow:
+  - `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/build_frdmmcxn947.sh debug`
+  - `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/flash_frdmmcxn947.sh`
+
+## Update 2026-02-16 (External Flash Max-Depth FIFO Region)
+- Removed fixed `512 KiB` cap in `src/ext_flash_recorder.c`; recorder now uses the upper half of detected external NOR:
+  - `regionSize = totalSize / 2`
+- This keeps separation from lower flash space while maximizing retention depth.
+- With FRDM-MCXN947 W25Q64 geometry (8 MiB total, 256-byte pages), FIFO capacity is:
+  - recording region: 4 MiB
+  - samples/page: 12 (gyro-ready record format)
+  - pages: 16,384
+  - total samples: 196,608
+  - at 10 Hz: 19,660.8 s (~327.68 minutes, ~5.46 hours)
+- Rebuilt and flashed successfully from project-local workflow:
+  - `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/build_frdmmcxn947.sh debug`
+  - `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/flash_frdmmcxn947.sh`
+
+## Update 2026-02-16 (Default PLAY on Boot)
+- Set timeline mode default to PLAY at startup:
+  - `src/gauge_render.c`: `gScopePaused` now defaults to `true` and is initialized to `true` in `GaugeRender_Init()`.
+- Updated app startup flow to immediately attempt playback when booting in PLAY mode:
+  - `src/edgeai_package_transport_anomaly_demo.c`: after initial draw, if `GaugeRender_IsRecordMode()` is false, call `ExtFlashRecorder_StartPlayback()`.
+  - Logs `EXT_FLASH_PLAY: ready` when data exists, otherwise `EXT_FLASH_PLAY: no_data`.
+- Rebuilt and flashed successfully from project-local workflow:
+  - `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/build_frdmmcxn947.sh debug`
+  - `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/flash_frdmmcxn947.sh`
+
+## Update 2026-02-16 (PLAY Press Rewinds Playback)
+- Updated timeline touch handling so pressing PLAY while already in PLAY mode generates a playback restart request.
+  - `src/gauge_render.c`: `GaugeRender_HandleTouch(...)` now returns `changed=true` for `in_left && gScopePaused`.
+- Updated main loop to treat any PLAY timeline event as a rewind action:
+  - `src/edgeai_package_transport_anomaly_demo.c`: on timeline change with PLAY mode active, call `ExtFlashRecorder_StartPlayback()` and restart from the oldest sample in current FIFO window.
+- Result: each PLAY tap starts playback from beginning of recording window (not current playback position).
+- Rebuilt and flashed successfully from project-local workflow:
+  - `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/build_frdmmcxn947.sh debug`
+  - `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/flash_frdmmcxn947.sh`
+
+## Update 2026-02-16 (Confirm Before Record + Clear On Start)
+- Added a modal confirmation popup when RECORD is pressed from PLAY mode:
+  - `src/gauge_render.c` draws `START NEW RECORDING?` with `YES`/`NO` buttons.
+  - While popup is active, touch handling is routed to popup buttons.
+- RECORD start is now a two-step action:
+  - User taps RECORD -> popup opens.
+  - User taps YES -> main loop receives record-start request.
+- On YES, firmware clears recorder memory before enabling record mode:
+  - Added `ExtFlashRecorder_ClearAll()` in `src/ext_flash_recorder.c` and declaration in `src/ext_flash_recorder.h`.
+  - Clear path erases the full recorder region (sector-by-sector) and resets FIFO pointers/counters.
+  - Record mode starts only on successful clear; on clear failure, firmware stays in PLAY.
+- Main loop integration (`src/edgeai_package_transport_anomaly_demo.c`):
+  - Blocks AI/profile touch toggles while popup is active.
+  - Consumes popup YES request, runs clear, then sets record/play mode explicitly via new gauge-render API.
+- Rebuilt and flashed successfully from project-local workflow:
+  - `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/build_frdmmcxn947.sh debug`
+  - `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/flash_frdmmcxn947.sh`
+
+## Update 2026-02-16 (Record Confirm Freeze + Layer Fix)
+- Addressed reported freeze when pressing YES in record-confirm popup:
+  - `src/ext_flash_recorder.c`: changed `ExtFlashRecorder_ClearAll()` from full blocking sector erase to fast logical FIFO reset (metadata/pointers/counters reset).
+  - This preserves clear semantics for runtime use (old data invalidated immediately) while avoiding long blocking latency on UI thread.
+- Addressed popup layer ordering issue:
+  - `src/gauge_render.c`: `GaugeRender_DrawGyroFast()` now checks confirm-modal state and redraws popup directly, skipping gyro dynamic draws while modal is active.
+  - Ensures confirmation popup remains topmost and not overdrawn by fast refresh.
+- Rebuilt and flashed successfully from project-local workflow:
+  - `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/build_frdmmcxn947.sh debug`
+  - `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/flash_frdmmcxn947.sh`
+
+## Update 2026-02-16 (Recorder Logging/Playback Reliability Fix)
+- Root-cause found for short/invalid playback:
+  - prior packed-page recorder path rewrote mutable page metadata on NOR flash, causing invalid bit-transition behavior over time and unreliable readback.
+- Replaced recorder backend with robust one-record-per-page FIFO format (`REC2`) in `src/ext_flash_recorder.c`:
+  - each sample is written once to a fresh page slot;
+  - no in-place mutable page metadata updates are required;
+  - playback reads now map directly to one sample record per page.
+- Kept fast logical clear semantics for record-confirm YES (`ExtFlashRecorder_ClearAll`) to avoid UI freeze.
+- Added modal close cleanup in `src/gauge_render.c`:
+  - when confirm popup transitions active->inactive, force one static dashboard redraw to clear any stale overlay remnants.
+- Rebuilt and flashed successfully from project-local workflow:
+  - `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/build_frdmmcxn947.sh debug`
+  - `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/flash_frdmmcxn947.sh`
+
+## Update 2026-02-16 (Graph Playhead + REC/PLAY Diagnostics)
+- Added vertical scope playhead rendering:
+  - `src/gauge_render.c`: draws a vertical head line over the graph (`record=red`, `play=green`).
+  - `src/gauge_render.h`: new API `GaugeRender_SetPlayhead(uint8_t position_0_to_99, bool valid)`.
+- Wired playhead to real recorder playback state:
+  - `src/ext_flash_recorder.h/.c`: added `ExtFlashRecorder_GetPlaybackInfo(...)` and `ExtFlashRecorder_GetRecordInfo(...)`.
+  - `src/edgeai_package_transport_anomaly_demo.c`: maps playback offset/count to `0..99` and updates playhead each playback sample.
+  - In record mode, playhead is pinned at right edge to indicate write head.
+- Added debug logs to verify REC/PLAY internals:
+  - `EXT_FLASH_PLAY_INFO: offset=<n> count=<n>`
+  - `EXT_FLASH_REC_INFO: count=<n>`
+- Rebuilt and flashed successfully from project-local workflow:
+  - `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/build_frdmmcxn947.sh debug`
+  - `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/flash_frdmmcxn947.sh`
+
+## Update 2026-02-16 (Battery/Temp Redraw Reliability)
+- Addressed missing battery and temperature-related visuals after popup/modal transitions.
+- `src/gauge_render.c` changes:
+  - force `DrawBatteryIndicatorDynamic(...)` every frame (eliminates stale cache skip cases).
+  - on modal-close static redraw, invalidate key cached dynamic state (`gPrevSoc`, bar caches, alert cache) so dependent widgets redraw correctly.
+- Rebuilt and flashed successfully from project-local workflow:
+  - `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/build_frdmmcxn947.sh debug`
+  - `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/flash_frdmmcxn947.sh`
+
+## Update 2026-02-16 (10 Hz Playback Timing)
+- Updated REC/PLAY stepping path to 10 Hz:
+  - `src/edgeai_package_transport_anomaly_demo.c`: added dedicated `RECPLAY_TICK_PERIOD_US=100000` branch for recorder append and playback reads.
+  - Power-model tick remains at 1 Hz (`POWER_TICK_PERIOD_US=1000000`).
+- Increased UI frame refresh to 10 Hz:
+  - `DISPLAY_REFRESH_PERIOD_US=100000` for smoother graph and terminal updates during playback.
+- Increased scope sample ingestion cadence in fast path:
+  - `src/gauge_render.c`: `SCOPE_SAMPLE_TICKS` reduced to `3` (~8.3 Hz at 40 ms fast loop), improving plotted motion smoothness.
+- Rebuilt and flashed successfully from project-local workflow:
+  - `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/build_frdmmcxn947.sh debug`
+  - `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/flash_frdmmcxn947.sh`
+
+## Update 2026-02-16 (NV Recorder Persistence Across Reboot)
+- Implemented durable recorder state recovery on boot in `src/ext_flash_recorder.c`.
+- Added a reserved metadata sector at start of recorder region:
+  - stores `generation` marker (`META`) for durable clear semantics.
+  - `ExtFlashRecorder_ClearAll()` now increments generation and commits metadata so clear state persists across power cycle.
+- Boot-time recovery now scans recorder pages for current generation records and reconstructs:
+  - `s_sampleCount`
+  - `s_oldestIndex`
+  - `s_writeIndex`
+  - `s_seq`
+- Result: recordings are now expected to survive reboot (non-volatile behavior restored in firmware path).
+- Rebuilt and flashed successfully from project-local workflow:
+  - `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/build_frdmmcxn947.sh debug`
+  - `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/flash_frdmmcxn947.sh`
+
+## Update 2026-02-16 (Playback Timeline Pace Alignment)
+- Fixed playback graph/timeline pacing mismatch by aligning scope graph ingestion cadence with 10 Hz REC/PLAY tick.
+- `src/gauge_render.c` change:
+  - `SCOPE_FAST_STEP_US` updated from `40000` to `100000` so `PushScopeSample()` emits points at the same effective 10 Hz rate as recorder append/read.
+- Effect: playback no longer appears to skip ahead of plotted timeline due to UI-side under-sampling.
+- Rebuilt and flashed successfully from project-local workflow:
+  - `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/build_frdmmcxn947.sh debug`
+  - `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/flash_frdmmcxn947.sh`
+
+## Update 2026-02-16 (Playback Graph Follows Timeline)
+- Refined scope behavior in PLAY mode to prevent rapid full-window cycling.
+- `src/gauge_render.c` changes:
+  - PLAY mode sampling now appends only when playback playhead position changes, tying trace progression to timeline progress instead of fast redraw cadence.
+  - Restored REC path sampling step to `SCOPE_FAST_STEP_US=40000` with `SCOPE_SAMPLE_PERIOD_US=100000` accumulator behavior for stable average 10 Hz sample ingestion.
+- Effect: during playback, graph progression now follows recorded timeline progression and no longer sweeps the full graph window in ~10 seconds unless the recording itself is only ~10 seconds long.
+- Rebuilt and flashed successfully from project-local workflow:
+  - `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/build_frdmmcxn947.sh debug`
+  - `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/flash_frdmmcxn947.sh`
+
+## Update 2026-02-16 (Timebase Normalization: Record + Playback)
+- Normalized core timing domains to a single 10 Hz base (`100000 us`) to keep acquisition, record, playback, graphing, and render pacing aligned.
+- `src/edgeai_package_transport_anomaly_demo.c`:
+  - `GYRO_REFRESH_PERIOD_US`: `40000 -> 100000` (sphere update + accel acquisition now 10 Hz in RECORD and PLAY modes).
+  - `TEMP_REFRESH_PERIOD_US`: `1000000 -> 100000` (board temp capture in RECORD now 10 Hz to match recorder cadence).
+- `src/gauge_render.c`:
+  - `SCOPE_FAST_STEP_US`: `40000 -> 100000`.
+  - Removed playhead-gated sampling path and restored direct time-accumulator-based scope sampling at 10 Hz in both modes.
+- Net effect:
+  - sensor capture path (for recorded channels), external-flash write/read, graph sample ingestion, and display frame cadence are all synchronized at 10 Hz.
+- Rebuilt and flashed successfully from project-local workflow:
+  - `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/build_frdmmcxn947.sh debug`
+  - `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/flash_frdmmcxn947.sh`
+
+## Update 2026-02-16 (AI Anomaly Modes Integrated)
+- Implemented anomaly-mode core with per-channel classification for `AX`, `AY`, `AZ`, and `TEMP`:
+  - `ANOMALY_MODE_ADAPTIVE_BASELINE`
+  - `ANOMALY_MODE_TRAINED_MONITOR`
+  - `ANOMALY_MODE_STATIC_LIMITS`
+- Added new engine module:
+  - `src/anomaly_engine.h`
+  - `src/anomaly_engine.c`
+- Integrated engine into app loop:
+  - mode init/set/get wiring
+  - training start/stop on record-mode transitions
+  - per-tick update from live accel/temp samples
+  - mapped anomaly output into runtime frame state for UI/flags
+- Integrated terminal rendering for anomaly telemetry:
+  - mode/training status line
+  - per-channel severity tags for AX/AY/AZ/TEMP
+- Build integration:
+  - `sdk_example/mcuxsdk_examples_overlay/demo_apps/edgeai_package_transport_anomaly_demo/CMakeLists.txt` now compiles `src/anomaly_engine.c`.
+- Rebuilt and flashed successfully from project-local workflow:
+  - `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/build_frdmmcxn947.sh debug`
+  - `BUILD_DIR=mcuxsdk_ws/build_anomaly ./tools/flash_frdmmcxn947.sh`
+
+## Update 2026-02-17 (AI Side `?` Icon Legibility)
+- User-reported issue: AI help-side `?` icon pixels appeared garbled after prior icon visibility changes.
+- `src/gauge_render.c`:
+  - Updated `DrawAiSideButtons(...)` to draw a bold vector-style `?` (line segments + filled dot) instead of a tiny per-pixel bitmap glyph.
+- Effect: icon shape is now stable/legible on the LCD and no longer depends on bitmap sampling artifacts.
+- Rebuilt and flashed successfully from project-local workflow:
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug`
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh`
+
+## Update 2026-02-17 (Font Upgrade for `*`, `?`, and `AI ON/OFF`)
+- User request: use a better font appearance for side icons and AI state label.
+- `src/text5x7.c`:
+  - Added explicit glyph definitions and mapping for `?` and `*` in the built-in 5x7 font table.
+- `src/gauge_render.c`:
+  - Added `DrawTextUiCrisp(...)` (no shadow pass) for cleaner high-contrast labels.
+  - Updated `DrawAiSideButtons(...)` to render `*` and `?` using font glyphs at scale 2.
+  - Updated `DrawAiPill(...)` to render `AI ON/OFF` with scale-aware crisp text (prefers scale 2, falls back to scale 1 if needed).
+- Effect: side glyphs and AI label now use consistent font rendering with improved legibility and stable shape.
+- Rebuilt and flashed successfully from project-local workflow:
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug`
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh`
+
+## Update 2026-02-17 (Normal Banner Label by Mode)
+- User request: while recording, the center normal-status banner should display `RECORDING` instead of `SYSTEM NORMAL`.
+- `src/gauge_render.c`:
+  - Updated `DrawAiAlertOverlay(...)` so normal-status text resolves to:
+    - `RECORDING` when in record mode (`!gScopePaused`)
+    - `SYSTEM NORMAL` when in play mode.
+  - Added mode (`recording`) to alert visual cache key so toggling play/record forces banner text redraw even when status stays normal.
+- Rebuilt and flashed successfully from project-local workflow:
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug`
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh`
+
+## Update 2026-02-17 (Record/Playback Timebase Drift Fix)
+- User-reported defect: decisecond clock and rec/play pacing were running effectively ~10x slow under heavier frame workload (decisecond digit advancing at ~1Hz, playback at ~0.1x).
+- Root cause:
+  - Main-loop periodic schedulers (`recplay`, `power`, `render`, etc.) were advanced using a fixed `TOUCH_POLL_DELAY_US` assumption per loop instead of actual elapsed wall time.
+  - As loop work increased, real iteration time exceeded 10ms but scheduler time did not, causing systematic undercount and slow-motion behavior.
+- `src/edgeai_package_transport_anomaly_demo.c`:
+  - Switched scheduler accumulator updates to measured elapsed loop time from DWT cycle counter conversion.
+  - Kept fallback to fixed delay only when cycle timing is unavailable.
+  - Converted periodic `if (accum >= period)` blocks to `while` catch-up loops for:
+    - power tick
+    - rec/play tick
+    - board-temp tick
+    - accel test log tick
+    - render tick
+- Effect:
+  - Record timestamp (`ts_ds`) and playback stepping now track real elapsed time, restoring expected 10Hz rec/play cadence and correct `hh:mm:ss:ds` progression.
+- Rebuilt and flashed successfully from project-local workflow:
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug`
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh`
+
+## Update 2026-02-17 (Post-Timebase-Fix Freeze Guard)
+- User-reported regression: raster visible but display appeared frozen after elapsed-time scheduler change.
+- `src/edgeai_package_transport_anomaly_demo.c`:
+  - Added DWT timing validity guard: if cycle delta is zero/invalid, runtime falls back to fixed loop timing.
+  - Added elapsed-loop clamp (`<= 250000 us`) so bad timing input cannot cause runaway catch-up loops and UI starvation.
+  - Preserved measured-time scheduling when valid.
+- Rebuilt and flashed successfully from project-local workflow:
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug`
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh`
+
+## Update 2026-02-17 (Scheduler Smoothing for Jitter/Slowness)
+- User feedback after freeze guard: UI no longer froze but updates became jumpy/slow.
+- `src/edgeai_package_transport_anomaly_demo.c`:
+  - Kept measured elapsed-time scheduler source.
+  - Changed DWT zero-delta handling to one-iteration fallback only (does not permanently disable measured timing).
+  - Limited per-loop accumulator backlog to 2 periods for major tasks.
+  - Restored single-step periodic dispatch (`if` not `while`) for heavy tasks to prevent burst catch-up stalls:
+    - power tick
+    - rec/play tick
+    - temp tick
+    - accel test tick
+    - render tick
+- Intent/effect:
+  - Reduce bursty catch-up behavior that caused visible stutter while preserving corrected timing scale.
+- Rebuilt and flashed successfully from project-local workflow:
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug`
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh`
+
+## Update 2026-02-17 (1-Second Cadence Jitter Mitigation)
+- User-reported symptom: display response still jittery with uneven pulse roughly once per second.
+- `src/edgeai_package_transport_anomaly_demo.c`:
+  - Added compile-time switch `EDGEAI_ENABLE_ACCEL_TEST_LOG` (default `0`).
+  - Disabled `AccelAxisSelfTestLog()` UART prints by default.
+  - Removed periodic `ACCEL_TEST,NOT_READY` print path from the 1-second tick.
+- Effect:
+  - Eliminates intentional once-per-second blocking `PRINTF` work in the main render loop.
+  - Reduces periodic UI cadence disturbance caused by serial output latency.
+- Rebuilt and flashed successfully from project-local workflow:
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug`
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh`
+
+## Update 2026-02-17 (STM Shield Gyro Routed To Sphere)
+- User request: use STM shield gyro datastream for the sphere widget and rename label to `GYRO`.
+- `src/edgeai_package_transport_anomaly_demo.c`:
+  - Added shield gyro support on Arduino I2C bus (FLEXCOMM2), probing `0x6A/0x6B` and reading LSM6-family gyro registers.
+  - Configured gyro ODR/FS (`CTRL2_G`, `CTRL3_C`) and mapped gyro rates to sphere UI range.
+  - Sphere update now uses shield gyro stream when available, with existing accel path as fallback.
+- `src/gauge_render.c`:
+  - Updated sphere title text from `ACCEL VECTOR` to `GYRO`.
+- Rebuilt and flashed successfully from project-local workflow:
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug`
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh`

@@ -1,5 +1,7 @@
 # EdgeAI Package Transport Anomaly Demo (FRDM-MCXN947)
 
+**Work in progress:** this repository is under active development and is not complete code.
+
 Standalone Edge AI anomaly-detection firmware demo for package-transport telemetry on **FRDM-MCXN947 + LCD-PAR-S035**.
 
 ## Scope

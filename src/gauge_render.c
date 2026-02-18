@@ -296,7 +296,7 @@ static void FormatShieldEnvCompact(char *out, size_t out_len)
 
     snprintf(out,
              out_len,
-             "B%s%4d.%1dh H%s%2d.%1d S%s%2d.%1d",
+             "B%s%4d.%1dh H %s%2d.%1d S%s%2d.%1d",
              gBaroValid ? "" : "-",
              (int)(p_abs / 10),
              (int)(p_abs % 10),
@@ -1084,14 +1084,19 @@ static void DrawCenterAccelBall(void)
     int32_t bx1 = x1 + depth_x;
     int32_t by0 = y0 - depth_y;
     int32_t by1 = y1 - depth_y;
-    int16_t ax = gLinAccelValid ? gLinAccelXmg : gAccelXmg;
-    int16_t ay = gLinAccelValid ? gLinAccelYmg : gAccelYmg;
+    /* Use the same board-rotated accel channels as the gyro sphere for consistent X/Y behavior. */
+    int16_t ax = gAccelValid ? gAccelXmg : gLinAccelXmg;
+    int16_t ay = gAccelValid ? gAccelYmg : gLinAccelYmg;
+    int16_t az = gLinAccelValid ? gLinAccelZmg : (int16_t)ClampI32((int32_t)gAccelZmg - 1000, -1000, 1000);
     int32_t margin = 7;
     int32_t rx = (front_w / 2) - margin;
     int32_t ry = (front_h / 2) - margin;
+    int32_t rz = depth_x;
     int32_t bx;
     int32_t by;
     int32_t yy;
+    int32_t zoff;
+    int32_t br;
     uint16_t c = RGB565(235, 245, 255);
 
     if (rx < 1) rx = 1;
@@ -1120,13 +1125,20 @@ static void DrawCenterAccelBall(void)
     DrawLine(x1, y1, bx1, by1, 1, c);
     DrawLine(x0, y1, bx0, by1, 1, c);
 
-    bx = cx + ((int32_t)ClampI16(ax, -1000, 1000) * rx) / 1000;
-    by = cy + ((int32_t)ClampI16(ay, -1000, 1000) * ry) / 1000;
+    /* User orientation convention: X and Y are intentionally flipped. */
+    bx = cx - ((int32_t)ClampI16(ax, -1000, 1000) * rx) / 1000;
+    by = cy - ((int32_t)ClampI16(ay, -1000, 1000) * ry) / 1000;
+    /* Project along the wire-box depth axis so Z moves toward/away from screen. */
+    zoff = ((int32_t)ClampI16(az, -1000, 1000) * rz) / 1000;
+    bx += zoff;
+    by -= (zoff * depth_y) / depth_x;
     bx = ClampI32(bx, x0 + margin, x1 - margin);
     by = ClampI32(by, y0 + margin, y1 - margin);
+    br = 4 - ((int32_t)ClampI16(az, -1000, 1000) / 500);
+    br = ClampI32(br, 3, 6);
 
-    par_lcd_s035_draw_filled_circle(bx, by, 4, RGB565(255, 255, 255));
-    par_lcd_s035_draw_filled_circle(bx, by, 2, RGB565(170, 210, 240));
+    par_lcd_s035_draw_filled_circle(bx, by, (uint16_t)br, RGB565(255, 255, 255));
+    par_lcd_s035_draw_filled_circle(bx, by, (uint16_t)ClampI32(br - 2, 1, 3), RGB565(170, 210, 240));
 }
 
 static void DrawRecordConfirmOverlay(void)

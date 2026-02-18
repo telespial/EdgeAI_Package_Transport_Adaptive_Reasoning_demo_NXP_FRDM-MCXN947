@@ -7,10 +7,10 @@ Last updated: 2026-02-18
 - Flash status: PASS (FRDM-MCXN947 probe `UYLKOJI11H2B3`)
 
 ## Golden Baseline (Active)
-- Golden tag: `GOLDEN-20260218-200335`
+- Golden tag: `GOLDEN-20260218-201205`
 - Active failsafe: `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_failsafe_active.bin`
-- Golden image: `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_golden_20260218T200335Z.bin`
-- sha256: `fddffba4f9f21f96227b834fe4a7564fabe6fbed3df874082265ef3162cfe5b7`
+- Golden image: `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_golden_20260218T201205Z.bin`
+- sha256: `ef3eb2e77a8f8c30974f11ac4aec578da059722a1bce267713a9abfaf3d40167`
 
 ## Frozen Features in Golden
 - Accelerometer sphere gauge with fast redraw.

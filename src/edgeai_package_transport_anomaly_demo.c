@@ -10,6 +10,7 @@
 #include "fsl_gt911.h"
 #include "fsl_i3c.h"
 #include "fsl_lpi2c.h"
+#include "fsl_ostimer.h"
 #include "fsl_port.h"
 #include "gauge_render.h"
 #include "power_data_source.h"
@@ -92,6 +93,8 @@
 #define RUNTIME_CLOCK_PERIOD_US 100000u
 #define TEMP_REFRESH_PERIOD_US 100000u
 #define ACCEL_TEST_LOG_PERIOD_US 1000000u
+#define EDGEAI_TIMEBASE_CRYSTAL_HZ 32768u
+#define EDGEAI_TIMEBASE_CAL_WINDOW_US 250000u
 #ifndef EDGEAI_ENABLE_ACCEL_TEST_LOG
 #define EDGEAI_ENABLE_ACCEL_TEST_LOG 0
 #endif
@@ -111,6 +114,13 @@
 static gt911_handle_t s_touch_handle;
 static bool s_touch_ready = false;
 static bool s_touch_was_down = false;
+static uint32_t s_touch_recover_backoff = 0u;
+static bool s_timebase_ready = false;
+static uint32_t s_timebase_hz = EDGEAI_TIMEBASE_CRYSTAL_HZ;
+static bool s_timebase_use_raw = false;
+static bool s_timebase_use_core_cycle = false;
+static uint32_t s_core_cycle_prev = 0u;
+static uint64_t s_core_cycle_accum = 0u;
 static bool s_touch_i2c_inited = false;
 static bool s_accel_i2c_inited = false;
 static bool s_accel_ready = false;
@@ -129,6 +139,7 @@ static int16_t s_ui_gyro_x = 0;
 static int16_t s_ui_gyro_y = 0;
 static int16_t s_ui_gyro_z = 0;
 static bool s_shield_mag_ready = false;
+static bool s_shield_mag_fallback_imu = false;
 static bool s_shield_baro_ready = false;
 static bool s_shield_sht_ready = false;
 static bool s_shield_stts_ready = false;
@@ -163,6 +174,8 @@ static bool BoardTempI3CInit(void);
 static bool TouchI2CInit(void);
 static bool AccelI2CInit(void);
 static void ShieldGyroInit(void);
+static uint32_t CoreClockHz(void);
+static bool ShieldImuSupportsShub(uint8_t who);
 
 typedef struct
 {
@@ -311,7 +324,99 @@ static void AccelAxisSelfTestLog(void)
 
 static void TouchDelayMs(uint32_t delay_ms)
 {
-    SDK_DelayAtLeastUs(delay_ms * 1000u, SDK_DEVICE_MAXIMUM_CPU_CLOCK_FREQUENCY);
+    SDK_DelayAtLeastUs(delay_ms * 1000u, CoreClockHz());
+}
+
+static bool TimebaseInit(void)
+{
+    status_t st = CLOCK_SetupOsc32KClocking(kCLOCK_Osc32kToWake);
+    uint32_t cfg_hz;
+    uint32_t measured_hz = 0u;
+    uint64_t t0;
+    uint64_t t1;
+
+    CLOCK_AttachClk(kXTAL32K2_to_OSTIMER);
+    OSTIMER_Init(OSTIMER0);
+    cfg_hz = CLOCK_GetOstimerClkFreq();
+
+    s_timebase_use_core_cycle = false;
+    s_timebase_use_raw = false;
+    s_timebase_hz = (cfg_hz != 0u) ? cfg_hz : EDGEAI_TIMEBASE_CRYSTAL_HZ;
+
+    /* Calibrate effective OSTIMER tick rate against CPU delay, then quantize to expected divisors. */
+    t0 = OSTIMER_GetCurrentTimerValue(OSTIMER0);
+    SDK_DelayAtLeastUs(EDGEAI_TIMEBASE_CAL_WINDOW_US, CoreClockHz());
+    t1 = OSTIMER_GetCurrentTimerValue(OSTIMER0);
+    if (t1 > t0)
+    {
+        measured_hz = (uint32_t)(((t1 - t0) * 1000000ull) / EDGEAI_TIMEBASE_CAL_WINDOW_US);
+    }
+    if (measured_hz != 0u)
+    {
+        /* Accept measured tick rate when plausible; avoid forcing a wrong nominal divisor. */
+        if ((measured_hz >= (s_timebase_hz / 2u)) && (measured_hz <= (s_timebase_hz * 2u)))
+        {
+            s_timebase_hz = measured_hz;
+        }
+    }
+
+    PRINTF("TIMEBASE: src=ostimer32k setup=%d cfg=%u meas=%u use=%u raw=%u\r\n",
+           (int)st,
+           (unsigned int)cfg_hz,
+           (unsigned int)measured_hz,
+           (unsigned int)s_timebase_hz,
+           (unsigned int)s_timebase_use_raw);
+    s_timebase_ready = true;
+    return true;
+}
+
+static uint64_t TimebaseNowTicks(void)
+{
+    if (s_timebase_use_core_cycle)
+    {
+        uint32_t now = DWT->CYCCNT;
+        uint32_t delta = now - s_core_cycle_prev;
+        s_core_cycle_prev = now;
+        s_core_cycle_accum += (uint64_t)delta;
+        return s_core_cycle_accum;
+    }
+    if (!s_timebase_ready)
+    {
+        return 0u;
+    }
+    return s_timebase_use_raw ? OSTIMER_GetCurrentTimerRawValue(OSTIMER0) : OSTIMER_GetCurrentTimerValue(OSTIMER0);
+}
+
+static void DelayUsByTimebase(uint32_t delay_us)
+{
+    uint64_t start_ticks;
+    uint64_t wait_ticks;
+
+    if (!s_timebase_ready)
+    {
+        SDK_DelayAtLeastUs(delay_us, CoreClockHz());
+        return;
+    }
+
+    start_ticks = TimebaseNowTicks();
+    wait_ticks = ((uint64_t)delay_us * s_timebase_hz) / 1000000ull;
+    if (wait_ticks == 0u)
+    {
+        wait_ticks = 1u;
+    }
+    while ((TimebaseNowTicks() - start_ticks) < wait_ticks)
+    {
+    }
+}
+
+static uint32_t CoreClockHz(void)
+{
+    uint32_t hz = CLOCK_GetCoreSysClkFreq();
+    if (hz == 0u)
+    {
+        hz = SDK_DEVICE_MAXIMUM_CPU_CLOCK_FREQUENCY;
+    }
+    return hz;
 }
 
 static bool TouchI2CRecover(void)
@@ -408,7 +513,7 @@ static bool ShieldBusTransferWithRetry(bool use_touch_bus, lpi2c_master_transfer
         {
             (void)AccelI2CRecover();
         }
-        SDK_DelayAtLeastUs(300u, SDK_DEVICE_MAXIMUM_CPU_CLOCK_FREQUENCY);
+        SDK_DelayAtLeastUs(300u, CoreClockHz());
     }
 
     return false;
@@ -440,7 +545,7 @@ static status_t TouchI2CSend(uint8_t deviceAddress,
             break;
         }
         (void)TouchI2CRecover();
-        SDK_DelayAtLeastUs(250u, SDK_DEVICE_MAXIMUM_CPU_CLOCK_FREQUENCY);
+        SDK_DelayAtLeastUs(250u, CoreClockHz());
     }
     return st;
 }
@@ -471,7 +576,7 @@ static status_t TouchI2CReceive(uint8_t deviceAddress,
             break;
         }
         (void)TouchI2CRecover();
-        SDK_DelayAtLeastUs(250u, SDK_DEVICE_MAXIMUM_CPU_CLOCK_FREQUENCY);
+        SDK_DelayAtLeastUs(250u, CoreClockHz());
     }
     return st;
 }
@@ -653,7 +758,7 @@ static bool ShieldShubReadRegs(uint8_t ext_addr7, uint8_t reg, uint8_t *rx, uint
             {
                 break;
             }
-            SDK_DelayAtLeastUs(1200u, SDK_DEVICE_MAXIMUM_CPU_CLOCK_FREQUENCY);
+            SDK_DelayAtLeastUs(1200u, CoreClockHz());
         }
 
         if (((status & SHIELD_SHUB_STATUS_ENDOP) == 0u) || ((status & SHIELD_SHUB_STATUS_NACK_MASK) != 0u))
@@ -733,7 +838,7 @@ static bool ShieldShubWriteReg(uint8_t ext_addr7, uint8_t reg, uint8_t value)
             {
                 break;
             }
-            SDK_DelayAtLeastUs(1200u, SDK_DEVICE_MAXIMUM_CPU_CLOCK_FREQUENCY);
+            SDK_DelayAtLeastUs(1200u, CoreClockHz());
         }
 
         if (((status & SHIELD_SHUB_STATUS_ENDOP) == 0u) || ((status & SHIELD_SHUB_STATUS_NACK_MASK) != 0u))
@@ -764,7 +869,10 @@ static bool ShieldSht40CrcOk(const uint8_t *buf2, uint8_t crc)
 
 static void ShieldAuxSetRenderState(void)
 {
-    GaugeRender_SetMag(s_mag_x_mgauss, s_mag_y_mgauss, s_mag_z_mgauss, s_shield_mag_ready);
+    GaugeRender_SetMag(s_mag_x_mgauss,
+                       s_mag_y_mgauss,
+                       s_mag_z_mgauss,
+                       (s_shield_mag_ready || s_shield_mag_fallback_imu));
     GaugeRender_SetBaro(s_baro_dhpa, s_shield_baro_ready);
     GaugeRender_SetSht(s_sht_temp_c10, s_sht_rh_dpct, s_shield_sht_ready);
     GaugeRender_SetStts(s_stts_temp_c10, s_shield_stts_ready);
@@ -778,6 +886,7 @@ static void ShieldAuxInit(void)
     uint8_t who = 0u;
 
     s_shield_mag_ready = false;
+    s_shield_mag_fallback_imu = false;
     s_shield_baro_ready = false;
     s_shield_sht_ready = false;
     s_shield_stts_ready = false;
@@ -812,7 +921,7 @@ static void ShieldAuxInit(void)
             break;
         }
     }
-    if (!s_shield_mag_ready && s_shield_gyro_ready && (s_shield_gyro_who == SHIELD_IMU_WHOAMI_LSM6DSO16IS))
+    if (!s_shield_mag_ready && s_shield_gyro_ready && ShieldImuSupportsShub(s_shield_gyro_who))
     {
         if (ShieldShubReadRegs(SHIELD_LIS2MDL_ADDR, SHIELD_LIS2MDL_REG_WHO_AM_I, &who, 1u) &&
             (who == SHIELD_LIS2MDL_WHOAMI))
@@ -847,6 +956,12 @@ static void ShieldAuxInit(void)
                    (unsigned int)s_shield_mag_addr);
         }
     }
+    else if (s_shield_gyro_ready)
+    {
+        /* Fallback path when LIS2MDL is not present: keep compass/terminal fed from IMU tilt vector. */
+        s_shield_mag_fallback_imu = true;
+        PRINTF("SHIELD_MAG fallback=IMU\r\n");
+    }
 
     for (uint32_t bi = 0u; bi < 2u; bi++)
     {
@@ -865,7 +980,7 @@ static void ShieldAuxInit(void)
             break;
         }
     }
-    if ((s_shield_baro_addr == 0u) && s_shield_gyro_ready && (s_shield_gyro_who == SHIELD_IMU_WHOAMI_LSM6DSO16IS))
+    if ((s_shield_baro_addr == 0u) && s_shield_gyro_ready && ShieldImuSupportsShub(s_shield_gyro_who))
     {
         if (ShieldShubReadRegs(SHIELD_LPS22DF_ADDR0, SHIELD_GYRO_REG_WHO_AM_I, &who, 1u) &&
             (who == SHIELD_LPS22DF_WHOAMI))
@@ -947,7 +1062,7 @@ static void ShieldAuxInit(void)
             break;
         }
     }
-    if ((s_shield_stts_addr == 0u) && s_shield_gyro_ready && (s_shield_gyro_who == SHIELD_IMU_WHOAMI_LSM6DSO16IS))
+    if ((s_shield_stts_addr == 0u) && s_shield_gyro_ready && ShieldImuSupportsShub(s_shield_gyro_who))
     {
         for (uint32_t i = 0u; i < (sizeof(stts_addrs) / sizeof(stts_addrs[0])); i++)
         {
@@ -999,7 +1114,6 @@ static void ShieldAuxUpdate(void)
     {
         ShieldAuxInit();
     }
-
     if (s_shield_mag_ready)
     {
         bool ok = true;
@@ -1033,6 +1147,12 @@ static void ShieldAuxUpdate(void)
             s_shield_mag_ready = false;
         }
     }
+    else if (s_shield_mag_fallback_imu && s_shield_gyro_ready)
+    {
+        s_mag_x_mgauss = s_accel_x_mg;
+        s_mag_y_mgauss = s_accel_y_mg;
+        s_mag_z_mgauss = s_accel_z_mg;
+    }
 
     if (s_shield_baro_ready)
     {
@@ -1060,7 +1180,7 @@ static void ShieldAuxUpdate(void)
         {
             uint16_t raw_t;
             uint16_t raw_rh;
-            SDK_DelayAtLeastUs(2500u, SDK_DEVICE_MAXIMUM_CPU_CLOCK_FREQUENCY);
+            SDK_DelayAtLeastUs(2500u, CoreClockHz());
             if (ShieldBusReadRaw(s_shield_sht_use_touch_bus, s_shield_sht_addr, raw, 6u) &&
                 ShieldSht40CrcOk(&raw[0], raw[2]) &&
                 ShieldSht40CrcOk(&raw[3], raw[5]))
@@ -1291,6 +1411,11 @@ static const char *ShieldImuName(uint8_t who)
     return "UNKNOWN";
 }
 
+static bool ShieldImuSupportsShub(uint8_t who)
+{
+    return (who == SHIELD_IMU_WHOAMI_LSM6DSO16IS) || (who == SHIELD_IMU_WHOAMI_LSM6DSV16X);
+}
+
 static void ShieldSensorScanLog(void)
 {
 #if EDGEAI_ENABLE_SHIELD_SENSOR_SCAN_LOG
@@ -1388,7 +1513,7 @@ static void ShieldSensorScanLog(void)
     {
         ShieldGyroInit();
     }
-    if (s_shield_gyro_ready && (s_shield_gyro_who == SHIELD_IMU_WHOAMI_LSM6DSO16IS))
+    if (s_shield_gyro_ready && ShieldImuSupportsShub(s_shield_gyro_who))
     {
         static const uint8_t stts_addrs[] = {0x3Cu, 0x3Du, 0x3Eu, 0x3Fu, 0x38u};
         uint8_t who = 0u;
@@ -1455,7 +1580,7 @@ static int SensorScanModeMain(void)
     core_hz = CLOCK_GetCoreSysClkFreq();
     if (core_hz == 0u)
     {
-        core_hz = SDK_DEVICE_MAXIMUM_CPU_CLOCK_FREQUENCY;
+        core_hz = CoreClockHz();
     }
 
     PRINTF("SENSOR_SCAN_MODE active\r\n");
@@ -1531,6 +1656,7 @@ static void TouchInit(void)
 
     s_touch_ready = false;
     s_touch_was_down = false;
+    s_touch_recover_backoff = 0u;
 
     if (!TouchI2CInit())
     {
@@ -1671,7 +1797,6 @@ static void ShieldGyroInit(void)
             break;
         }
     }
-
     if (!s_shield_gyro_ready)
     {
         if (!s_shield_gyro_missing_logged)
@@ -1704,24 +1829,13 @@ static void ShieldGyroUpdate(void)
 {
     uint8_t raw_g[6];
     uint8_t raw_a[6];
-    int16_t gx_raw;
-    int16_t gy_raw;
-    int16_t gz_raw;
     int16_t ax_raw;
     int16_t ay_raw;
     int16_t az_raw;
-    int32_t gx_mdps;
-    int32_t gy_mdps;
-    int32_t gz_mdps;
+    int32_t accel_mg_per_lsb_x1000;
     int32_t ax_mg;
     int32_t ay_mg;
     int32_t az_mg;
-    int32_t disp_x;
-    int32_t disp_y;
-    int32_t disp_z;
-    int16_t gx_ui;
-    int16_t gy_ui;
-    int16_t gz_ui;
     int16_t filt_ax;
     int16_t filt_ay;
     int16_t filt_az;
@@ -1781,48 +1895,27 @@ static void ShieldGyroUpdate(void)
     s_shield_gyro_read_fail_streak = 0u;
     s_shield_gyro_read_fail_logged = false;
 
-    gx_raw = (int16_t)(((uint16_t)raw_g[1] << 8) | raw_g[0]);
-    gy_raw = (int16_t)(((uint16_t)raw_g[3] << 8) | raw_g[2]);
-    gz_raw = (int16_t)(((uint16_t)raw_g[5] << 8) | raw_g[4]);
     ax_raw = (int16_t)(((uint16_t)raw_a[1] << 8) | raw_a[0]);
     ay_raw = (int16_t)(((uint16_t)raw_a[3] << 8) | raw_a[2]);
     az_raw = (int16_t)(((uint16_t)raw_a[5] << 8) | raw_a[4]);
 
-    /* FS=2000dps sensitivity is 70 mdps/LSB for LSM6-family parts. */
-    gx_mdps = (int32_t)gx_raw * 70;
-    gy_mdps = (int32_t)gy_raw * 70;
-    gz_mdps = (int32_t)gz_raw * 70;
+    /* LSM6DSV16X reads ~2x high with 0.122 mg/LSB on this setup; use 0.061 mg/LSB. */
+    accel_mg_per_lsb_x1000 = (s_shield_gyro_who == SHIELD_IMU_WHOAMI_LSM6DSV16X) ? 61 : 122;
+    ax_mg = ((int32_t)ax_raw * accel_mg_per_lsb_x1000) / 1000;
+    ay_mg = ((int32_t)ay_raw * accel_mg_per_lsb_x1000) / 1000;
+    az_mg = ((int32_t)az_raw * accel_mg_per_lsb_x1000) / 1000;
 
-    /* Higher sensitivity mapping so live motion is visible without fast swings. */
-    gx_ui = (int16_t)(gx_mdps / 125);
-    gy_ui = (int16_t)(gy_mdps / 125);
-    gz_ui = (int16_t)(gz_mdps / 125);
-    /* Accel FS=4g sensitivity ~= 0.122 mg/LSB. */
-    ax_mg = ((int32_t)ax_raw * 122) / 1000;
-    ay_mg = ((int32_t)ay_raw * 122) / 1000;
-    az_mg = ((int32_t)az_raw * 122) / 1000;
-
-    /* Tilt-hold behavior: accel provides absolute orientation, gyro adds transient motion boost. */
-    filt_ax = (int16_t)((s_accel_x_mg * 3 + ay_mg) / 4);
-    filt_ay = (int16_t)((s_accel_y_mg * 3 + ax_mg) / 4);
+    /* Stable absolute tilt mapping from accel only (no gyro boost, no axis swap). */
+    filt_ax = (int16_t)((s_accel_x_mg * 3 + ax_mg) / 4);
+    filt_ay = (int16_t)((s_accel_y_mg * 3 + ay_mg) / 4);
     filt_az = (int16_t)((s_accel_z_mg * 3 + az_mg) / 4);
     s_accel_x_mg = filt_ax;
     s_accel_y_mg = filt_ay;
     s_accel_z_mg = filt_az;
 
-    disp_x = (int32_t)filt_ax + ((int32_t)gy_ui / 2);
-    disp_y = (int32_t)filt_ay + ((int32_t)gx_ui / 2);
-    disp_z = (int32_t)filt_az + ((int32_t)gz_ui / 2);
-    if (disp_x > 2000) disp_x = 2000;
-    if (disp_x < -2000) disp_x = -2000;
-    if (disp_y > 2000) disp_y = 2000;
-    if (disp_y < -2000) disp_y = -2000;
-    if (disp_z > 4000) disp_z = 4000;
-    if (disp_z < -4000) disp_z = -4000;
-
-    s_ui_gyro_x = (int16_t)((s_ui_gyro_x * 3 + disp_x) / 4);
-    s_ui_gyro_y = (int16_t)((s_ui_gyro_y * 3 + disp_y) / 4);
-    s_ui_gyro_z = (int16_t)((s_ui_gyro_z * 3 + disp_z) / 4);
+    s_ui_gyro_x = filt_ax;
+    s_ui_gyro_y = filt_ay;
+    s_ui_gyro_z = filt_az;
     GaugeRender_SetLinearAccel(s_accel_x_mg, s_accel_y_mg, s_accel_z_mg, true);
     GaugeRender_SetAccel(s_ui_gyro_x, s_ui_gyro_y, s_ui_gyro_z, true);
 }
@@ -2124,8 +2217,18 @@ static bool TouchGetPoint(int32_t *x_out, int32_t *y_out)
     int32_t res_x;
     status_t st = kStatus_Fail;
 
-    if (!s_touch_ready || (x_out == NULL) || (y_out == NULL))
+    if ((x_out == NULL) || (y_out == NULL))
     {
+        return false;
+    }
+
+    if (!s_touch_ready)
+    {
+        if (++s_touch_recover_backoff >= 200u)
+        {
+            s_touch_recover_backoff = 0u;
+            TouchInit();
+        }
         return false;
     }
 
@@ -2141,12 +2244,19 @@ static bool TouchGetPoint(int32_t *x_out, int32_t *y_out)
         {
             break;
         }
-        SDK_DelayAtLeastUs(800u, SDK_DEVICE_MAXIMUM_CPU_CLOCK_FREQUENCY);
+        SDK_DelayAtLeastUs(800u, CoreClockHz());
     }
     if (st != kStatus_Success)
     {
+        if (++s_touch_recover_backoff >= 20u)
+        {
+            s_touch_recover_backoff = 0u;
+            (void)TouchI2CRecover();
+            TouchInit();
+        }
         return false;
     }
+    s_touch_recover_backoff = 0u;
 
     for (uint8_t i = 0u; i < point_count; i++)
     {
@@ -2278,20 +2388,17 @@ int main(void)
     uint32_t temp_tick_accum_us = 0u;
     uint32_t shield_aux_tick_accum_us = 0u;
     uint32_t accel_test_tick_accum_us = 0u;
-    uint32_t rtc_ds = 0u;
-    uint32_t rtc_ss = 0u;
-    uint32_t rtc_mm = 0u;
-    uint32_t rtc_hh = 0u;
+    uint32_t runtime_elapsed_ds = 0u;
+    uint32_t runtime_displayed_sec = UINT32_MAX;
     uint32_t rec_elapsed_ds = 0u;
     uint32_t play_off = 0u;
     uint32_t play_cnt = 0u;
     uint32_t rec_cnt = 0u;
     const power_sample_t *sample;
-    uint32_t core_hz;
-    uint32_t cycle_prev = 0u;
-    uint64_t loop_cycle_us_num_rem = 0u;
-    bool cycle_clock_ready = false;
     anomaly_mode_t anom_mode;
+    uint64_t time_prev_ticks = 0u;
+    uint64_t time_us_rem = 0u;
+    uint64_t runtime_clock_start_ticks = 0u;
 
     BOARD_InitHardware();
     ext_flash_ok = ExtFlashRecorder_Init();
@@ -2312,6 +2419,9 @@ int main(void)
     BoardTempUpdate();
     ShieldGyroUpdate();
     ShieldAuxInit();
+    (void)TimebaseInit();
+    time_prev_ticks = TimebaseNowTicks();
+    runtime_clock_start_ticks = time_prev_ticks;
     GaugeRender_SetRuntimeClock(0u, 0u, 0u, 0u, true);
     GaugeRender_SetHelpVisible(false);
     GaugeRender_SetSettingsVisible(false);
@@ -2326,19 +2436,6 @@ int main(void)
                                (uint8_t)s_anom_out.channel_level[ANOMALY_CH_AZ],
                                (uint8_t)s_anom_out.channel_level[ANOMALY_CH_TEMP],
                                (uint8_t)s_anom_out.overall_level);
-    core_hz = CLOCK_GetCoreSysClkFreq();
-    if (core_hz == 0u)
-    {
-        core_hz = SDK_DEVICE_MAXIMUM_CPU_CLOCK_FREQUENCY;
-    }
-#if defined(DWT) && defined(CoreDebug)
-    CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
-    DWT->CYCCNT = 0u;
-    DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
-    cycle_prev = DWT->CYCCNT;
-    cycle_clock_ready = true;
-#endif
-
     sample = GetFrameSample();
     if (lcd_ok && (sample != NULL))
     {
@@ -2348,6 +2445,10 @@ int main(void)
     if (!prev_record_mode)
     {
         playback_active = ext_flash_ok && ExtFlashRecorder_StartPlayback();
+        runtime_elapsed_ds = 0u;
+        runtime_displayed_sec = UINT32_MAX;
+        runtime_clock_start_ticks = TimebaseNowTicks();
+        GaugeRender_SetRuntimeClock(0u, 0u, 0u, 0u, true);
         PRINTF("EXT_FLASH_PLAY: %s\r\n", playback_active ? "ready" : "no_data");
         if (playback_active && ExtFlashRecorder_GetPlaybackInfo(&play_off, &play_cnt))
         {
@@ -2518,6 +2619,10 @@ int main(void)
         if (timeline_changed && !GaugeRender_IsRecordMode() && !GaugeRender_IsRecordConfirmActive())
         {
             playback_active = ext_flash_ok && ExtFlashRecorder_StartPlayback();
+            runtime_elapsed_ds = 0u;
+            runtime_displayed_sec = UINT32_MAX;
+            runtime_clock_start_ticks = TimebaseNowTicks();
+            GaugeRender_SetRuntimeClock(0u, 0u, 0u, 0u, true);
             PRINTF("EXT_FLASH_PLAY: %s\r\n", playback_active ? "restart" : "no_data");
             if (playback_active && ExtFlashRecorder_GetPlaybackInfo(&play_off, &play_cnt))
             {
@@ -2532,7 +2637,10 @@ int main(void)
             {
                 GaugeRender_SetRecordMode(true);
                 playback_active = false;
+                runtime_elapsed_ds = 0u;
                 rec_elapsed_ds = 0u;
+                runtime_displayed_sec = UINT32_MAX;
+                runtime_clock_start_ticks = TimebaseNowTicks();
                 GaugeRender_SetRuntimeClock(0u, 0u, 0u, 0u, true);
                 if (anom_mode == ANOMALY_MODE_TRAINED_MONITOR)
                 {
@@ -2545,6 +2653,10 @@ int main(void)
             {
                 GaugeRender_SetRecordMode(false);
                 playback_active = ext_flash_ok && ExtFlashRecorder_StartPlayback();
+                runtime_elapsed_ds = 0u;
+                runtime_displayed_sec = UINT32_MAX;
+                runtime_clock_start_ticks = TimebaseNowTicks();
+                GaugeRender_SetRuntimeClock(0u, 0u, 0u, 0u, true);
                 PRINTF("EXT_FLASH_REC: clear_failed\r\n");
             }
             if (lcd_ok)
@@ -2564,6 +2676,10 @@ int main(void)
                     AnomalyEngine_StopTraining();
                 }
                 playback_active = ext_flash_ok && ExtFlashRecorder_StartPlayback();
+                runtime_elapsed_ds = 0u;
+                runtime_displayed_sec = UINT32_MAX;
+                runtime_clock_start_ticks = TimebaseNowTicks();
+                GaugeRender_SetRuntimeClock(0u, 0u, 0u, 0u, true);
                 PRINTF("EXT_FLASH_PLAY: %s\r\n", playback_active ? "ready" : "no_data");
                 if (playback_active && ExtFlashRecorder_GetPlaybackInfo(&play_off, &play_cnt))
                 {
@@ -2577,6 +2693,11 @@ int main(void)
                     AnomalyEngine_StartTraining();
                 }
                 playback_active = false;
+                runtime_elapsed_ds = 0u;
+                rec_elapsed_ds = 0u;
+                runtime_displayed_sec = UINT32_MAX;
+                runtime_clock_start_ticks = TimebaseNowTicks();
+                GaugeRender_SetRuntimeClock(0u, 0u, 0u, 0u, true);
                 PRINTF("EXT_FLASH_REC: active\r\n");
                 if (ext_flash_ok && ExtFlashRecorder_GetRecordInfo(&rec_cnt))
                 {
@@ -2589,26 +2710,14 @@ int main(void)
 
         {
             uint32_t elapsed_loop_us;
-            if (cycle_clock_ready)
+            if (s_timebase_ready)
             {
-#if defined(DWT)
-                uint32_t cycle_now = DWT->CYCCNT;
-                uint32_t cycle_delta = cycle_now - cycle_prev;
-                uint64_t loop_cycle_us_num = ((uint64_t)cycle_delta * 1000000ull) + loop_cycle_us_num_rem;
-                if ((cycle_delta == 0u) || (core_hz == 0u))
-                {
-                    cycle_prev = cycle_now;
-                    elapsed_loop_us = TOUCH_POLL_DELAY_US;
-                }
-                else
-                {
-                    cycle_prev = cycle_now;
-                    elapsed_loop_us = (uint32_t)(loop_cycle_us_num / core_hz);
-                    loop_cycle_us_num_rem = (loop_cycle_us_num % core_hz);
-                }
-#else
-                elapsed_loop_us = TOUCH_POLL_DELAY_US;
-#endif
+                uint64_t now_ticks = TimebaseNowTicks();
+                uint64_t dt_ticks = now_ticks - time_prev_ticks;
+                uint64_t us_num = (dt_ticks * 1000000ull) + time_us_rem;
+                time_prev_ticks = now_ticks;
+                elapsed_loop_us = (uint32_t)(us_num / s_timebase_hz);
+                time_us_rem = us_num % s_timebase_hz;
             }
             else
             {
@@ -2687,23 +2796,27 @@ int main(void)
             runtime_clock_tick_accum_us -= RUNTIME_CLOCK_PERIOD_US;
             if (!record_mode && !playback_active)
             {
-                rtc_ds++;
-                if (rtc_ds >= 10u)
+                uint32_t elapsed_sec;
+                if (s_timebase_ready && (s_timebase_hz != 0u))
                 {
-                    rtc_ds = 0u;
-                    rtc_ss++;
-                    if (rtc_ss >= 60u)
-                    {
-                        rtc_ss = 0u;
-                        rtc_mm++;
-                        if (rtc_mm >= 60u)
-                        {
-                            rtc_mm = 0u;
-                            rtc_hh = (rtc_hh + 1u) % 24u;
-                        }
-                    }
+                    uint64_t now_ticks = TimebaseNowTicks();
+                    uint64_t dt_ticks = (now_ticks >= runtime_clock_start_ticks) ? (now_ticks - runtime_clock_start_ticks) : 0u;
+                    elapsed_sec = (uint32_t)(dt_ticks / s_timebase_hz);
+                    runtime_elapsed_ds = elapsed_sec * 10u;
                 }
-                GaugeRender_SetRuntimeClock((uint8_t)rtc_hh, (uint8_t)rtc_mm, (uint8_t)rtc_ss, (uint8_t)rtc_ds, true);
+                else
+                {
+                    runtime_elapsed_ds++;
+                    elapsed_sec = runtime_elapsed_ds / 10u;
+                }
+
+                if (elapsed_sec != runtime_displayed_sec)
+                {
+                    uint8_t ch, cm, cs, cds;
+                    ClockFromDeciseconds(elapsed_sec * 10u, &ch, &cm, &cs, &cds);
+                    GaugeRender_SetRuntimeClock(ch, cm, cs, 0u, true);
+                    runtime_displayed_sec = elapsed_sec;
+                }
             }
         }
 
@@ -2718,6 +2831,19 @@ int main(void)
             recplay_tick_accum_us -= RECPLAY_TICK_PERIOD_US;
             if (ext_flash_ok && record_mode)
             {
+                uint32_t rec_sec;
+                if (s_timebase_ready && (s_timebase_hz != 0u))
+                {
+                    uint64_t now_ticks = TimebaseNowTicks();
+                    uint64_t dt_ticks = (now_ticks >= runtime_clock_start_ticks) ? (now_ticks - runtime_clock_start_ticks) : 0u;
+                    rec_elapsed_ds = (uint32_t)((dt_ticks * 10ull) / s_timebase_hz);
+                }
+                else
+                {
+                    rec_elapsed_ds++;
+                }
+                rec_sec = rec_elapsed_ds / 10u;
+
                 if (!ExtFlashRecorder_AppendSampleEx(s_accel_x_mg,
                                                      s_accel_y_mg,
                                                      s_accel_z_mg,
@@ -2732,9 +2858,9 @@ int main(void)
                 else
                 {
                     uint8_t ch, cm, cs, cds;
-                    ClockFromDeciseconds(rec_elapsed_ds, &ch, &cm, &cs, &cds);
-                    GaugeRender_SetRuntimeClock(ch, cm, cs, cds, true);
-                    rec_elapsed_ds++;
+                    ClockFromDeciseconds(rec_sec * 10u, &ch, &cm, &cs, &cds);
+                    GaugeRender_SetRuntimeClock(ch, cm, cs, 0u, true);
+                    runtime_displayed_sec = rec_sec;
                     GaugeRender_SetPlayhead(99u, true);
                 }
             }
@@ -2756,8 +2882,10 @@ int main(void)
                     GaugeRender_SetBoardTempC10(s_temp_c10, true);
                     {
                         uint8_t ch, cm, cs, cds;
-                        ClockFromDeciseconds(playback_sample.ts_ds, &ch, &cm, &cs, &cds);
-                        GaugeRender_SetRuntimeClock(ch, cm, cs, cds, true);
+                        uint32_t play_sec = playback_sample.ts_ds / 10u;
+                        ClockFromDeciseconds(play_sec * 10u, &ch, &cm, &cs, &cds);
+                        GaugeRender_SetRuntimeClock(ch, cm, cs, 0u, true);
+                        runtime_displayed_sec = play_sec;
                     }
                     if (ExtFlashRecorder_GetPlaybackInfo(&play_off, &play_cnt) && (play_cnt > 0u))
                     {
@@ -2816,7 +2944,7 @@ int main(void)
             }
         }
 
-        SDK_DelayAtLeastUs(TOUCH_POLL_DELAY_US, core_hz);
+        DelayUsByTimebase(TOUCH_POLL_DELAY_US);
     }
 #endif
 }

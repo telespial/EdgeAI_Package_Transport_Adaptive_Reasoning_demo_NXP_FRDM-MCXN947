@@ -14,8 +14,7 @@ endif()
 
 mcux_add_source(
     BASE_PATH ${EDGEAI_ROOT}
-    SOURCES src/edgeai_package_transport_anomaly_demo.c
-            src/gauge_style.c
+    SOURCES src/gauge_style.c
             src/power_data_source.c
             src/gauge_render.c
             src/fxls8974cf.c
@@ -25,6 +24,18 @@ mcux_add_source(
             src/text5x7.c
 )
 
+if(EDGEAI_TIMEBASE_TEST_MODE)
+    mcux_add_source(
+        BASE_PATH ${EDGEAI_ROOT}
+        SOURCES src/timebase_test_main.c
+    )
+else()
+    mcux_add_source(
+        BASE_PATH ${EDGEAI_ROOT}
+        SOURCES src/edgeai_package_transport_anomaly_demo.c
+    )
+endif()
+
 mcux_add_include(
     BASE_PATH ${EDGEAI_ROOT}
     INCLUDES src
@@ -33,6 +44,12 @@ mcux_add_include(
 mcux_add_source(
     BASE_PATH ${SdkRootDirPath}
     SOURCES components/touch/gt911/fsl_gt911.c
+            drivers/ostimer/fsl_ostimer.c
+)
+
+mcux_add_include(
+    BASE_PATH ${SdkRootDirPath}
+    INCLUDES drivers/ostimer
 )
 
 mcux_add_include(
@@ -45,6 +62,7 @@ include(${SdkRootDirPath}/${board_root}/${board}/demo_apps/edgeai_package_transp
 option(EDGEAI_SENSOR_SCAN_MODE "Build firmware in UART-only sensor scan mode" OFF)
 option(EDGEAI_SHIELD_SCAN_DIAG "Enable broad shield datastream diagnostics" OFF)
 option(EDGEAI_SHIELD_SENSOR_SCAN_LOG "Enable shield sensor probe logging" OFF)
+option(EDGEAI_TIMEBASE_TEST_MODE "Build firmware in 32k crystal elapsed-time test mode" OFF)
 
 if(EDGEAI_SENSOR_SCAN_MODE)
     add_compile_definitions(EDGEAI_SENSOR_SCAN_MODE=1)
@@ -54,6 +72,9 @@ if(EDGEAI_SHIELD_SCAN_DIAG)
 endif()
 if(EDGEAI_SHIELD_SENSOR_SCAN_LOG)
     add_compile_definitions(EDGEAI_ENABLE_SHIELD_SENSOR_SCAN_LOG=1)
+endif()
+if(EDGEAI_TIMEBASE_TEST_MODE)
+    add_compile_definitions(EDGEAI_TIMEBASE_TEST_MODE=1)
 endif()
 
 mcux_convert_binary(BINARY ${APPLICATION_BINARY_DIR}/${MCUX_SDK_PROJECT_NAME}.bin)

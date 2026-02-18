@@ -1,15 +1,30 @@
 # Project State
 
-Last updated: 2026-02-17
+Last updated: 2026-02-18
 Project: `EdgeAI_Package_Transport_Anomaly_demo_NXP_FRDM-MCXN947`
 
 ## Current Baseline
 - Lifecycle: initialized
 - App target: `edgeai_package_transport_anomaly_demo`
 - Build target: `frdmmcxn947` / `cm33_core0`
-- Golden tag: `GOLDEN-20260217-233044Z`
+- Golden tag: `GOLDEN-20260218-172744`
 - Lock tag: `FAILSAFE-ACTIVE`
 - Failsafe binary: `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_failsafe_active.bin`
+
+## Update 2026-02-18 (Golden/Failsafe Refresh - 17:27:44Z)
+- Cut a new timestamped golden artifact and promoted active failsafe from current validated build output:
+  - `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_golden_20260218T172744Z.bin`
+  - `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_failsafe_active.bin`
+- sha256 (golden + failsafe + current build):
+  - `0e8432b5879efefe2977907e3ac6ec5f778e641f4f3f2d7b79b584eee059f25c`
+- Documentation synchronized in:
+  - `docs/START_HERE.md`
+  - `docs/PROJECT_STATE.md`
+  - `docs/RESTORE_POINTS.md`
+  - `docs/failsafe.md`
+  - `failsafe/README_GOLDEN.txt`
+  - `STATUS.md`
+  - `docs/COMMAND_LOG.md`
 
 ## Update 2026-02-17 (System Design + New Golden/Failsafe Baseline - 23:30:44Z)
 - Added comprehensive architecture/process/sensor design documentation:
@@ -19,7 +34,7 @@ Project: `EdgeAI_Package_Transport_Anomaly_demo_NXP_FRDM-MCXN947`
   - terminal compact environment line now `B H S` only
   - terminal `TEMP` and left temp bargraph now prioritize shield temperature (`STTS22H -> SHT40 -> board temp`)
 - Cut a new timestamped golden artifact and promoted active failsafe from current validated build output:
-  - `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_golden_20260217T233044Z.bin`
+  - `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_golden_20260218T172744Z.bin`
   - `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_failsafe_active.bin`
 - sha256 (golden + failsafe + current build):
   - `33398a0634891d6346019d018a01e99f9361b9d765e5b81752451489e5f23f9a`
@@ -51,7 +66,7 @@ Project: `EdgeAI_Package_Transport_Anomaly_demo_NXP_FRDM-MCXN947`
 - Rebuilt current source from:
   - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug`
 - Cut a new timestamped golden artifact and promoted active failsafe from the same built binary:
-  - `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_golden_20260217T222344Z.bin`
+  - `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_golden_20260218T172744Z.bin`
   - `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_failsafe_active.bin`
 - sha256 (golden + failsafe + current build):
   - `e480f4d64645d3b60d78e2463ae0e3e602f41db7388285d405e2d7f086d17e9f`
@@ -68,7 +83,7 @@ Project: `EdgeAI_Package_Transport_Anomaly_demo_NXP_FRDM-MCXN947`
 - Rebuilt current source from:
   - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug`
 - Cut a new timestamped golden artifact and promoted active failsafe from the same built binary:
-  - `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_golden_20260217T194818Z.bin`
+  - `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_golden_20260218T172744Z.bin`
   - `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_failsafe_active.bin`
 - sha256 (golden + failsafe + current build):
   - `408422db46e4caf20212f61ffda9e28629ed10a09ee85cd9220dfdf771ec13e4`
@@ -132,7 +147,7 @@ Project: `EdgeAI_Package_Transport_Anomaly_demo_NXP_FRDM-MCXN947`
 
 ## Update 2026-02-17 (Golden Restore Point Refresh - Local Only)
 - Created a new timestamped golden artifact from the current build output:
-  - `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_golden_20260217T003119Z.bin`
+  - `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_golden_20260218T172744Z.bin`
 - Refreshed active failsafe image to the same binary:
   - `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_failsafe_active.bin`
 - sha256 (golden + failsafe + current build):
@@ -233,7 +248,7 @@ Project: `EdgeAI_Package_Transport_Anomaly_demo_NXP_FRDM-MCXN947`
 ## Update 2026-02-16 (Golden Restore + Failsafe Freeze)
 - Published first golden restore point and promoted it to active failsafe.
 - Golden binary:
-  - `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_golden_20260216T045617Z.bin`
+  - `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_golden_20260218T172744Z.bin`
 - Active failsafe binary:
   - `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_failsafe_active.bin`
 - sha256:
@@ -246,7 +261,7 @@ Project: `EdgeAI_Package_Transport_Anomaly_demo_NXP_FRDM-MCXN947`
 
 ## Update 2026-02-16 (Golden Restore Re-Cut for Git Checkpoint)
 - Created a new timestamped golden artifact for this exact Git restore point:
-  - `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_golden_20260216T045918Z.bin`
+  - `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_golden_20260218T172744Z.bin`
 - Kept active failsafe image unchanged and locked:
   - `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_failsafe_active.bin`
 - sha256 (golden + failsafe):

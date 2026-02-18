@@ -60,6 +60,10 @@ static int16_t gMagXmgauss = 0;
 static int16_t gMagYmgauss = 0;
 static int16_t gMagZmgauss = 0;
 static bool gMagValid = false;
+static bool gMagEverValid = false;
+static int32_t gCompassVxFilt = 0;
+static int32_t gCompassVyFilt = 0;
+static bool gCompassFiltPrimed = false;
 static int16_t gBaroDhpa = 10132;
 static bool gBaroValid = false;
 static int16_t gShtTempC10 = 250;
@@ -166,6 +170,12 @@ enum
     REC_CONFIRM_NO_Y0 = 182,
     REC_CONFIRM_NO_X1 = 334,
     REC_CONFIRM_NO_Y1 = 204,
+    GYRO_WIDGET_CX = 88,
+    GYRO_WIDGET_R = 62,
+    GYRO_WIDGET_CY = 179 + ((2 * GYRO_WIDGET_R) / 3),
+    COMPASS_WIDGET_R = 30,
+    COMPASS_WIDGET_CX = GYRO_WIDGET_CX,
+    COMPASS_WIDGET_CY = GYRO_WIDGET_CY - GYRO_WIDGET_R - 68,
 };
 
 static int32_t ClampI32(int32_t v, int32_t lo, int32_t hi)
@@ -173,6 +183,11 @@ static int32_t ClampI32(int32_t v, int32_t lo, int32_t hi)
     if (v < lo) return lo;
     if (v > hi) return hi;
     return v;
+}
+
+static int32_t AbsI32(int32_t v)
+{
+    return (v < 0) ? -v : v;
 }
 
 static uint8_t ScaleTo8(uint32_t value, uint32_t max_value)
@@ -582,11 +597,109 @@ static int16_t ClampI16(int32_t v, int32_t lo, int32_t hi)
     return (int16_t)v;
 }
 
+static void CompassDisplayVector(int32_t *vx, int32_t *vy, bool *valid)
+{
+    int32_t mx = gMagXmgauss;
+    int32_t my = gMagYmgauss;
+
+    if (!gMagEverValid)
+    {
+        *vx = 0;
+        *vy = 0;
+        *valid = false;
+        return;
+    }
+
+    *vx = mx;
+    *vy = my;
+    *valid = ((mx != 0) || (my != 0));
+}
+
+static void DrawCompassWidgetFrame(const gauge_style_preset_t *style)
+{
+    int32_t cx = COMPASS_WIDGET_CX;
+    int32_t cy = COMPASS_WIDGET_CY;
+    int32_t r = COMPASS_WIDGET_R;
+
+    DrawRing(cx, cy, r + 2, 2, RGB565(70, 120, 165), RGB565(7, 10, 14));
+    DrawRing(cx, cy, r - 2, 1, RGB565(36, 70, 98), RGB565(9, 12, 16));
+    DrawLine(cx, cy - r + 2, cx, cy + r - 2, 1, RGB565(50, 70, 92));
+    DrawLine(cx - r + 2, cy, cx + r - 2, cy, 1, RGB565(50, 70, 92));
+    DrawTextUi(cx - (edgeai_text5x7_width(1, "N") / 2), cy - r - 10, 1, "N", style->palette.text_primary);
+    DrawTextUi(cx - (edgeai_text5x7_width(1, "S") / 2), cy + r + 4, 1, "S", style->palette.text_primary);
+    DrawTextUi(cx - r - 10, cy - 4, 1, "W", style->palette.text_primary);
+    DrawTextUi(cx + r + 4, cy - 4, 1, "E", style->palette.text_primary);
+}
+
+static void DrawCompassWidgetDynamic(void)
+{
+    int32_t cx = COMPASS_WIDGET_CX;
+    int32_t cy = COMPASS_WIDGET_CY;
+    int32_t r = COMPASS_WIDGET_R;
+    int32_t vx = 0;
+    int32_t vy = 0;
+    int32_t absmax;
+    int32_t nx_full;
+    int32_t ny_full;
+    int32_t nx;
+    int32_t ny;
+    int32_t tx;
+    int32_t ty;
+    bool valid = false;
+
+    par_lcd_s035_draw_filled_circle(cx, cy, r - 3, RGB565(8, 11, 15));
+    DrawLine(cx, cy - r + 4, cx, cy + r - 4, 1, RGB565(48, 72, 96));
+    DrawLine(cx - r + 4, cy, cx + r - 4, cy, 1, RGB565(48, 72, 96));
+
+    CompassDisplayVector(&vx, &vy, &valid);
+    if (!valid)
+    {
+        return;
+    }
+
+    if (!gCompassFiltPrimed)
+    {
+        gCompassVxFilt = vx;
+        gCompassVyFilt = vy;
+        gCompassFiltPrimed = true;
+    }
+    else
+    {
+        /* Keep the compass hand stable: 1-pole low-pass on raw vector. */
+        gCompassVxFilt = ((gCompassVxFilt * 7) + vx) / 8;
+        gCompassVyFilt = ((gCompassVyFilt * 7) + vy) / 8;
+    }
+
+    vx = gCompassVxFilt;
+    vy = gCompassVyFilt;
+    absmax = AbsI32(vx);
+    if (AbsI32(vy) > absmax)
+    {
+        absmax = AbsI32(vy);
+    }
+    if (absmax == 0)
+    {
+        return;
+    }
+
+    nx_full = (vx * (r - 5)) / absmax;
+    ny_full = (vy * (r - 5)) / absmax;
+    nx = nx_full / 2;
+    ny = ny_full / 2;
+    tx = -((nx_full * 3) / 4);
+    ty = -((ny_full * 3) / 4);
+
+    DrawLine(cx, cy, cx + nx, cy + ny, 2, RGB565(255, 255, 255));
+    DrawLine(cx, cy, cx + tx, cy + ty, 2, RGB565(180, 230, 255));
+    par_lcd_s035_draw_filled_circle(cx + nx, cy + ny, 2, RGB565(255, 255, 255));
+    par_lcd_s035_draw_filled_circle(cx, cy, 2, RGB565(210, 236, 255));
+}
+
 static void DrawGyroWidgetFrame(const gauge_style_preset_t *style)
 {
-    int32_t cx = 88;
-    int32_t cy = 179;
-    int32_t r = 62;
+    int32_t cx = GYRO_WIDGET_CX;
+    int32_t cy = GYRO_WIDGET_CY;
+    int32_t r = GYRO_WIDGET_R;
     int32_t i;
     static const int8_t star_dx[8] = {0, 71, 100, 71, 0, -71, -100, -71};
     static const int8_t star_dy[8] = {-100, -71, 0, 71, 100, 71, 0, -71};
@@ -607,13 +720,15 @@ static void DrawGyroWidgetFrame(const gauge_style_preset_t *style)
     DrawLine(cx - r + 8, cy, cx + r - 8, cy, 1, RGB565(70, 84, 102));
     DrawLine(cx, cy - r + 8, cx, cy + r - 8, 1, RGB565(70, 84, 102));
     DrawTextUi(cx - (edgeai_text5x7_width(1, "GYRO") / 2), cy - r - 19, 1, "GYRO", style->palette.text_primary);
+    DrawCompassWidgetFrame(style);
+    DrawCompassWidgetDynamic();
 }
 
 static void DrawGyroWidgetDynamic(const gauge_style_preset_t *style)
 {
-    int32_t cx = 88;
-    int32_t cy = 179;
-    int32_t r = 62;
+    int32_t cx = GYRO_WIDGET_CX;
+    int32_t cy = GYRO_WIDGET_CY;
+    int32_t r = GYRO_WIDGET_R;
     int16_t nx = ClampI16(gAccelXmg, -1000, 1000);
     int16_t ny = ClampI16(gAccelYmg, -1000, 1000);
     int32_t pitch_px;
@@ -665,6 +780,8 @@ static void DrawGyroWidgetDynamic(const gauge_style_preset_t *style)
         ball_color = RGB565(80, 236, 255);
     }
 
+    DrawCompassWidgetDynamic();
+
     /* Clear a slightly larger dynamic area to avoid edge trails from moving line/marker glyphs. */
     par_lcd_s035_draw_filled_circle(cx, cy, r - 6, RGB565(8, 11, 15));
     DrawRing(cx, cy, r - 13, 1, RGB565(24, 44, 64), RGB565(8, 11, 15));
@@ -678,7 +795,7 @@ static void DrawGyroWidgetDynamic(const gauge_style_preset_t *style)
     }
 
     pitch_px = (ny * (r - 16)) / 1000;
-    roll_px = (nx * (r - 18)) / 1000;
+    roll_px = (-nx * (r - 18)) / 1000;
     span = r - 17;
     span_short = r - 28;
     y_mid = cy + pitch_px;
@@ -1120,9 +1237,15 @@ static void DrawTerminalDynamic(const gauge_style_preset_t *style, const power_s
         snprintf(line, sizeof(line), "ACC +0.000 +0.000 +1.000g");
     }
     DrawTerminalLine(TERM_Y + 90, line, RGB565(170, 240, 255));
-    if (gMagValid)
+    if (gMagEverValid)
     {
-        snprintf(line, sizeof(line), "MAG X%+4d Y%+4d Z%+4d", (int)gMagXmgauss, (int)gMagYmgauss, (int)gMagZmgauss);
+        snprintf(line,
+                 sizeof(line),
+                 "MAG X%+4d Y%+4d Z%+4d%s",
+                 (int)gMagXmgauss,
+                 (int)gMagYmgauss,
+                 (int)gMagZmgauss,
+                 gMagValid ? "" : " !");
     }
     else
     {
@@ -1407,8 +1530,8 @@ static void DrawStaticDashboard(const gauge_style_preset_t *style, power_replay_
     DrawLine(TERM_X + TERM_W - 38, 78, TERM_X + TERM_W - 38, 258, 1, style->palette.text_primary);
     DrawLine(TERM_X + TERM_W - 38, 258, TERM_X + 14, 258, 1, style->palette.text_primary);
     par_lcd_s035_fill_rect(170, RTC_TEXT_Y - 2, 308, RTC_TEXT_Y + 15, RGB565(2, 3, 5));
-    rtc_x = ((PANEL_X0 + PANEL_X1) / 2) - (edgeai_text5x7_width(2, "--:--:--:-") / 2);
-    DrawTextUi(rtc_x, RTC_TEXT_Y, 2, "--:--:--:-", RGB565(120, 164, 188));
+    rtc_x = ((PANEL_X0 + PANEL_X1) / 2) - (edgeai_text5x7_width(2, "--:--:--") / 2);
+    DrawTextUi(rtc_x, RTC_TEXT_Y, 2, "--:--:--", RGB565(120, 164, 188));
     brand_x = ((PANEL_X0 + PANEL_X1) / 2) - (edgeai_text5x7_width(2, "NXP EDGEAI") / 2);
     DrawTextUi(brand_x, 286, 2, "NXP EDGEAI", RGB565(255, 208, 52));
 
@@ -1450,6 +1573,9 @@ bool GaugeRender_Init(void)
         gRecordConfirmActive = false;
         gRecordStartRequest = false;
         gModalWasActive = false;
+        gCompassVxFilt = 0;
+        gCompassVyFilt = 0;
+        gCompassFiltPrimed = false;
     }
     return gLcdReady;
 }
@@ -1472,9 +1598,13 @@ void GaugeRender_SetLinearAccel(int16_t ax_mg, int16_t ay_mg, int16_t az_mg, boo
 
 void GaugeRender_SetMag(int16_t mx_mgauss, int16_t my_mgauss, int16_t mz_mgauss, bool valid)
 {
-    gMagXmgauss = mx_mgauss;
-    gMagYmgauss = my_mgauss;
-    gMagZmgauss = mz_mgauss;
+    if (valid)
+    {
+        gMagXmgauss = mx_mgauss;
+        gMagYmgauss = my_mgauss;
+        gMagZmgauss = mz_mgauss;
+        gMagEverValid = true;
+    }
     gMagValid = valid;
 }
 
@@ -1658,15 +1788,14 @@ void GaugeRender_DrawFrame(const power_sample_t *sample, bool ai_enabled, power_
         int32_t rtc_x;
         if (gRtcValid)
         {
-            snprintf(rtc_line, sizeof(rtc_line), "%02u:%02u:%02u:%1u",
+            snprintf(rtc_line, sizeof(rtc_line), "%02u:%02u:%02u",
                      (unsigned int)gRtcHh,
                      (unsigned int)gRtcMm,
-                     (unsigned int)gRtcSs,
-                     (unsigned int)gRtcDs);
+                     (unsigned int)gRtcSs);
         }
         else
         {
-            snprintf(rtc_line, sizeof(rtc_line), "--:--:--:-");
+            snprintf(rtc_line, sizeof(rtc_line), "--:--:--");
         }
         par_lcd_s035_fill_rect(170, RTC_TEXT_Y - 2, 308, RTC_TEXT_Y + 15, RGB565(2, 3, 5));
         rtc_x = ((PANEL_X0 + PANEL_X1) / 2) - (edgeai_text5x7_width(2, rtc_line) / 2);

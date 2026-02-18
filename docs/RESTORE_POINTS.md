@@ -1,17 +1,17 @@
 # Restore Points
 
-Last updated: 2026-02-17
+Last updated: 2026-02-18
 Project: `EdgeAI_Package_Transport_Anomaly_demo_NXP_FRDM-MCXN947`
 
 ## Active Golden
-- Golden tag: `GOLDEN-20260217-233044Z`
+- Golden tag: `GOLDEN-20260218-172744`
 - Lock tag: `FAILSAFE-ACTIVE`
-- Binary: `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_golden_20260217T233044Z.bin`
-- Checksum (sha256): `33398a0634891d6346019d018a01e99f9361b9d765e5b81752451489e5f23f9a`
+- Binary: `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_golden_20260218T172744Z.bin`
+- Checksum (sha256): `0e8432b5879efefe2977907e3ac6ec5f778e641f4f3f2d7b79b584eee059f25c`
 
 ## Failsafe Active
 - Binary: `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_failsafe_active.bin`
-- Checksum (sha256): `33398a0634891d6346019d018a01e99f9361b9d765e5b81752451489e5f23f9a`
+- Checksum (sha256): `0e8432b5879efefe2977907e3ac6ec5f778e641f4f3f2d7b79b584eee059f25c`
 
 ## Notes
 - This golden captures the current validated UI/data stack:

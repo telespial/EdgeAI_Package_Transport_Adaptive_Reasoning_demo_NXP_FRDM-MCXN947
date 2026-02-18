@@ -12,6 +12,7 @@
 ## Active Blockers
 - Elapsed runtime clock regressed: no longer matching real time; recent fixes introduced drift/backtracking in deciseconds. Last known-good elapsed behavior needs restore before further timing work. (not done 2026-02-17)
 - Run extended long-duration stability burn with all shield sensors enabled and recorder cycling.
+- Deferred note (2026-02-18): compass/magnetometer correlation issue traced to `SHIELD_MAG not_found` at runtime (LIS2MDL not detected on FC2/FC3/SHUB in current hardware state). MAG fallback to IMU is disabled to avoid false heading. Revisit after hardware path is restored.
 
 ## Verification Tasks
 - Revert/restore elapsed clock to last known-good build behavior, then re-verify against wall clock over 60s and 5min windows.

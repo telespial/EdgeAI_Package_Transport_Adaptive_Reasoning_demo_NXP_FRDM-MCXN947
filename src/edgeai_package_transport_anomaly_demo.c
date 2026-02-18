@@ -139,7 +139,6 @@ static int16_t s_ui_gyro_x = 0;
 static int16_t s_ui_gyro_y = 0;
 static int16_t s_ui_gyro_z = 0;
 static bool s_shield_mag_ready = false;
-static bool s_shield_mag_fallback_imu = false;
 static bool s_shield_baro_ready = false;
 static bool s_shield_sht_ready = false;
 static bool s_shield_stts_ready = false;
@@ -158,6 +157,7 @@ static uint8_t s_shield_stts_addr = 0u;
 static int16_t s_mag_x_mgauss = 0;
 static int16_t s_mag_y_mgauss = 0;
 static int16_t s_mag_z_mgauss = 0;
+static uint8_t s_shield_mag_reprobe_ticks = 0u;
 static int16_t s_baro_dhpa = 10132;
 static int16_t s_sht_temp_c10 = 250;
 static int16_t s_sht_rh_dpct = 500;
@@ -872,7 +872,7 @@ static void ShieldAuxSetRenderState(void)
     GaugeRender_SetMag(s_mag_x_mgauss,
                        s_mag_y_mgauss,
                        s_mag_z_mgauss,
-                       (s_shield_mag_ready || s_shield_mag_fallback_imu));
+                       s_shield_mag_ready);
     GaugeRender_SetBaro(s_baro_dhpa, s_shield_baro_ready);
     GaugeRender_SetSht(s_sht_temp_c10, s_sht_rh_dpct, s_shield_sht_ready);
     GaugeRender_SetStts(s_stts_temp_c10, s_shield_stts_ready);
@@ -886,7 +886,6 @@ static void ShieldAuxInit(void)
     uint8_t who = 0u;
 
     s_shield_mag_ready = false;
-    s_shield_mag_fallback_imu = false;
     s_shield_baro_ready = false;
     s_shield_sht_ready = false;
     s_shield_stts_ready = false;
@@ -956,11 +955,9 @@ static void ShieldAuxInit(void)
                    (unsigned int)s_shield_mag_addr);
         }
     }
-    else if (s_shield_gyro_ready)
+    else
     {
-        /* Fallback path when LIS2MDL is not present: keep compass/terminal fed from IMU tilt vector. */
-        s_shield_mag_fallback_imu = true;
-        PRINTF("SHIELD_MAG fallback=IMU\r\n");
+        PRINTF("SHIELD_MAG not_found\r\n");
     }
 
     for (uint32_t bi = 0u; bi < 2u; bi++)
@@ -1145,13 +1142,22 @@ static void ShieldAuxUpdate(void)
         else
         {
             s_shield_mag_ready = false;
+            s_shield_mag_reprobe_ticks = 4u;
         }
     }
-    else if (s_shield_mag_fallback_imu && s_shield_gyro_ready)
+    else
     {
-        s_mag_x_mgauss = s_accel_x_mg;
-        s_mag_y_mgauss = s_accel_y_mg;
-        s_mag_z_mgauss = s_accel_z_mg;
+        if (s_shield_mag_reprobe_ticks > 0u)
+        {
+            s_shield_mag_reprobe_ticks--;
+        }
+        else
+        {
+            /* Re-scan magnetometer path periodically when unavailable. */
+            s_shield_aux_init_done = false;
+            ShieldAuxInit();
+            s_shield_mag_reprobe_ticks = 4u;
+        }
     }
 
     if (s_shield_baro_ready)
@@ -2411,10 +2417,10 @@ int main(void)
     PowerData_SetAiAssistEnabled(ai_enabled);
     AnomalyEngine_Init();
     anom_mode = AnomalyEngine_GetMode();
-    TouchInit();
+    ShieldGyroInit();
     ShieldRunDatastreamDiagnostics();
     ShieldSensorScanLog();
-    ShieldGyroInit();
+    TouchInit();
     BoardTempInit();
     BoardTempUpdate();
     ShieldGyroUpdate();

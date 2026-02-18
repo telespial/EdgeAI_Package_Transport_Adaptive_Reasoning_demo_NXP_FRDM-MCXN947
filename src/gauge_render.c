@@ -665,9 +665,19 @@ static void DrawCompassWidgetDynamic(void)
     }
     else
     {
-        /* Keep the compass hand stable: 1-pole low-pass on raw vector. */
-        gCompassVxFilt = ((gCompassVxFilt * 7) + vx) / 8;
-        gCompassVyFilt = ((gCompassVyFilt * 7) + vy) / 8;
+        int32_t dvx = vx - gCompassVxFilt;
+        int32_t dvy = vy - gCompassVyFilt;
+        /* Track real heading motion quickly; only smooth tiny jitter. */
+        if ((AbsI32(dvx) > 6) || (AbsI32(dvy) > 6))
+        {
+            gCompassVxFilt = vx;
+            gCompassVyFilt = vy;
+        }
+        else
+        {
+            gCompassVxFilt = ((gCompassVxFilt * 3) + vx) / 4;
+            gCompassVyFilt = ((gCompassVyFilt * 3) + vy) / 4;
+        }
     }
 
     vx = gCompassVxFilt;

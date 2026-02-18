@@ -3,14 +3,14 @@
 Last updated: 2026-02-18
 
 - Project build target: `edgeai_package_transport_anomaly_demo` (`frdmmcxn947/cm33_core0`)
-- Current build status: PASS (`mcuxsdk_ws/build`)
+- Current build status: PASS (`mcuxsdk_ws/build_anomaly_adaptive`)
 - Flash status: PASS (FRDM-MCXN947 probe `UYLKOJI11H2B3`)
 
 ## Golden Baseline (Active)
-- Golden tag: `GOLDEN-20260218-172744`
+- Golden tag: `GOLDEN-20260218-200335`
 - Active failsafe: `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_failsafe_active.bin`
-- Golden image: `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_golden_20260218T172744Z.bin`
-- sha256: `0e8432b5879efefe2977907e3ac6ec5f778e641f4f3f2d7b79b584eee059f25c`
+- Golden image: `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_golden_20260218T200335Z.bin`
+- sha256: `fddffba4f9f21f96227b834fe4a7564fabe6fbed3df874082265ef3162cfe5b7`
 
 ## Frozen Features in Golden
 - Accelerometer sphere gauge with fast redraw.

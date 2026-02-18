@@ -5,7 +5,7 @@
 #include "fsl_flexspi_nor_flash.h"
 
 #define EDGEAI_FLEXSPI_INSTANCE (0u)
-#define EDGEAI_REC_MAGIC (0x52454334u)  /* "REC4" */
+#define EDGEAI_REC_MAGIC (0x52454335u)  /* "REC5" */
 #define EDGEAI_META_MAGIC (0x4D455441u) /* "META" */
 #define EDGEAI_MAX_PAGE_SIZE (1024u)
 
@@ -30,6 +30,13 @@ typedef struct
     int16_t gy_mdps;
     int16_t gz_mdps;
     int16_t temp_c10;
+    int16_t mag_x_mgauss;
+    int16_t mag_y_mgauss;
+    int16_t mag_z_mgauss;
+    int16_t baro_dhpa;
+    int16_t sht_temp_c10;
+    int16_t sht_rh_dpct;
+    int16_t stts_temp_c10;
     uint16_t reserved1;
     uint32_t ts_ds;
 } ext_flash_sample_record_t;
@@ -268,6 +275,13 @@ bool ExtFlashRecorder_AppendSampleEx(int16_t ax_mg,
                                      int16_t gy_mdps,
                                      int16_t gz_mdps,
                                      int16_t temp_c10,
+                                     int16_t mag_x_mgauss,
+                                     int16_t mag_y_mgauss,
+                                     int16_t mag_z_mgauss,
+                                     int16_t baro_dhpa,
+                                     int16_t sht_temp_c10,
+                                     int16_t sht_rh_dpct,
+                                     int16_t stts_temp_c10,
                                      uint32_t ts_ds)
 {
     ext_flash_sample_record_t rec;
@@ -305,6 +319,13 @@ bool ExtFlashRecorder_AppendSampleEx(int16_t ax_mg,
     rec.gy_mdps = gy_mdps;
     rec.gz_mdps = gz_mdps;
     rec.temp_c10 = temp_c10;
+    rec.mag_x_mgauss = mag_x_mgauss;
+    rec.mag_y_mgauss = mag_y_mgauss;
+    rec.mag_z_mgauss = mag_z_mgauss;
+    rec.baro_dhpa = baro_dhpa;
+    rec.sht_temp_c10 = sht_temp_c10;
+    rec.sht_rh_dpct = sht_rh_dpct;
+    rec.stts_temp_c10 = stts_temp_c10;
     rec.reserved1 = 0u;
     rec.ts_ds = ts_ds;
 
@@ -336,7 +357,21 @@ bool ExtFlashRecorder_AppendSampleEx(int16_t ax_mg,
 
 bool ExtFlashRecorder_AppendSample(int16_t ax_mg, int16_t ay_mg, int16_t az_mg, uint8_t temp_c)
 {
-    return ExtFlashRecorder_AppendSampleEx(ax_mg, ay_mg, az_mg, 0, 0, 0, (int16_t)temp_c * 10, 0u);
+    return ExtFlashRecorder_AppendSampleEx(ax_mg,
+                                           ay_mg,
+                                           az_mg,
+                                           0,
+                                           0,
+                                           0,
+                                           (int16_t)temp_c * 10,
+                                           0,
+                                           0,
+                                           0,
+                                           0,
+                                           0,
+                                           0,
+                                           0,
+                                           0u);
 }
 
 bool ExtFlashRecorder_IsReady(void)
@@ -410,6 +445,13 @@ bool ExtFlashRecorder_ReadNextSample(ext_flash_sample_t *sample)
     sample->gy_mdps = rec.gy_mdps;
     sample->gz_mdps = rec.gz_mdps;
     sample->temp_c10 = rec.temp_c10;
+    sample->mag_x_mgauss = rec.mag_x_mgauss;
+    sample->mag_y_mgauss = rec.mag_y_mgauss;
+    sample->mag_z_mgauss = rec.mag_z_mgauss;
+    sample->baro_dhpa = rec.baro_dhpa;
+    sample->sht_temp_c10 = rec.sht_temp_c10;
+    sample->sht_rh_dpct = rec.sht_rh_dpct;
+    sample->stts_temp_c10 = rec.stts_temp_c10;
 
     temp_c_rounded = (sample->temp_c10 >= 0) ? (sample->temp_c10 + 5) : (sample->temp_c10 - 5);
     temp_c_rounded /= 10;

@@ -35,6 +35,11 @@
 #define GAUGE_RENDER_SET_TUNE_W 80
 #define GAUGE_RENDER_SET_TUNE_H 24
 #define GAUGE_RENDER_SET_TUNE_GAP 10
+#define GAUGE_RENDER_SET_AI_X0 130
+#define GAUGE_RENDER_SET_AI_Y0 170
+#define GAUGE_RENDER_SET_AI_W 98
+#define GAUGE_RENDER_SET_AI_H 24
+#define GAUGE_RENDER_SET_AI_GAP 12
 #define GAUGE_RENDER_HELP_PANEL_X0 32
 #define GAUGE_RENDER_HELP_PANEL_Y0 24
 #define GAUGE_RENDER_HELP_PANEL_X1 448
@@ -62,6 +67,8 @@ void GaugeRender_SetAnomalyInfo(uint8_t mode,
                                 uint8_t overall_level);
 void GaugeRender_SetHelpVisible(bool visible);
 void GaugeRender_SetSettingsVisible(bool visible);
+void GaugeRender_SetLiveBannerMode(bool enabled);
+bool GaugeRender_IsLiveBannerMode(void);
 void GaugeRender_DrawGyroFast(void);
 bool GaugeRender_HandleTouch(int32_t x, int32_t y, bool pressed);
 uint8_t GaugeRender_GetTimelineHour(void);

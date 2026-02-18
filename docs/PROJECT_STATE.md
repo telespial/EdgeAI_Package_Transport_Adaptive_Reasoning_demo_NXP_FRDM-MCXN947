@@ -7,9 +7,24 @@ Project: `EdgeAI_Package_Transport_Anomaly_demo_NXP_FRDM-MCXN947`
 - Lifecycle: initialized
 - App target: `edgeai_package_transport_anomaly_demo`
 - Build target: `frdmmcxn947` / `cm33_core0`
-- Golden tag: `GOLDEN-20260218-172744`
+- Golden tag: `GOLDEN-20260218-200335`
 - Lock tag: `FAILSAFE-ACTIVE`
 - Failsafe binary: `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_failsafe_active.bin`
+
+## Update 2026-02-18 (Golden/Failsafe Refresh - 20:03:35Z)
+- Validated runtime reported working and cut new golden/failsafe artifacts from current build output:
+  - `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_golden_20260218T200335Z.bin`
+  - `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_failsafe_active.bin`
+- sha256 (golden + failsafe + current build):
+  - `fddffba4f9f21f96227b834fe4a7564fabe6fbed3df874082265ef3162cfe5b7`
+- Documentation synchronized in:
+  - `docs/START_HERE.md`
+  - `docs/PROJECT_STATE.md`
+  - `docs/RESTORE_POINTS.md`
+  - `docs/failsafe.md`
+  - `failsafe/README_GOLDEN.txt`
+  - `STATUS.md`
+  - `docs/COMMAND_LOG.md`
 
 ## Update 2026-02-18 (Golden/Failsafe Refresh - 17:27:44Z)
 - Cut a new timestamped golden artifact and promoted active failsafe from current validated build output:

@@ -1,5 +1,6 @@
 #include "gauge_render.h"
 
+#include <math.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -22,7 +23,13 @@ static uint8_t gPrevWear = 0u;
 static uint8_t gTraceAx[100];
 static uint8_t gTraceAy[100];
 static uint8_t gTraceAz[100];
+static uint8_t gTraceGx[100];
+static uint8_t gTraceGy[100];
+static uint8_t gTraceGz[100];
 static uint8_t gTraceTemp[100];
+static uint8_t gTraceBaro[100];
+static uint8_t gTraceMag[100];
+static uint8_t gTraceRh[100];
 static uint16_t gTraceCount = 0u;
 static bool gTraceReady = false;
 static uint32_t gFrameCounter = 0u;
@@ -64,6 +71,13 @@ static bool gMagEverValid = false;
 static int32_t gCompassVxFilt = 0;
 static int32_t gCompassVyFilt = 0;
 static bool gCompassFiltPrimed = false;
+static bool gMagCalPrimed = false;
+static int16_t gMagCalMinX = 0;
+static int16_t gMagCalMaxX = 0;
+static int16_t gMagCalMinY = 0;
+static int16_t gMagCalMaxY = 0;
+static int16_t gMagCalMinZ = 0;
+static int16_t gMagCalMaxZ = 0;
 static int16_t gBaroDhpa = 10132;
 static bool gBaroValid = false;
 static int16_t gShtTempC10 = 250;
@@ -90,10 +104,12 @@ static uint8_t gRtcDs = 0u;
 static bool gRtcValid = false;
 static bool gHelpVisible = false;
 static bool gSettingsVisible = false;
+static bool gLiveBannerMode = false;
 
 #define SCOPE_TRACE_POINTS 100u
 #define SCOPE_FAST_STEP_US 100000u
 #define SCOPE_SAMPLE_PERIOD_US 100000u
+#define MAG_CAL_MIN_SPAN 80
 
 #define RGB565(r, g, b) (uint16_t)((((uint16_t)(r) & 0xF8u) << 8) | (((uint16_t)(g) & 0xFCu) << 3) | (((uint16_t)(b) & 0xF8u) >> 3))
 #define WARN_YELLOW RGB565(255, 255, 0)
@@ -101,9 +117,15 @@ static bool gSettingsVisible = false;
 #define TRACE_AX_COLOR RGB565(80, 240, 255)
 #define TRACE_AY_COLOR RGB565(255, 180, 80)
 #define TRACE_AZ_COLOR RGB565(180, 120, 255)
+#define TRACE_GX_COLOR RGB565(255, 96, 96)
+#define TRACE_GY_COLOR RGB565(255, 220, 96)
+#define TRACE_GZ_COLOR RGB565(180, 255, 120)
 #define TRACE_TEMP_GREEN RGB565(64, 224, 96)
 #define TRACE_TEMP_YELLOW RGB565(255, 220, 72)
 #define TRACE_TEMP_RED RGB565(255, 72, 72)
+#define TRACE_BARO_COLOR RGB565(110, 190, 255)
+#define TRACE_MAG_COLOR RGB565(232, 120, 255)
+#define TRACE_RH_COLOR RGB565(120, 220, 255)
 
 enum
 {
@@ -185,9 +207,32 @@ static int32_t ClampI32(int32_t v, int32_t lo, int32_t hi)
     return v;
 }
 
-static int32_t AbsI32(int32_t v)
+static uint16_t HeadingDegFromMag(int32_t mx, int32_t my)
 {
-    return (v < 0) ? -v : v;
+    if ((mx == 0) && (my == 0))
+    {
+        return 0u;
+    }
+
+    /* 0 deg = up/North, 90 = East, 180 = South, 270 = West. */
+    {
+        float heading = atan2f((float)mx, (float)(-my)) * (180.0f / 3.14159265f);
+        uint16_t deg;
+        if (heading < 0.0f)
+        {
+            heading += 360.0f;
+        }
+        if (heading >= 360.0f)
+        {
+            heading -= 360.0f;
+        }
+        deg = (uint16_t)(heading + 0.5f);
+        if (deg >= 360u)
+        {
+            deg = 0u;
+        }
+        return deg;
+    }
 }
 
 static uint8_t ScaleTo8(uint32_t value, uint32_t max_value)
@@ -261,6 +306,45 @@ static void FormatShieldEnvCompact(char *out, size_t out_len)
              gShtValid ? ((gShtTempC10 < 0) ? "-" : "+") : "-",
              (int)(sht_abs / 10),
              (int)(sht_abs % 10));
+}
+
+static void FormatDewAltCompact(char *out, size_t out_len)
+{
+    int16_t dew_c10 = gShtTempC10;
+    int32_t alt_m = 0;
+    int16_t dew_abs;
+    int32_t alt_abs;
+    const char *dew_tag = gShtValid ? "" : "-";
+    const char *alt_tag = gBaroValid ? "" : "-";
+    char dew_sign;
+    char alt_sign;
+
+    if (gShtValid)
+    {
+        /* Dew point approximation: Td = T - ((100 - RH) / 5). */
+        dew_c10 = (int16_t)(gShtTempC10 - ((1000 - gShtRhDpct) / 5));
+    }
+    if (gBaroValid)
+    {
+        /* Near-sea-level altitude estimate: ~8.3 m per hPa from 1013.2 hPa baseline. */
+        alt_m = ((int32_t)(10132 - gBaroDhpa) * 83) / 100;
+    }
+
+    dew_sign = (dew_c10 < 0) ? '-' : '+';
+    dew_abs = (dew_c10 < 0) ? (int16_t)-dew_c10 : dew_c10;
+    alt_sign = (alt_m < 0) ? '-' : '+';
+    alt_abs = (alt_m < 0) ? -alt_m : alt_m;
+
+    snprintf(out,
+             out_len,
+             "D%s%c%2d.%1dC A%s%c%4dm",
+             dew_tag,
+             dew_sign,
+             (int)(dew_abs / 10),
+             (int)(dew_abs % 10),
+             alt_tag,
+             alt_sign,
+             (int)alt_abs);
 }
 
 static int16_t DisplayTempC10(const power_sample_t *sample)
@@ -379,7 +463,7 @@ static uint16_t AnomLevelColor(uint8_t level)
     return RGB565(140, 170, 190);
 }
 
-static char AnomLevelTag(uint8_t level)
+static char __attribute__((unused)) AnomLevelTag(uint8_t level)
 {
     if (level >= 3u)
     {
@@ -400,10 +484,20 @@ static void PushScopeSample(void)
 {
     uint16_t cap = (uint16_t)sizeof(gTraceAx);
     uint8_t t = DisplayTempC(NULL);
-    uint8_t ax = ScaleSignedTo8(gAccelXmg, 2000);
-    uint8_t ay = ScaleSignedTo8(gAccelYmg, 2000);
-    uint8_t az = ScaleSignedTo8(gAccelZmg, 2000);
+    int16_t acc_x = gLinAccelValid ? gLinAccelXmg : gAccelXmg;
+    int16_t acc_y = gLinAccelValid ? gLinAccelYmg : gAccelYmg;
+    int16_t acc_z = gLinAccelValid ? gLinAccelZmg : gAccelZmg;
+    uint8_t ax = ScaleSignedTo8(acc_x, 2000);
+    uint8_t ay = ScaleSignedTo8(acc_y, 2000);
+    uint8_t az = ScaleSignedTo8(acc_z, 2000);
+    uint8_t gx = ScaleSignedTo8(gAccelXmg, 2000);
+    uint8_t gy = ScaleSignedTo8(gAccelYmg, 2000);
+    uint8_t gz = ScaleSignedTo8(gAccelZmg, 2000);
     uint8_t tp = ScaleTo8(t, 100u);
+    uint8_t bp = ScaleTo8((uint32_t)ClampI32((int32_t)gBaroDhpa - 9600, 0, 1200), 1200u);
+    uint8_t rh = ScaleTo8((uint32_t)ClampI32(gShtRhDpct, 0, 1000), 1000u);
+    int32_t mmag = (int32_t)sqrtf((float)((gMagXmgauss * gMagXmgauss) + (gMagYmgauss * gMagYmgauss) + (gMagZmgauss * gMagZmgauss)));
+    uint8_t mg = ScaleTo8((uint32_t)ClampI32(mmag, 0, 2400), 2400u);
 
     gScopeSampleAccumUs += SCOPE_FAST_STEP_US;
     if (gScopeSampleAccumUs < SCOPE_SAMPLE_PERIOD_US)
@@ -417,7 +511,13 @@ static void PushScopeSample(void)
         gTraceAx[gTraceCount] = ax;
         gTraceAy[gTraceCount] = ay;
         gTraceAz[gTraceCount] = az;
+        gTraceGx[gTraceCount] = gx;
+        gTraceGy[gTraceCount] = gy;
+        gTraceGz[gTraceCount] = gz;
         gTraceTemp[gTraceCount] = tp;
+        gTraceBaro[gTraceCount] = bp;
+        gTraceMag[gTraceCount] = mg;
+        gTraceRh[gTraceCount] = rh;
         gTraceCount++;
     }
     else
@@ -428,12 +528,24 @@ static void PushScopeSample(void)
             gTraceAx[i - 1u] = gTraceAx[i];
             gTraceAy[i - 1u] = gTraceAy[i];
             gTraceAz[i - 1u] = gTraceAz[i];
+            gTraceGx[i - 1u] = gTraceGx[i];
+            gTraceGy[i - 1u] = gTraceGy[i];
+            gTraceGz[i - 1u] = gTraceGz[i];
             gTraceTemp[i - 1u] = gTraceTemp[i];
+            gTraceBaro[i - 1u] = gTraceBaro[i];
+            gTraceMag[i - 1u] = gTraceMag[i];
+            gTraceRh[i - 1u] = gTraceRh[i];
         }
         gTraceAx[cap - 1u] = ax;
         gTraceAy[cap - 1u] = ay;
         gTraceAz[cap - 1u] = az;
+        gTraceGx[cap - 1u] = gx;
+        gTraceGy[cap - 1u] = gy;
+        gTraceGz[cap - 1u] = gz;
         gTraceTemp[cap - 1u] = tp;
+        gTraceBaro[cap - 1u] = bp;
+        gTraceMag[cap - 1u] = mg;
+        gTraceRh[cap - 1u] = rh;
         gTraceReady = true;
     }
 }
@@ -601,6 +713,28 @@ static void CompassDisplayVector(int32_t *vx, int32_t *vy, bool *valid)
 {
     int32_t mx = gMagXmgauss;
     int32_t my = gMagYmgauss;
+    int32_t mz = gMagZmgauss;
+    int32_t span_x = (int32_t)gMagCalMaxX - (int32_t)gMagCalMinX;
+    int32_t span_y = (int32_t)gMagCalMaxY - (int32_t)gMagCalMinY;
+    int32_t span_z = (int32_t)gMagCalMaxZ - (int32_t)gMagCalMinZ;
+    int32_t off_x = ((span_x >= MAG_CAL_MIN_SPAN) ? ((gMagCalMinX + gMagCalMaxX) / 2) : 0);
+    int32_t off_y = ((span_y >= MAG_CAL_MIN_SPAN) ? ((gMagCalMinY + gMagCalMaxY) / 2) : 0);
+    int32_t off_z = ((span_z >= MAG_CAL_MIN_SPAN) ? ((gMagCalMinZ + gMagCalMaxZ) / 2) : 0);
+    float mfx;
+    float mfy;
+    float mfz;
+    float ax;
+    float ay;
+    float az;
+    float anorm;
+    float ux;
+    float uy;
+    float uz;
+    float mdotu;
+    float hx;
+    float hy;
+    float hz;
+    float hxy_norm;
 
     if (!gMagEverValid)
     {
@@ -610,9 +744,38 @@ static void CompassDisplayVector(int32_t *vx, int32_t *vy, bool *valid)
         return;
     }
 
-    *vx = mx;
-    *vy = my;
-    *valid = ((mx != 0) || (my != 0));
+    mfx = (float)(mx - off_x);
+    mfy = (float)(my - off_y);
+    mfz = (float)(mz - off_z);
+    hx = mfx;
+    hy = mfy;
+    hz = mfz;
+
+    if (gAccelValid)
+    {
+        ax = (float)gAccelXmg;
+        ay = (float)gAccelYmg;
+        az = (float)gAccelZmg;
+        anorm = sqrtf((ax * ax) + (ay * ay) + (az * az));
+        if (anorm > 100.0f)
+        {
+            /* Tilt compensation by projecting magnetic vector onto horizontal plane. */
+            ux = ax / anorm;
+            uy = ay / anorm;
+            uz = az / anorm;
+            mdotu = (mfx * ux) + (mfy * uy) + (mfz * uz);
+            hx = mfx - (mdotu * ux);
+            hy = mfy - (mdotu * uy);
+            hz = mfz - (mdotu * uz);
+        }
+    }
+
+    (void)hz;
+    /* Board frame: X=North-ish, Y=East-ish. Screen vector uses +X right, +Y down. */
+    *vx = (int32_t)hy;
+    *vy = -(int32_t)hx;
+    hxy_norm = sqrtf((hx * hx) + (hy * hy));
+    *valid = (hxy_norm > 1.0f);
 }
 
 static void DrawCompassWidgetFrame(const gauge_style_preset_t *style)
@@ -638,7 +801,8 @@ static void DrawCompassWidgetDynamic(void)
     int32_t r = COMPASS_WIDGET_R;
     int32_t vx = 0;
     int32_t vy = 0;
-    int32_t absmax;
+    float mag_len;
+    float scale;
     int32_t nx_full;
     int32_t ny_full;
     int32_t nx;
@@ -665,37 +829,25 @@ static void DrawCompassWidgetDynamic(void)
     }
     else
     {
-        int32_t dvx = vx - gCompassVxFilt;
-        int32_t dvy = vy - gCompassVyFilt;
-        /* Track real heading motion quickly; only smooth tiny jitter. */
-        if ((AbsI32(dvx) > 6) || (AbsI32(dvy) > 6))
-        {
-            gCompassVxFilt = vx;
-            gCompassVyFilt = vy;
-        }
-        else
-        {
-            gCompassVxFilt = ((gCompassVxFilt * 3) + vx) / 4;
-            gCompassVyFilt = ((gCompassVyFilt * 3) + vy) / 4;
-        }
+        /* Keep heading response immediate; update rate handles visual stability. */
+        gCompassVxFilt = vx;
+        gCompassVyFilt = vy;
     }
 
     vx = gCompassVxFilt;
     vy = gCompassVyFilt;
-    absmax = AbsI32(vx);
-    if (AbsI32(vy) > absmax)
-    {
-        absmax = AbsI32(vy);
-    }
-    if (absmax == 0)
+    mag_len = sqrtf((float)(vx * vx) + (float)(vy * vy));
+    if (mag_len < 1.0f)
     {
         return;
     }
+    scale = (float)(r - 5) / mag_len;
 
-    nx_full = (vx * (r - 5)) / absmax;
-    ny_full = (vy * (r - 5)) / absmax;
-    nx = nx_full / 2;
-    ny = ny_full / 2;
+    nx_full = (int32_t)((float)vx * scale);
+    ny_full = (int32_t)((float)vy * scale);
+    /* Make white lead section half as long as before. */
+    nx = nx_full / 4;
+    ny = ny_full / 4;
     tx = -((nx_full * 3) / 4);
     ty = -((ny_full * 3) / 4);
 
@@ -804,8 +956,8 @@ static void DrawGyroWidgetDynamic(const gauge_style_preset_t *style)
         return;
     }
 
-    pitch_px = (ny * (r - 16)) / 1000;
-    roll_px = (-nx * (r - 18)) / 1000;
+    pitch_px = (-ny * (r - 16)) / 1000;
+    roll_px = (nx * (r - 18)) / 1000;
     span = r - 17;
     span_short = r - 28;
     y_mid = cy + pitch_px;
@@ -859,11 +1011,122 @@ static void DrawScopeFrame(const gauge_style_preset_t *style)
     par_lcd_s035_fill_rect(SCOPE_X, SCOPE_Y, SCOPE_X + SCOPE_W, SCOPE_Y + SCOPE_H, RGB565(18, 3, 7));
     par_lcd_s035_fill_rect(SCOPE_X + 2, SCOPE_Y + 2, SCOPE_X + SCOPE_W - 2, SCOPE_Y + SCOPE_H - 2, RGB565(7, 10, 12));
     par_lcd_s035_fill_rect(TIMELINE_X0 + 1, TIMELINE_Y0 + 1, TIMELINE_X1 - 1, TIMELINE_Y1 - 1, RGB565(20, 28, 34));
-    par_lcd_s035_fill_rect(lx0 + 1, TIMELINE_Y0 + 1, lx1 - 1, TIMELINE_Y1 - 1, RGB565(20, 180, 36));
-    par_lcd_s035_fill_rect(rx0 + 1, TIMELINE_Y0 + 1, rx1 - 1, TIMELINE_Y1 - 1, RGB565(220, 24, 24));
-    ty = TIMELINE_Y0 + ((TIMELINE_Y1 - TIMELINE_Y0 - 7) / 2);
-    DrawTextUi(lx0 + ((lx1 - lx0 + 1 - edgeai_text5x7_width(1, "PLAY")) / 2), ty, 1, "PLAY", RGB565(232, 255, 232));
-    DrawTextUi(rx0 + ((rx1 - rx0 + 1 - edgeai_text5x7_width(1, "RECORD")) / 2), ty, 1, "RECORD", RGB565(255, 232, 232));
+    if (gLiveBannerMode)
+    {
+        par_lcd_s035_fill_rect(TIMELINE_X0 + 1, TIMELINE_Y0 + 1, TIMELINE_X1 - 1, TIMELINE_Y1 - 1, RGB565(22, 78, 112));
+        DrawLine(TIMELINE_X0 + 1, TIMELINE_Y0 + 2, TIMELINE_X1 - 1, TIMELINE_Y0 + 2, 1, RGB565(120, 220, 255));
+        DrawLine(TIMELINE_X0 + 1, TIMELINE_Y1 - 2, TIMELINE_X1 - 1, TIMELINE_Y1 - 2, 1, RGB565(70, 170, 220));
+        ty = TIMELINE_Y0 + ((TIMELINE_Y1 - TIMELINE_Y0 - 7) / 2);
+        DrawTextUi(TIMELINE_X0 + ((TIMELINE_X1 - TIMELINE_X0 + 1 - edgeai_text5x7_width(1, "LIVE")) / 2),
+                   ty,
+                   1,
+                   "LIVE",
+                   RGB565(192, 242, 255));
+    }
+    else
+    {
+        par_lcd_s035_fill_rect(lx0 + 1, TIMELINE_Y0 + 1, lx1 - 1, TIMELINE_Y1 - 1, RGB565(20, 180, 36));
+        par_lcd_s035_fill_rect(rx0 + 1, TIMELINE_Y0 + 1, rx1 - 1, TIMELINE_Y1 - 1, RGB565(220, 24, 24));
+        ty = TIMELINE_Y0 + ((TIMELINE_Y1 - TIMELINE_Y0 - 7) / 2);
+        DrawTextUi(lx0 + ((lx1 - lx0 + 1 - edgeai_text5x7_width(1, "PLAY")) / 2), ty, 1, "PLAY", RGB565(232, 255, 232));
+        DrawTextUi(rx0 + ((rx1 - rx0 + 1 - edgeai_text5x7_width(1, "RECORD")) / 2), ty, 1, "RECORD", RGB565(255, 232, 232));
+    }
+}
+
+static void DrawCenterWireBox(void)
+{
+    /* 3D wire box centered in the middle segment, thin white line style. */
+    int32_t cx = SECTION2_CX;
+    int32_t cy = MAIN_CY - 2;
+    int32_t front_w = ((MAIN_R * 2) * 80) / 100; /* 80% horizontal coverage of center segment */
+    int32_t front_h = front_w;
+    int32_t depth_x = 14;
+    int32_t depth_y = 10;
+    int32_t x0 = cx - (front_w / 2);
+    int32_t x1 = x0 + front_w;
+    int32_t y0 = cy - (front_h / 2);
+    int32_t y1 = y0 + front_h;
+    int32_t bx0 = x0 + depth_x;
+    int32_t bx1 = x1 + depth_x;
+    int32_t by0 = y0 - depth_y;
+    int32_t by1 = y1 - depth_y;
+    uint16_t c = RGB565(235, 245, 255);
+
+    DrawLine(x0, y0, x1, y0, 1, c);
+    DrawLine(x1, y0, x1, y1, 1, c);
+    DrawLine(x1, y1, x0, y1, 1, c);
+    DrawLine(x0, y1, x0, y0, 1, c);
+
+    DrawLine(bx0, by0, bx1, by0, 1, c);
+    DrawLine(bx1, by0, bx1, by1, 1, c);
+    DrawLine(bx1, by1, bx0, by1, 1, c);
+    DrawLine(bx0, by1, bx0, by0, 1, c);
+
+    DrawLine(x0, y0, bx0, by0, 1, c);
+    DrawLine(x1, y0, bx1, by0, 1, c);
+    DrawLine(x1, y1, bx1, by1, 1, c);
+    DrawLine(x0, y1, bx0, by1, 1, c);
+}
+
+static void DrawCenterAccelBall(void)
+{
+    int32_t cx = SECTION2_CX;
+    int32_t cy = MAIN_CY - 2;
+    int32_t front_w = ((MAIN_R * 2) * 80) / 100;
+    int32_t front_h = front_w;
+    int32_t depth_x = 14;
+    int32_t depth_y = 10;
+    int32_t x0 = cx - (front_w / 2);
+    int32_t x1 = x0 + front_w;
+    int32_t y0 = cy - (front_h / 2);
+    int32_t y1 = y0 + front_h;
+    int32_t bx0 = x0 + depth_x;
+    int32_t bx1 = x1 + depth_x;
+    int32_t by0 = y0 - depth_y;
+    int32_t by1 = y1 - depth_y;
+    int16_t ax = gLinAccelValid ? gLinAccelXmg : gAccelXmg;
+    int16_t ay = gLinAccelValid ? gLinAccelYmg : gAccelYmg;
+    int32_t margin = 7;
+    int32_t rx = (front_w / 2) - margin;
+    int32_t ry = (front_h / 2) - margin;
+    int32_t bx;
+    int32_t by;
+    int32_t yy;
+    uint16_t c = RGB565(235, 245, 255);
+
+    if (rx < 1) rx = 1;
+    if (ry < 1) ry = 1;
+
+    /* Restore interior then redraw wire box so moving ball leaves no artifacts. */
+    for (yy = y0 + 1; yy <= y1 - 1; yy++)
+    {
+        if ((yy >= 0) && (yy < SPACEBOX_BG_HEIGHT))
+        {
+            par_lcd_s035_blit_rect(x0 + 1, yy, x1 - 1, yy,
+                                   (uint16_t *)&g_spacebox_bg_rgb565[(yy * SPACEBOX_BG_WIDTH) + x0 + 1]);
+        }
+    }
+
+    DrawLine(x0, y0, x1, y0, 1, c);
+    DrawLine(x1, y0, x1, y1, 1, c);
+    DrawLine(x1, y1, x0, y1, 1, c);
+    DrawLine(x0, y1, x0, y0, 1, c);
+    DrawLine(bx0, by0, bx1, by0, 1, c);
+    DrawLine(bx1, by0, bx1, by1, 1, c);
+    DrawLine(bx1, by1, bx0, by1, 1, c);
+    DrawLine(bx0, by1, bx0, by0, 1, c);
+    DrawLine(x0, y0, bx0, by0, 1, c);
+    DrawLine(x1, y0, bx1, by0, 1, c);
+    DrawLine(x1, y1, bx1, by1, 1, c);
+    DrawLine(x0, y1, bx0, by1, 1, c);
+
+    bx = cx + ((int32_t)ClampI16(ax, -1000, 1000) * rx) / 1000;
+    by = cy + ((int32_t)ClampI16(ay, -1000, 1000) * ry) / 1000;
+    bx = ClampI32(bx, x0 + margin, x1 - margin);
+    by = ClampI32(by, y0 + margin, y1 - margin);
+
+    par_lcd_s035_draw_filled_circle(bx, by, 4, RGB565(255, 255, 255));
+    par_lcd_s035_draw_filled_circle(bx, by, 2, RGB565(170, 210, 240));
 }
 
 static void DrawRecordConfirmOverlay(void)
@@ -996,7 +1259,8 @@ static void DrawSettingsPopup(void)
     DrawPopupCloseButton(x1, y0);
     DrawTextUi(x0 + 14, y0 + 48, 1, "MODE", body);
     DrawTextUi(x0 + 14, y0 + 92, 1, "SENS", body);
-    DrawTextUi(x0 + 14, y0 + 170, 1, "TAP X OR OUTSIDE TO CLOSE", dim);
+    DrawTextUi(x0 + 14, y0 + 124, 1, "AI", body);
+    DrawTextUi(x0 + 14, y0 + 198, 1, "TAP X OR OUTSIDE TO CLOSE", dim);
 
     for (int32_t i = 0; i < 3; i++)
     {
@@ -1029,6 +1293,24 @@ static void DrawSettingsPopup(void)
         DrawPillRect(bx0, by0, bx1, by1, f, edge);
         DrawTextUi(bx0 + ((GAUGE_RENDER_SET_TUNE_W - edgeai_text5x7_width(1, t)) / 2),
                    by0 + ((GAUGE_RENDER_SET_TUNE_H - 7) / 2),
+                   1,
+                   t,
+                   tc);
+    }
+
+    for (int32_t i = 0; i < 2; i++)
+    {
+        int32_t bx0 = GAUGE_RENDER_SET_AI_X0 + i * (GAUGE_RENDER_SET_AI_W + GAUGE_RENDER_SET_AI_GAP);
+        int32_t by0 = GAUGE_RENDER_SET_AI_Y0;
+        int32_t bx1 = bx0 + GAUGE_RENDER_SET_AI_W - 1;
+        int32_t by1 = by0 + GAUGE_RENDER_SET_AI_H - 1;
+        bool sel = (i == 0) ? gAnomTraining : gLiveBannerMode;
+        const char *t = (i == 0) ? "TRAIN" : "LIVE";
+        uint16_t f = sel ? RGB565(214, 215, 217) : RGB565(26, 27, 31);
+        uint16_t tc = sel ? RGB565(10, 10, 12) : body;
+        DrawPillRect(bx0, by0, bx1, by1, f, edge);
+        DrawTextUi(bx0 + ((GAUGE_RENDER_SET_AI_W - edgeai_text5x7_width(1, t)) / 2),
+                   by0 + ((GAUGE_RENDER_SET_AI_H - 7) / 2),
                    1,
                    t,
                    tc);
@@ -1145,7 +1427,7 @@ static void DrawAiAlertOverlay(const gauge_style_preset_t *style, const power_sa
     int32_t tx;
     bool severe;
     bool recording = !gScopePaused;
-    const char *normal_label = recording ? "RECORDING" : "SYSTEM NORMAL";
+    const char *normal_label = "SYSTEM NORMAL";
     uint8_t status = ai_enabled ? sample->ai_status : RuleStatus(sample);
     char detail[30];
 
@@ -1158,6 +1440,27 @@ static void DrawAiAlertOverlay(const gauge_style_preset_t *style, const power_sa
 
     severe = IsSevereAlertCondition(sample, ai_enabled);
     BuildAnomalyReason(sample, detail, sizeof(detail));
+
+    if (recording)
+    {
+        if (gAlertVisualValid &&
+            gAlertVisualRecording &&
+            (strcmp(gAlertVisualDetail, "RECORDING") == 0))
+        {
+            return;
+        }
+
+        par_lcd_s035_fill_rect(ALERT_X0, ALERT_Y0, ALERT_X1, ALERT_Y1, RGB565(2, 3, 5));
+        tx = ALERT_X0 + ((ALERT_X1 - ALERT_X0 + 1) - edgeai_text5x7_width(3, "RECORDING")) / 2;
+        DrawTextUi(tx, ALERT_Y0 + 10, 3, "RECORDING", ALERT_RED);
+        gAlertVisualValid = true;
+        gAlertVisualStatus = status;
+        gAlertVisualSevere = false;
+        gAlertVisualAiEnabled = ai_enabled;
+        gAlertVisualRecording = true;
+        snprintf(gAlertVisualDetail, sizeof(gAlertVisualDetail), "%s", "RECORDING");
+        return;
+    }
 
     if (gAlertVisualValid &&
         (gAlertVisualStatus == status) &&
@@ -1207,6 +1510,7 @@ static void DrawAiAlertOverlay(const gauge_style_preset_t *style, const power_sa
 static void DrawTerminalDynamic(const gauge_style_preset_t *style, const power_sample_t *sample, uint16_t cpu_pct, bool ai_enabled)
 {
     char line[48];
+    const char *mode_text = gLiveBannerMode ? "LIVE" : (gScopePaused ? "PLAY" : "REC");
     uint8_t status = ai_enabled ? sample->ai_status : RuleStatus(sample);
     uint16_t ai_color = ai_enabled ? AiStatusColor(style, sample->ai_status) : AiStatusColor(style, status);
     const char *status_text = ai_enabled ? AiStatusText(sample->ai_status) : "OFF";
@@ -1229,7 +1533,7 @@ static void DrawTerminalDynamic(const gauge_style_preset_t *style, const power_s
     snprintf(line, sizeof(line), "AI %s", status_text);
     DrawTerminalLine(TERM_Y + 26, line, ai_color);
 
-    snprintf(line, sizeof(line), "MODE %s SYS %s", gScopePaused ? "PLAY" : "REC", sys_text);
+    snprintf(line, sizeof(line), "MODE %s SYS %s", mode_text, sys_text);
     DrawTerminalLine(TERM_Y + 42, line, style->palette.text_secondary);
 
     FormatTempCF(line, sizeof(line), DisplayTempC10(sample));
@@ -1249,12 +1553,19 @@ static void DrawTerminalDynamic(const gauge_style_preset_t *style, const power_s
     DrawTerminalLine(TERM_Y + 90, line, RGB565(170, 240, 255));
     if (gMagEverValid)
     {
+        int32_t hvx = 0;
+        int32_t hvy = 0;
+        uint16_t heading_deg;
+        bool hvalid = false;
+        CompassDisplayVector(&hvx, &hvy, &hvalid);
+        heading_deg = hvalid ? HeadingDegFromMag(hvx, hvy) : 0u;
         snprintf(line,
                  sizeof(line),
-                 "MAG X%+4d Y%+4d Z%+4d%s",
+                 "MAG X%+4d Y%+4d Z%+4d HDG%03u%s",
                  (int)gMagXmgauss,
                  (int)gMagYmgauss,
                  (int)gMagZmgauss,
+                 (unsigned int)heading_deg,
                  gMagValid ? "" : " !");
     }
     else
@@ -1266,14 +1577,8 @@ static void DrawTerminalDynamic(const gauge_style_preset_t *style, const power_s
     FormatShieldEnvCompact(line, sizeof(line));
     DrawTerminalLine(TERM_Y + 122, line, RGB565(176, 218, 238));
 
-    snprintf(line,
-             sizeof(line),
-             "AX%c AY%c AZ%c T%c",
-             AnomLevelTag(gAnomLevelAx),
-             AnomLevelTag(gAnomLevelAy),
-             AnomLevelTag(gAnomLevelAz),
-             AnomLevelTag(gAnomLevelTemp));
-    DrawTerminalLine(TERM_Y + 138, line, AnomLevelColor(gAnomOverall));
+    FormatDewAltCompact(line, sizeof(line));
+    DrawTerminalLine(TERM_Y + 138, line, RGB565(176, 218, 238));
 
     snprintf(line, sizeof(line), "%s %s", AnomModeText(gAnomMode, gAnomTraining), gAnomTrainedReady ? "RDY" : "");
     DrawTerminalLine(TERM_Y + 154, line, AnomLevelColor(gAnomOverall));
@@ -1342,10 +1647,19 @@ static void DrawScopeDynamic(const gauge_style_preset_t *style, bool ai_enabled)
     int32_t prev_ax = 0;
     int32_t prev_ay = 0;
     int32_t prev_az = 0;
+    int32_t prev_gx = 0;
+    int32_t prev_gy = 0;
+    int32_t prev_gz = 0;
     int32_t prev_tp = 0;
+    int32_t prev_bp = 0;
+    int32_t prev_mg = 0;
+    int32_t prev_rh = 0;
     uint16_t ax_color = TRACE_AX_COLOR;
     uint16_t ay_color = TRACE_AY_COLOR;
     uint16_t az_color = TRACE_AZ_COLOR;
+    uint16_t gx_color = TRACE_GX_COLOR;
+    uint16_t gy_color = TRACE_GY_COLOR;
+    uint16_t gz_color = TRACE_GZ_COLOR;
     uint16_t i;
     (void)ai_enabled;
 
@@ -1365,7 +1679,13 @@ static void DrawScopeDynamic(const gauge_style_preset_t *style, bool ai_enabled)
         int32_t y_ax = y_bottom - (int32_t)((gTraceAx[idx] * (uint32_t)(ph - 4)) / 255u);
         int32_t y_ay = y_bottom - (int32_t)((gTraceAy[idx] * (uint32_t)(ph - 4)) / 255u);
         int32_t y_az = y_bottom - (int32_t)((gTraceAz[idx] * (uint32_t)(ph - 4)) / 255u);
+        int32_t y_gx = y_bottom - (int32_t)((gTraceGx[idx] * (uint32_t)(ph - 4)) / 255u);
+        int32_t y_gy = y_bottom - (int32_t)((gTraceGy[idx] * (uint32_t)(ph - 4)) / 255u);
+        int32_t y_gz = y_bottom - (int32_t)((gTraceGz[idx] * (uint32_t)(ph - 4)) / 255u);
         int32_t y_tp = y_bottom - (int32_t)((gTraceTemp[idx] * (uint32_t)(ph - 4)) / 255u);
+        int32_t y_bp = y_bottom - (int32_t)((gTraceBaro[idx] * (uint32_t)(ph - 4)) / 255u);
+        int32_t y_mg = y_bottom - (int32_t)((gTraceMag[idx] * (uint32_t)(ph - 4)) / 255u);
+        int32_t y_rh = y_bottom - (int32_t)((gTraceRh[idx] * (uint32_t)(ph - 4)) / 255u);
 
         if (i > 0u)
         {
@@ -1373,14 +1693,26 @@ static void DrawScopeDynamic(const gauge_style_preset_t *style, bool ai_enabled)
             DrawLine(prev_x, prev_ax, x, y_ax, 1, ax_color);
             DrawLine(prev_x, prev_ay, x, y_ay, 1, ay_color);
             DrawLine(prev_x, prev_az, x, y_az, 1, az_color);
+            DrawLine(prev_x, prev_gx, x, y_gx, 1, gx_color);
+            DrawLine(prev_x, prev_gy, x, y_gy, 1, gy_color);
+            DrawLine(prev_x, prev_gz, x, y_gz, 1, gz_color);
             DrawLine(prev_x, prev_tp, x, y_tp, 1, tp_color);
+            DrawLine(prev_x, prev_bp, x, y_bp, 1, TRACE_BARO_COLOR);
+            DrawLine(prev_x, prev_mg, x, y_mg, 1, TRACE_MAG_COLOR);
+            DrawLine(prev_x, prev_rh, x, y_rh, 1, TRACE_RH_COLOR);
         }
 
         prev_x = x;
         prev_ax = y_ax;
         prev_ay = y_ay;
         prev_az = y_az;
+        prev_gx = y_gx;
+        prev_gy = y_gy;
+        prev_gz = y_gz;
         prev_tp = y_tp;
+        prev_bp = y_bp;
+        prev_mg = y_mg;
+        prev_rh = y_rh;
     }
 
     if (gPlayheadValid)
@@ -1393,8 +1725,18 @@ static void DrawScopeDynamic(const gauge_style_preset_t *style, bool ai_enabled)
     {
         int32_t rec_x = px0 + pw - 8;
         int32_t rec_y = py0 + 8;
-        uint16_t ring = gScopePaused ? RGB565(0, 48, 0) : RGB565(70, 0, 0);
-        uint16_t fill = gScopePaused ? RGB565(48, 255, 96) : RGB565(255, 28, 28);
+        uint16_t ring;
+        uint16_t fill;
+        if (gLiveBannerMode)
+        {
+            ring = RGB565(0, 40, 62);
+            fill = RGB565(96, 220, 255);
+        }
+        else
+        {
+            ring = gScopePaused ? RGB565(0, 48, 0) : RGB565(70, 0, 0);
+            fill = gScopePaused ? RGB565(48, 255, 96) : RGB565(255, 28, 28);
+        }
         par_lcd_s035_draw_filled_circle(rec_x, rec_y, 4, ring);
         par_lcd_s035_draw_filled_circle(rec_x, rec_y, 3, fill);
     }
@@ -1406,12 +1748,27 @@ static void DrawScopeDynamic(const gauge_style_preset_t *style, bool ai_enabled)
         int32_t lx1 = mid - 1;
         int32_t rx0 = mid;
         int32_t rx1 = TIMELINE_X1;
-        par_lcd_s035_fill_rect(TIMELINE_X0 + 1, TIMELINE_Y0 + 1, TIMELINE_X1 - 1, TIMELINE_Y1 - 1, RGB565(20, 28, 34));
-        par_lcd_s035_fill_rect(lx0 + 1, TIMELINE_Y0 + 1, lx1 - 1, TIMELINE_Y1 - 1, RGB565(20, 180, 36));
-        par_lcd_s035_fill_rect(rx0 + 1, TIMELINE_Y0 + 1, rx1 - 1, TIMELINE_Y1 - 1, RGB565(220, 24, 24));
-        ty = TIMELINE_Y0 + ((TIMELINE_Y1 - TIMELINE_Y0 - 7) / 2);
-        DrawTextUi(lx0 + ((lx1 - lx0 + 1 - edgeai_text5x7_width(1, "PLAY")) / 2), ty, 1, "PLAY", RGB565(232, 255, 232));
-        DrawTextUi(rx0 + ((rx1 - rx0 + 1 - edgeai_text5x7_width(1, "RECORD")) / 2), ty, 1, "RECORD", RGB565(255, 232, 232));
+        if (gLiveBannerMode)
+        {
+            par_lcd_s035_fill_rect(TIMELINE_X0 + 1, TIMELINE_Y0 + 1, TIMELINE_X1 - 1, TIMELINE_Y1 - 1, RGB565(22, 78, 112));
+            DrawLine(TIMELINE_X0 + 1, TIMELINE_Y0 + 2, TIMELINE_X1 - 1, TIMELINE_Y0 + 2, 1, RGB565(120, 220, 255));
+            DrawLine(TIMELINE_X0 + 1, TIMELINE_Y1 - 2, TIMELINE_X1 - 1, TIMELINE_Y1 - 2, 1, RGB565(70, 170, 220));
+            ty = TIMELINE_Y0 + ((TIMELINE_Y1 - TIMELINE_Y0 - 7) / 2);
+            DrawTextUi(TIMELINE_X0 + ((TIMELINE_X1 - TIMELINE_X0 + 1 - edgeai_text5x7_width(1, "LIVE")) / 2),
+                       ty,
+                       1,
+                       "LIVE",
+                       RGB565(192, 242, 255));
+        }
+        else
+        {
+            par_lcd_s035_fill_rect(TIMELINE_X0 + 1, TIMELINE_Y0 + 1, TIMELINE_X1 - 1, TIMELINE_Y1 - 1, RGB565(20, 28, 34));
+            par_lcd_s035_fill_rect(lx0 + 1, TIMELINE_Y0 + 1, lx1 - 1, TIMELINE_Y1 - 1, RGB565(20, 180, 36));
+            par_lcd_s035_fill_rect(rx0 + 1, TIMELINE_Y0 + 1, rx1 - 1, TIMELINE_Y1 - 1, RGB565(220, 24, 24));
+            ty = TIMELINE_Y0 + ((TIMELINE_Y1 - TIMELINE_Y0 - 7) / 2);
+            DrawTextUi(lx0 + ((lx1 - lx0 + 1 - edgeai_text5x7_width(1, "PLAY")) / 2), ty, 1, "PLAY", RGB565(232, 255, 232));
+            DrawTextUi(rx0 + ((rx1 - rx0 + 1 - edgeai_text5x7_width(1, "RECORD")) / 2), ty, 1, "RECORD", RGB565(255, 232, 232));
+        }
     }
 
 }
@@ -1528,17 +1885,18 @@ static void DrawStaticDashboard(const gauge_style_preset_t *style, power_replay_
     DrawSpaceboxBackground();
     DrawTextUi(2, BATT_Y - 10, 1, "(c)RICHARD HABERKERN", style->palette.text_secondary);
 
-    DrawGyroWidgetFrame(style);
-    /* Left status bargraph drawn after gyro so it stays on the top layer. */
     DrawLeftBargraphFrame(style);
     DrawLine(0, 78, 26, 78, 1, style->palette.text_primary);
     DrawLine(26, 78, 26, 258, 1, style->palette.text_primary);
     DrawLine(26, MID_TOP_CY + 54, 50, MID_TOP_CY + 54, 1, style->palette.text_primary);
     DrawLine(26, 258, 26, 288, 1, style->palette.text_primary);
     DrawLine(26, 288, 50, 288, 1, style->palette.text_primary);
+    /* Draw gyro widget after bargraph/lines so sphere is on the top layer. */
+    DrawGyroWidgetFrame(style);
     DrawLine(TERM_X + TERM_W - 4, 78, TERM_X + TERM_W - 38, 78, 1, style->palette.text_primary);
     DrawLine(TERM_X + TERM_W - 38, 78, TERM_X + TERM_W - 38, 258, 1, style->palette.text_primary);
     DrawLine(TERM_X + TERM_W - 38, 258, TERM_X + 14, 258, 1, style->palette.text_primary);
+    DrawCenterWireBox();
     par_lcd_s035_fill_rect(170, RTC_TEXT_Y - 2, 308, RTC_TEXT_Y + 15, RGB565(2, 3, 5));
     rtc_x = ((PANEL_X0 + PANEL_X1) / 2) - (edgeai_text5x7_width(2, "--:--:--") / 2);
     DrawTextUi(rtc_x, RTC_TEXT_Y, 2, "--:--:--", RGB565(120, 164, 188));
@@ -1586,6 +1944,13 @@ bool GaugeRender_Init(void)
         gCompassVxFilt = 0;
         gCompassVyFilt = 0;
         gCompassFiltPrimed = false;
+        gMagCalPrimed = false;
+        gMagCalMinX = 0;
+        gMagCalMaxX = 0;
+        gMagCalMinY = 0;
+        gMagCalMaxY = 0;
+        gMagCalMinZ = 0;
+        gMagCalMaxZ = 0;
     }
     return gLcdReady;
 }
@@ -1614,6 +1979,25 @@ void GaugeRender_SetMag(int16_t mx_mgauss, int16_t my_mgauss, int16_t mz_mgauss,
         gMagYmgauss = my_mgauss;
         gMagZmgauss = mz_mgauss;
         gMagEverValid = true;
+        if (!gMagCalPrimed)
+        {
+            gMagCalMinX = mx_mgauss;
+            gMagCalMaxX = mx_mgauss;
+            gMagCalMinY = my_mgauss;
+            gMagCalMaxY = my_mgauss;
+            gMagCalMinZ = mz_mgauss;
+            gMagCalMaxZ = mz_mgauss;
+            gMagCalPrimed = true;
+        }
+        else
+        {
+            if (mx_mgauss < gMagCalMinX) gMagCalMinX = mx_mgauss;
+            if (mx_mgauss > gMagCalMaxX) gMagCalMaxX = mx_mgauss;
+            if (my_mgauss < gMagCalMinY) gMagCalMinY = my_mgauss;
+            if (my_mgauss > gMagCalMaxY) gMagCalMaxY = my_mgauss;
+            if (mz_mgauss < gMagCalMinZ) gMagCalMinZ = mz_mgauss;
+            if (mz_mgauss > gMagCalMaxZ) gMagCalMaxZ = mz_mgauss;
+        }
     }
     gMagValid = valid;
 }
@@ -1704,6 +2088,16 @@ void GaugeRender_SetSettingsVisible(bool visible)
     {
         gHelpVisible = false;
     }
+}
+
+void GaugeRender_SetLiveBannerMode(bool enabled)
+{
+    gLiveBannerMode = enabled;
+}
+
+bool GaugeRender_IsLiveBannerMode(void)
+{
+    return gLiveBannerMode;
 }
 
 void GaugeRender_DrawGyroFast(void)
@@ -1830,6 +2224,10 @@ void GaugeRender_DrawFrame(const power_sample_t *sample, bool ai_enabled, power_
         DrawTextUi(lx, ly, 1, "T", t_color);
     }
     DrawLeftBargraphDynamic(style, DisplayTempC10(sample));
+    DrawCenterAccelBall();
+    /* Repaint full gyro widget above bargraph/ticks to prevent perimeter jaggies. */
+    DrawGyroWidgetFrame(style);
+    DrawGyroWidgetDynamic(style);
     if (!(gSettingsVisible || gHelpVisible))
     {
         DrawAiAlertOverlay(style, sample, ai_enabled);
@@ -1890,9 +2288,19 @@ bool GaugeRender_HandleTouch(int32_t x, int32_t y, bool pressed)
     bool in_left = in_timeline && (x < mid);
     bool in_right = in_timeline && (x >= mid);
     bool changed = false;
+    bool live_banner_mode = gLiveBannerMode;
 
     /* Help/settings popups own touch interaction; block timeline state changes behind them. */
     if (gHelpVisible || gSettingsVisible)
+    {
+        if (!pressed)
+        {
+            gTimelineTouchLatch = false;
+        }
+        return false;
+    }
+
+    if (live_banner_mode)
     {
         if (!pressed)
         {

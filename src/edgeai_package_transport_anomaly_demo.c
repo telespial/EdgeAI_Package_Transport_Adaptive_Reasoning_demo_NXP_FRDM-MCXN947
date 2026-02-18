@@ -82,9 +82,9 @@
 #define SHIELD_STTS22H_REG_WHO_AM_I 0x01u
 #define SHIELD_STTS22H_REG_CTRL 0x04u
 #define SHIELD_STTS22H_REG_TEMP_L 0x06u
-#define SHIELD_AUX_POLL_PERIOD_US 500000u
+#define SHIELD_AUX_POLL_PERIOD_US 150000u
 
-#define TOUCH_POLL_DELAY_US 10000u
+#define TOUCH_POLL_DELAY_US 5000u
 #define POWER_TICK_PERIOD_US 1000000u
 #define DISPLAY_REFRESH_PERIOD_US 100000u
 #define RECPLAY_TICK_PERIOD_US 100000u
@@ -1864,23 +1864,16 @@ static void ShieldGyroUpdate(void)
         return;
     }
 
+    /* Keep gyro read in path, but do not fail accel update if it errors. */
     if (!ShieldBusRead(s_shield_use_touch_bus, s_shield_gyro_addr, SHIELD_GYRO_REG_OUTX_L_G, raw_g, sizeof(raw_g)))
     {
-        if (s_shield_gyro_read_fail_streak < 255u)
-        {
-            s_shield_gyro_read_fail_streak++;
-        }
-        if (s_shield_gyro_read_fail_streak >= 5u)
-        {
-            s_shield_gyro_ready = false;
-        }
         if (!s_shield_gyro_read_fail_logged)
         {
             PRINTF("SHIELD_GYRO read fail (gyro) addr=0x%02x\r\n", (unsigned int)s_shield_gyro_addr);
             s_shield_gyro_read_fail_logged = true;
         }
-        return;
     }
+
     if (!ShieldBusRead(s_shield_use_touch_bus, s_shield_gyro_addr, SHIELD_GYRO_REG_OUTX_L_A, raw_a, sizeof(raw_a)))
     {
         if (s_shield_gyro_read_fail_streak < 255u)
@@ -1919,8 +1912,9 @@ static void ShieldGyroUpdate(void)
     s_accel_y_mg = filt_ay;
     s_accel_z_mg = filt_az;
 
-    s_ui_gyro_x = filt_ax;
-    s_ui_gyro_y = filt_ay;
+    /* UI orientation mapping: display horizon/sphere use board-rotated axes. */
+    s_ui_gyro_x = filt_ay;
+    s_ui_gyro_y = filt_ax;
     s_ui_gyro_z = filt_az;
     GaugeRender_SetLinearAccel(s_accel_x_mg, s_accel_y_mg, s_accel_z_mg, true);
     GaugeRender_SetAccel(s_ui_gyro_x, s_ui_gyro_y, s_ui_gyro_z, true);
@@ -2370,6 +2364,15 @@ static bool TouchInSettingsTuneIndex(int32_t x, int32_t y, uint8_t idx)
     return (x >= x0) && (x <= x1) && (y >= y0) && (y <= y1);
 }
 
+static bool TouchInSettingsAiIndex(int32_t x, int32_t y, uint8_t idx)
+{
+    int32_t x0 = GAUGE_RENDER_SET_AI_X0 + (int32_t)idx * (GAUGE_RENDER_SET_AI_W + GAUGE_RENDER_SET_AI_GAP);
+    int32_t x1 = x0 + GAUGE_RENDER_SET_AI_W - 1;
+    int32_t y0 = GAUGE_RENDER_SET_AI_Y0;
+    int32_t y1 = y0 + GAUGE_RENDER_SET_AI_H - 1;
+    return (x >= x0) && (x <= x1) && (y >= y0) && (y <= y1);
+}
+
 int main(void)
 {
 #if EDGEAI_SENSOR_SCAN_MODE
@@ -2431,6 +2434,8 @@ int main(void)
     GaugeRender_SetRuntimeClock(0u, 0u, 0u, 0u, true);
     GaugeRender_SetHelpVisible(false);
     GaugeRender_SetSettingsVisible(false);
+    GaugeRender_SetLiveBannerMode(true);
+    GaugeRender_SetRecordMode(false);
     memset(&s_anom_out, 0, sizeof(s_anom_out));
     AnomalyEngine_GetOutput(&s_anom_out);
     GaugeRender_SetAnomalyInfo((uint8_t)s_anom_out.mode,
@@ -2448,7 +2453,7 @@ int main(void)
         GaugeRender_DrawFrame(sample, ai_enabled, PowerData_GetReplayProfile());
     }
     prev_record_mode = GaugeRender_IsRecordMode();
-    if (!prev_record_mode)
+    if (!prev_record_mode && !GaugeRender_IsLiveBannerMode())
     {
         playback_active = ext_flash_ok && ExtFlashRecorder_StartPlayback();
         runtime_elapsed_ds = 0u;
@@ -2530,6 +2535,7 @@ int main(void)
                     {
                         anom_mode = (anomaly_mode_t)i;
                         AnomalyEngine_SetMode(anom_mode);
+                        GaugeRender_SetLiveBannerMode(false);
                         if (anom_mode == ANOMALY_MODE_TRAINED_MONITOR)
                         {
                             AnomalyEngine_StartTraining();
@@ -2553,6 +2559,38 @@ int main(void)
                             PRINTF("ANOM_TUNE,%u\r\n", (unsigned int)i);
                             break;
                         }
+                    }
+                }
+
+                if (!handled_setting)
+                {
+                    if (TouchInSettingsAiIndex(tx, ty, 0u))
+                    {
+                        anom_mode = ANOMALY_MODE_TRAINED_MONITOR;
+                        AnomalyEngine_SetMode(anom_mode);
+                        GaugeRender_SetLiveBannerMode(false);
+                        GaugeRender_SetRecordMode(true);
+                        playback_active = false;
+                        AnomalyEngine_StartTraining();
+                        settings_visible = false;
+                        GaugeRender_SetSettingsVisible(false);
+                        handled_setting = true;
+                        redraw_ui = true;
+                        PRINTF("AI_MODE,TRAIN\r\n");
+                    }
+                    else if (TouchInSettingsAiIndex(tx, ty, 1u))
+                    {
+                        anom_mode = ANOMALY_MODE_TRAINED_MONITOR;
+                        AnomalyEngine_SetMode(anom_mode);
+                        GaugeRender_SetLiveBannerMode(true);
+                        GaugeRender_SetRecordMode(false);
+                        playback_active = false;
+                        AnomalyEngine_StopTraining();
+                        settings_visible = false;
+                        GaugeRender_SetSettingsVisible(false);
+                        handled_setting = true;
+                        redraw_ui = true;
+                        PRINTF("AI_MODE,LIVE\r\n");
                     }
                 }
 
@@ -2622,7 +2660,8 @@ int main(void)
         {
             GaugeRender_DrawFrame(GetFrameSample(), ai_enabled, PowerData_GetReplayProfile());
         }
-        if (timeline_changed && !GaugeRender_IsRecordMode() && !GaugeRender_IsRecordConfirmActive())
+        if (timeline_changed && !GaugeRender_IsRecordMode() && !GaugeRender_IsRecordConfirmActive() &&
+            !GaugeRender_IsLiveBannerMode())
         {
             playback_active = ext_flash_ok && ExtFlashRecorder_StartPlayback();
             runtime_elapsed_ds = 0u;
@@ -2658,7 +2697,7 @@ int main(void)
             else
             {
                 GaugeRender_SetRecordMode(false);
-                playback_active = ext_flash_ok && ExtFlashRecorder_StartPlayback();
+                playback_active = (!GaugeRender_IsLiveBannerMode()) && ext_flash_ok && ExtFlashRecorder_StartPlayback();
                 runtime_elapsed_ds = 0u;
                 runtime_displayed_sec = UINT32_MAX;
                 runtime_clock_start_ticks = TimebaseNowTicks();
@@ -2673,6 +2712,10 @@ int main(void)
         s_touch_was_down = pressed;
         modal_active_now = GaugeRender_IsRecordConfirmActive() || help_visible || settings_visible;
         record_mode = GaugeRender_IsRecordMode();
+        if (GaugeRender_IsLiveBannerMode())
+        {
+            playback_active = false;
+        }
         if (record_mode != prev_record_mode)
         {
             if (!record_mode)
@@ -2681,7 +2724,7 @@ int main(void)
                 {
                     AnomalyEngine_StopTraining();
                 }
-                playback_active = ext_flash_ok && ExtFlashRecorder_StartPlayback();
+                playback_active = (!GaugeRender_IsLiveBannerMode()) && ext_flash_ok && ExtFlashRecorder_StartPlayback();
                 runtime_elapsed_ds = 0u;
                 runtime_displayed_sec = UINT32_MAX;
                 runtime_clock_start_ticks = TimebaseNowTicks();
@@ -2778,10 +2821,13 @@ int main(void)
         while (gyro_tick_accum_us >= GYRO_REFRESH_PERIOD_US)
         {
             gyro_tick_accum_us -= GYRO_REFRESH_PERIOD_US;
-            if (lcd_ok && !modal_active_now)
+            if (lcd_ok)
             {
                 ShieldGyroUpdate();
-                GaugeRender_DrawGyroFast();
+                if (!modal_active_now)
+                {
+                    GaugeRender_DrawGyroFast();
+                }
             }
         }
 
@@ -2835,7 +2881,7 @@ int main(void)
         if (recplay_tick_accum_us >= RECPLAY_TICK_PERIOD_US)
         {
             recplay_tick_accum_us -= RECPLAY_TICK_PERIOD_US;
-            if (ext_flash_ok && record_mode)
+            if (ext_flash_ok && record_mode && !GaugeRender_IsLiveBannerMode())
             {
                 uint32_t rec_sec;
                 if (s_timebase_ready && (s_timebase_hz != 0u))
@@ -2853,10 +2899,17 @@ int main(void)
                 if (!ExtFlashRecorder_AppendSampleEx(s_accel_x_mg,
                                                      s_accel_y_mg,
                                                      s_accel_z_mg,
-                                                     0,
-                                                     0,
-                                                     0,
+                                                     s_ui_gyro_x,
+                                                     s_ui_gyro_y,
+                                                     s_ui_gyro_z,
                                                      s_temp_c10,
+                                                     s_mag_x_mgauss,
+                                                     s_mag_y_mgauss,
+                                                     s_mag_z_mgauss,
+                                                     s_baro_dhpa,
+                                                     s_sht_temp_c10,
+                                                     s_sht_rh_dpct,
+                                                     s_stts_temp_c10,
                                                      rec_elapsed_ds))
                 {
                     PRINTF("EXT_FLASH_REC: write_failed\r\n");
@@ -2878,10 +2931,18 @@ int main(void)
                     s_accel_y_mg = playback_sample.ay_mg;
                     s_accel_z_mg = playback_sample.az_mg;
                     GaugeRender_SetLinearAccel(s_accel_x_mg, s_accel_y_mg, s_accel_z_mg, true);
-                    if (!s_shield_gyro_ready)
-                    {
-                        GaugeRender_SetAccel(s_accel_x_mg, s_accel_y_mg, s_accel_z_mg, true);
-                    }
+                    GaugeRender_SetAccel(playback_sample.gx_mdps, playback_sample.gy_mdps, playback_sample.gz_mdps, true);
+                    s_mag_x_mgauss = playback_sample.mag_x_mgauss;
+                    s_mag_y_mgauss = playback_sample.mag_y_mgauss;
+                    s_mag_z_mgauss = playback_sample.mag_z_mgauss;
+                    s_baro_dhpa = playback_sample.baro_dhpa;
+                    s_sht_temp_c10 = playback_sample.sht_temp_c10;
+                    s_sht_rh_dpct = playback_sample.sht_rh_dpct;
+                    s_stts_temp_c10 = playback_sample.stts_temp_c10;
+                    GaugeRender_SetMag(s_mag_x_mgauss, s_mag_y_mgauss, s_mag_z_mgauss, true);
+                    GaugeRender_SetBaro(s_baro_dhpa, true);
+                    GaugeRender_SetSht(s_sht_temp_c10, s_sht_rh_dpct, true);
+                    GaugeRender_SetStts(s_stts_temp_c10, true);
                     s_temp_c10 = playback_sample.temp_c10;
                     s_temp_c = playback_sample.temp_c;
                     s_temp_ready = true;
@@ -2926,10 +2987,7 @@ int main(void)
         if (temp_tick_accum_us >= TEMP_REFRESH_PERIOD_US)
         {
             temp_tick_accum_us -= TEMP_REFRESH_PERIOD_US;
-            if (record_mode)
-            {
-                BoardTempUpdate();
-            }
+            BoardTempUpdate();
         }
 
         if (accel_test_tick_accum_us >= ACCEL_TEST_LOG_PERIOD_US)

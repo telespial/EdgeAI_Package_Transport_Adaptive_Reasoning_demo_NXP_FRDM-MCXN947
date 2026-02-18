@@ -15,6 +15,13 @@ typedef struct
     int16_t gy_mdps;
     int16_t gz_mdps;
     int16_t temp_c10;
+    int16_t mag_x_mgauss;
+    int16_t mag_y_mgauss;
+    int16_t mag_z_mgauss;
+    int16_t baro_dhpa;
+    int16_t sht_temp_c10;
+    int16_t sht_rh_dpct;
+    int16_t stts_temp_c10;
     uint8_t temp_c;
 } ext_flash_sample_t;
 
@@ -27,6 +34,13 @@ bool ExtFlashRecorder_AppendSampleEx(int16_t ax_mg,
                                      int16_t gy_mdps,
                                      int16_t gz_mdps,
                                      int16_t temp_c10,
+                                     int16_t mag_x_mgauss,
+                                     int16_t mag_y_mgauss,
+                                     int16_t mag_z_mgauss,
+                                     int16_t baro_dhpa,
+                                     int16_t sht_temp_c10,
+                                     int16_t sht_rh_dpct,
+                                     int16_t stts_temp_c10,
                                      uint32_t ts_ds);
 bool ExtFlashRecorder_IsReady(void);
 bool ExtFlashRecorder_ClearAll(void);

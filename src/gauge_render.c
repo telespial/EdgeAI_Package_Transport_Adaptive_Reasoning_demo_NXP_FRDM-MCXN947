@@ -1637,42 +1637,42 @@ static const char *AiStatusText(uint8_t ai_status)
     return "NORMAL";
 }
 
-static uint8_t RuleStatus(const power_sample_t *sample)
+static bool IsSevereAlertCondition(const power_sample_t *sample)
 {
-    if (sample->anomaly_score_pct >= 100u)
-    {
-        return AI_STATUS_FAULT;
-    }
-    if (sample->anomaly_score_pct >= 40u)
-    {
-        return AI_STATUS_WARNING;
-    }
-    return AI_STATUS_NORMAL;
-}
-
-static bool IsSevereAlertCondition(const power_sample_t *sample, bool ai_enabled)
-{
-    uint8_t status = ai_enabled ? sample->ai_status : RuleStatus(sample);
-    return status == AI_STATUS_FAULT;
+    return sample->ai_status == AI_STATUS_FAULT;
 }
 
 static void BuildAnomalyReason(const power_sample_t *sample, char *out, size_t out_len)
 {
-    if (sample->anomaly_score_pct >= 100u)
+    switch (sample->alert_reason_code)
     {
-        snprintf(out, out_len, "MAJOR EVENT");
-    }
-    else if (sample->anomaly_score_pct >= 80u)
-    {
-        snprintf(out, out_len, "MINOR EVENT");
-    }
-    else if (sample->anomaly_score_pct >= 40u)
-    {
-        snprintf(out, out_len, "WATCH STATE");
-    }
-    else
-    {
-        snprintf(out, out_len, "NORMAL TRACKING");
+        case ALERT_REASON_ACCEL_FAIL:
+            snprintf(out, out_len, "ACCEL FAIL");
+            break;
+        case ALERT_REASON_ACCEL_WARN:
+            snprintf(out, out_len, "ACCEL WARN");
+            break;
+        case ALERT_REASON_TEMP_FAIL:
+            snprintf(out, out_len, "TEMP FAIL");
+            break;
+        case ALERT_REASON_TEMP_WARN:
+            snprintf(out, out_len, "TEMP WARN");
+            break;
+        case ALERT_REASON_GYRO_WARN:
+            snprintf(out, out_len, "GYRO WARN");
+            break;
+        case ALERT_REASON_SCORE_FAIL:
+            snprintf(out, out_len, "SCORE FAIL");
+            break;
+        case ALERT_REASON_SCORE_WARN:
+            snprintf(out, out_len, "SCORE WARN");
+            break;
+        case ALERT_REASON_ANOMALY_WATCH:
+            snprintf(out, out_len, "WATCH STATE");
+            break;
+        default:
+            snprintf(out, out_len, "NORMAL TRACKING");
+            break;
     }
 }
 
@@ -1684,7 +1684,7 @@ static void DrawAiAlertOverlay(const gauge_style_preset_t *style, const power_sa
     bool recording = !gScopePaused;
     bool training_mode = (!gLiveBannerMode && (gAnomMode == 1u) && gScopePaused);
     const char *normal_label = "SYSTEM NORMAL";
-    uint8_t status = ai_enabled ? sample->ai_status : RuleStatus(sample);
+    uint8_t status = sample->ai_status;
     char detail[30];
 
     if (gSettingsVisible || gHelpVisible || gLimitsVisible || gRecordConfirmActive)
@@ -1694,7 +1694,7 @@ static void DrawAiAlertOverlay(const gauge_style_preset_t *style, const power_sa
         return;
     }
 
-    severe = IsSevereAlertCondition(sample, ai_enabled);
+    severe = IsSevereAlertCondition(sample);
     BuildAnomalyReason(sample, detail, sizeof(detail));
 
     if (recording)
@@ -1805,9 +1805,9 @@ static void DrawTerminalDynamic(const gauge_style_preset_t *style, const power_s
 {
     char line[48];
     const char *mode_text = gLiveBannerMode ? "LIVE" : ((gAnomMode == 1u && gScopePaused) ? "TRAIN" : (gScopePaused ? "PLAY" : "REC"));
-    uint8_t status = ai_enabled ? sample->ai_status : RuleStatus(sample);
-    uint16_t ai_color = ai_enabled ? AiStatusColor(style, sample->ai_status) : AiStatusColor(style, status);
-    const char *status_text = ai_enabled ? AiStatusText(sample->ai_status) : "OFF";
+    uint8_t status = sample->ai_status;
+    uint16_t ai_color = AiStatusColor(style, status);
+    const char *status_text = ai_enabled ? AiStatusText(status) : "OFF";
     const char *sys_text = AiStatusText(status);
 
     /* Refresh header band from background image to keep terminal visually transparent. */

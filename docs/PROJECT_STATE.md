@@ -11,6 +11,25 @@ Project: `EdgeAI_Package_Transport_Anomaly_demo_NXP_FRDM-MCXN947`
 - Lock tag: `FAILSAFE-ACTIVE`
 - Failsafe binary: `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_failsafe_active.bin`
 
+## Update 2026-02-22 (Alert Pipeline Simplification + Flash Alert Logging)
+- Simplified runtime status architecture to a single canonical alert pipeline:
+  - UI no longer falls back to a separate non-AI rule-status path for banner/terminal status.
+  - Canonical `sample->ai_status` now drives displayed system state consistently.
+- Added explicit per-sample alert reason code generation in anomaly apply path:
+  - `ALERT_REASON_*` codes cover accel/temp/gyro limit warnings/failures and score/watch states.
+- Updated alert text generation in UI to reason-code mapping (instead of score-band heuristics):
+  - examples: `ACCEL WARN`, `TEMP FAIL`, `SCORE WARN`, `WATCH STATE`.
+- Extended external-flash sample payload to persist alert context with sensor row data:
+  - `anomaly_score_pct`
+  - `alert_status`
+  - `alert_reason_code`
+  - packed into recorder row reserved fields for backward-compatible footprint.
+- Extended UART periodic log line fields for diagnostics:
+  - added `AS` (alert status), `RC` (reason code), `SC` (score).
+- Verification:
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` (PASS)
+  - `./tools/flash_frdmmcxn947.sh mcuxsdk_ws/build_adaptive_reasoning/edgeai_package_transport_anomaly_demo_cm33_core0.bin` (PASS, probe `2PZWMSBKUXU22`)
+
 ## Update 2026-02-22 (Golden/Failsafe Refresh Before Alert-Pipeline Simplification)
 - Cut fresh local golden and promoted active failsafe from current build output:
   - golden tag: `GOLDEN-20260222-032039`

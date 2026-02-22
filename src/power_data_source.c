@@ -420,6 +420,7 @@ static power_sample_t SampleFromReplay(uint32_t index, power_replay_profile_t pr
     out.anomaly_score_pct = 0u;
     out.connector_wear_pct = 0u;
     out.ai_status = AI_STATUS_NORMAL;
+    out.alert_reason_code = ALERT_REASON_NORMAL;
     out.ai_fault_flags = 0u;
     out.thermal_risk_s = 0u;
     out.degradation_drift_pct = 0u;
@@ -805,6 +806,7 @@ static void UpdateAiModel(const power_sample_t *prev)
 
     gPowerData.current.ai_fault_flags = fault_flags;
     gPowerData.current.ai_status = (uint8_t)ai_status;
+    gPowerData.current.alert_reason_code = ALERT_REASON_NORMAL;
     gPowerData.current.anomaly_score_pct = ClampU16(anomaly);
     gPowerData.current.degradation_drift_pct = ClampU8(drift_pct);
     gPowerData.current.connector_wear_pct =

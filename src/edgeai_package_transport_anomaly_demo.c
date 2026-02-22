@@ -341,6 +341,7 @@ static void ApplyAnomalyToFrame(power_sample_t *dst)
     dst->thermal_damage_risk_pct = tp;
     dst->degradation_drift_pct = az;
     dst->thermal_risk_s = 0u;
+    dst->alert_reason_code = ALERT_REASON_NORMAL;
 
     abx = (s_accel_x_mg < 0) ? -s_accel_x_mg : s_accel_x_mg;
     aby = (s_accel_y_mg < 0) ? -s_accel_y_mg : s_accel_y_mg;
@@ -364,26 +365,43 @@ static void ApplyAnomalyToFrame(power_sample_t *dst)
     if (accel_fail_hit || temp_fail_hit)
     {
         dst->ai_status = AI_STATUS_FAULT;
+        dst->alert_reason_code = accel_fail_hit ? ALERT_REASON_ACCEL_FAIL : ALERT_REASON_TEMP_FAIL;
     }
     else if (accel_warn_hit || temp_limit_hit || gyro_limit_hit)
     {
         dst->ai_status = AI_STATUS_WARNING;
+        if (accel_warn_hit)
+        {
+            dst->alert_reason_code = ALERT_REASON_ACCEL_WARN;
+        }
+        else if (temp_limit_hit)
+        {
+            dst->alert_reason_code = ALERT_REASON_TEMP_WARN;
+        }
+        else
+        {
+            dst->alert_reason_code = ALERT_REASON_GYRO_WARN;
+        }
     }
     else if ((profile != NULL) && ((weighted_pct / 100.0f) >= profile->alert_fail))
     {
         dst->ai_status = AI_STATUS_FAULT;
+        dst->alert_reason_code = ALERT_REASON_SCORE_FAIL;
     }
     else if ((profile != NULL) && ((weighted_pct / 100.0f) >= profile->alert_warn))
     {
         dst->ai_status = AI_STATUS_WARNING;
+        dst->alert_reason_code = ALERT_REASON_SCORE_WARN;
     }
     else if (s_anom_out.overall_level >= ANOMALY_LEVEL_WATCH)
     {
         dst->ai_status = AI_STATUS_WARNING;
+        dst->alert_reason_code = ALERT_REASON_ANOMALY_WATCH;
     }
     else
     {
         dst->ai_status = AI_STATUS_NORMAL;
+        dst->alert_reason_code = ALERT_REASON_NORMAL;
     }
 
     dst->ai_fault_flags = 0u;
@@ -3547,7 +3565,7 @@ int main(void)
             while (log_tick_accum_us >= log_period_us)
             {
                 log_tick_accum_us -= log_period_us;
-                PRINTF("LOG,%uHZ,AX=%d,AY=%d,AZ=%d,GX=%d,GY=%d,GZ=%d,T=%d.%dC,P=%d.%dHPA,AL=%u\r\n",
+                PRINTF("LOG,%uHZ,AX=%d,AY=%d,AZ=%d,GX=%d,GY=%d,GZ=%d,T=%d.%dC,P=%d.%dHPA,AL=%u,AS=%u,RC=%u,SC=%u\r\n",
                        (unsigned int)log_hz,
                        (int)s_accel_x_mg,
                        (int)s_accel_y_mg,
@@ -3559,7 +3577,10 @@ int main(void)
                        (int)(s_temp_c10 < 0 ? -s_temp_c10 : s_temp_c10) % 10,
                        (int)(s_baro_dhpa / 10),
                        (int)(s_baro_dhpa < 0 ? -s_baro_dhpa : s_baro_dhpa) % 10,
-                       (unsigned int)s_anom_out.overall_level);
+                       (unsigned int)s_anom_out.overall_level,
+                       (unsigned int)s_frame_sample.ai_status,
+                       (unsigned int)s_frame_sample.alert_reason_code,
+                       (unsigned int)s_frame_sample.anomaly_score_pct);
             }
         }
 
@@ -3601,6 +3622,9 @@ int main(void)
                                                      s_sht_temp_c10,
                                                      s_sht_rh_dpct,
                                                      s_stts_temp_c10,
+                                                     s_frame_sample.anomaly_score_pct,
+                                                     s_frame_sample.ai_status,
+                                                     s_frame_sample.alert_reason_code,
                                                      rec_elapsed_ds))
                 {
                     PRINTF("EXT_FLASH_REC: write_failed\r\n");

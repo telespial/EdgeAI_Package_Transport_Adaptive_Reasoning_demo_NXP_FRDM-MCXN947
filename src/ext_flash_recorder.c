@@ -430,6 +430,9 @@ bool ExtFlashRecorder_AppendSampleEx(int16_t ax_mg,
                                      int16_t sht_temp_c10,
                                      int16_t sht_rh_dpct,
                                      int16_t stts_temp_c10,
+                                     uint16_t anomaly_score_pct,
+                                     uint8_t alert_status,
+                                     uint8_t alert_reason_code,
                                      uint32_t ts_ds)
 {
     ext_flash_sample_record_t rec;
@@ -459,7 +462,7 @@ bool ExtFlashRecorder_AppendSampleEx(int16_t ax_mg,
     rec.magic = EDGEAI_REC_MAGIC;
     rec.seq = s_seq++;
     rec.generation = (uint16_t)(s_generation & 0xFFFFu);
-    rec.reserved0 = 0u;
+    rec.reserved0 = anomaly_score_pct;
     rec.ax_mg = ax_mg;
     rec.ay_mg = ay_mg;
     rec.az_mg = az_mg;
@@ -474,7 +477,7 @@ bool ExtFlashRecorder_AppendSampleEx(int16_t ax_mg,
     rec.sht_temp_c10 = sht_temp_c10;
     rec.sht_rh_dpct = sht_rh_dpct;
     rec.stts_temp_c10 = stts_temp_c10;
-    rec.reserved1 = 0u;
+    rec.reserved1 = (((uint16_t)alert_status & 0xFFu) << 8) | ((uint16_t)alert_reason_code & 0xFFu);
     rec.ts_ds = ts_ds;
 
     memset(s_pageBuf.bytes, 0xFF, s_norConfig.pageSize);
@@ -519,6 +522,9 @@ bool ExtFlashRecorder_AppendSample(int16_t ax_mg, int16_t ay_mg, int16_t az_mg, 
                                            0,
                                            0,
                                            0,
+                                           0u,
+                                           0u,
+                                           0u,
                                            0u);
 }
 
@@ -600,6 +606,9 @@ bool ExtFlashRecorder_ReadNextSample(ext_flash_sample_t *sample)
     sample->sht_temp_c10 = rec.sht_temp_c10;
     sample->sht_rh_dpct = rec.sht_rh_dpct;
     sample->stts_temp_c10 = rec.stts_temp_c10;
+    sample->anomaly_score_pct = rec.reserved0;
+    sample->alert_status = (uint8_t)((rec.reserved1 >> 8) & 0xFFu);
+    sample->alert_reason_code = (uint8_t)(rec.reserved1 & 0xFFu);
 
     temp_c_rounded = (sample->temp_c10 >= 0) ? (sample->temp_c10 + 5) : (sample->temp_c10 - 5);
     temp_c_rounded /= 10;

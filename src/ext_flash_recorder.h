@@ -22,6 +22,9 @@ typedef struct
     int16_t sht_temp_c10;
     int16_t sht_rh_dpct;
     int16_t stts_temp_c10;
+    uint16_t anomaly_score_pct;
+    uint8_t alert_status;
+    uint8_t alert_reason_code;
     uint8_t temp_c;
 } ext_flash_sample_t;
 
@@ -41,6 +44,9 @@ bool ExtFlashRecorder_AppendSampleEx(int16_t ax_mg,
                                      int16_t sht_temp_c10,
                                      int16_t sht_rh_dpct,
                                      int16_t stts_temp_c10,
+                                     uint16_t anomaly_score_pct,
+                                     uint8_t alert_status,
+                                     uint8_t alert_reason_code,
                                      uint32_t ts_ds);
 bool ExtFlashRecorder_IsReady(void);
 bool ExtFlashRecorder_ClearAll(void);

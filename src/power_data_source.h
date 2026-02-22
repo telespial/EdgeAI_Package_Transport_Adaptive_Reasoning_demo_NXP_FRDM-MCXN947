@@ -13,6 +13,19 @@ typedef enum
 
 typedef enum
 {
+    ALERT_REASON_NORMAL = 0,
+    ALERT_REASON_ACCEL_FAIL = 1,
+    ALERT_REASON_ACCEL_WARN = 2,
+    ALERT_REASON_TEMP_FAIL = 3,
+    ALERT_REASON_TEMP_WARN = 4,
+    ALERT_REASON_GYRO_WARN = 5,
+    ALERT_REASON_SCORE_FAIL = 6,
+    ALERT_REASON_SCORE_WARN = 7,
+    ALERT_REASON_ANOMALY_WATCH = 8,
+} alert_reason_t;
+
+typedef enum
+{
     AI_DECISION_NONE = 0,
     AI_DECISION_WATCH = 1,
     AI_DECISION_DERATE_15 = 2,
@@ -37,6 +50,7 @@ typedef struct
     uint16_t anomaly_score_pct;
     uint8_t connector_wear_pct;
     uint8_t ai_status;
+    uint8_t alert_reason_code;
     uint8_t ai_fault_flags;
     uint16_t thermal_risk_s;
     uint8_t degradation_drift_pct;

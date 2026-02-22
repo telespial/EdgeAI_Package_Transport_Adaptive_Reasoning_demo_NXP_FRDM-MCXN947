@@ -49,6 +49,18 @@ Project: `EdgeAI_Package_Transport_Anomaly_demo_NXP_FRDM-MCXN947`
   - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` (PASS)
   - `./tools/flash_frdmmcxn947.sh mcuxsdk_ws/build_adaptive_reasoning/edgeai_package_transport_anomaly_demo_cm33_core0.bin` (PASS, probe `2PZWMSBKUXU22`)
 
+## Update 2026-02-22 (LCD Ghosting/Touch Regression Recovery)
+- User-reported regression after previous buffer optimization iterations:
+  - duplicate/ghost UI elements (`AI ON/OFF`, timeline controls, traces),
+  - reduced/unstable touch interaction.
+- Root cause: rectangle fill path used multi-chunk writes against a single selected area, which is not stable for this LCD/controller flow in this firmware path.
+- Fix in `src/par_lcd_s035.c`:
+  - removed chunk-stream rectangle fill path,
+  - restored deterministic line-by-line rectangle fill (one `ST7796S_WritePixels` per row with explicit area select).
+- Verification:
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` (PASS)
+  - `./tools/flash_frdmmcxn947.sh mcuxsdk_ws/build_adaptive_reasoning/edgeai_package_transport_anomaly_demo_cm33_core0.bin` (PASS, probe `2PZWMSBKUXU22`)
+
 ## Update 2026-02-22 (AI Toggle Settings-Only)
 - Updated UI/control flow so AI enable/disable is no longer touch-toggleable from the main screen.
 - AI mode is now controlled only from Settings:

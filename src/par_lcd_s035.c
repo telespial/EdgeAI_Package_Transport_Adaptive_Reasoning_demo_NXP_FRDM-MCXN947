@@ -20,7 +20,6 @@
  */
 #define EDGEAI_LCD_WIDTH  480u
 #define EDGEAI_LCD_HEIGHT 320u
-#define EDGEAI_LCD_FILL_CHUNK_PIXELS 512u
 
 #define EDGEAI_LCD_RST_GPIO GPIO4
 #define EDGEAI_LCD_RST_PIN  7u
@@ -232,37 +231,20 @@ void par_lcd_s035_fill_rect(int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint
     if (y1 >= (int32_t)EDGEAI_LCD_HEIGHT) y1 = (int32_t)EDGEAI_LCD_HEIGHT - 1;
 
     uint32_t w = (uint32_t)(x1 - x0 + 1);
-    uint32_t h = (uint32_t)(y1 - y0 + 1);
-    uint32_t total = w * h;
-    static uint16_t chunk[EDGEAI_LCD_FILL_CHUNK_PIXELS];
-    static uint16_t cached_color = 0u;
-    static bool chunk_valid = false;
-    uint32_t chunk_pixels = EDGEAI_LCD_FILL_CHUNK_PIXELS;
+    if (w > EDGEAI_LCD_WIDTH) w = EDGEAI_LCD_WIDTH;
 
-    if (chunk_pixels == 0u)
+    static uint16_t row[EDGEAI_LCD_WIDTH];
+    for (uint32_t i = 0; i < w; i++)
     {
-        return;
+        row[i] = rgb565;
     }
 
-    if (!chunk_valid || cached_color != rgb565)
+    for (int32_t y = y0; y <= y1; y++)
     {
-        for (uint32_t i = 0; i < chunk_pixels; i++)
-        {
-            chunk[i] = rgb565;
-        }
-        cached_color = rgb565;
-        chunk_valid = true;
-    }
-
-    ST7796S_SelectArea(&s_lcdHandle, (uint16_t)x0, (uint16_t)y0, (uint16_t)x1, (uint16_t)y1);
-
-    while (total > 0u)
-    {
-        uint32_t n = (total > chunk_pixels) ? chunk_pixels : total;
+        ST7796S_SelectArea(&s_lcdHandle, (uint16_t)x0, (uint16_t)y, (uint16_t)x1, (uint16_t)y);
         s_memWriteDone = false;
-        ST7796S_WritePixels(&s_lcdHandle, chunk, n);
+        ST7796S_WritePixels(&s_lcdHandle, row, w);
         lcd_wait_write_done();
-        total -= n;
     }
 }
 

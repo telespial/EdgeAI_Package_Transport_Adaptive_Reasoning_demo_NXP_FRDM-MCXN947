@@ -13,6 +13,7 @@ Last updated: 2026-02-22
 - Latest capture fidelity update: PASS (100Hz accel buffering with interval peak capture for logs/flash, 2026-02-22)
 - Latest buffer extension update: PASS (gyro + magnetometer interval-peak buffering; temp/baro unchanged, 2026-02-22)
 - Latest label update: PASS (`SCORE WARN/FAIL` display renamed to `SHIFT/BREAK`, 2026-02-22)
+- Latest UI/runtime update: PASS (elapsed clock expanded to `HHHH:MM:SS`, scope graph switched to `GX/GY/GZ` with color legend, settings `CLEAR FLASH` confirm added, 2026-02-22)
 
 ## UI Control Scope (Updated)
 - AI enable/disable is settings-only.
@@ -41,6 +42,8 @@ Last updated: 2026-02-22
 - Accel capture now samples at 100 Hz and records interval-max peaks for `AX/AY/AZ` at the configured log/capture output cadence.
 - Gyro and magnetometer now use the same interval-max buffering model for `GX/GY/GZ` and `MX/MY/MZ`.
 - Temp and barometer remain direct sampled channels (no peak window buffering).
+- Runtime clock now shows 4-digit non-wrapping hours (`HHHH:MM:SS`, clamped at `9999`).
+- Settings now includes a dedicated `CLEAR FLASH` action with `YES/NO` confirmation popup.
 
 ## EIL Model Integration (In Progress)
 - Added EIL profile adapter (`src/eil_profile.h/.c`) with generated constants (`src/eil_profile_generated.h`).

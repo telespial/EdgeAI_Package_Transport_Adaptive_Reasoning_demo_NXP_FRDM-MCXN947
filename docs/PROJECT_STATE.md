@@ -11,6 +11,24 @@ Project: `EdgeAI_Package_Transport_Anomaly_demo_NXP_FRDM-MCXN947`
 - Lock tag: `FAILSAFE-ACTIVE`
 - Failsafe binary: `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_failsafe_active.bin`
 
+## Update 2026-02-22 (Elapsed Time Width + Gyro Scope + Settings Clear Flash)
+- Expanded elapsed-time hour display width:
+  - runtime clock now renders as `HHHH:MM:SS` (4-digit hour field),
+  - hour count no longer wraps at 24 hours; it increments continuously and clamps at `9999`.
+- Scope graph switched to gyro-axis plotting:
+  - scope traces now render `GX/GY/GZ`,
+  - legend text under scope now uses matching line colors for `GX GY GZ`.
+- Added settings-driven manual flash erase with confirm popup:
+  - new settings action: `CLEAR FLASH`,
+  - tap opens modal confirm (`YES/NO`),
+  - confirm executes `ExtFlashRecorder_ClearAll()` and resets runtime/playhead display state.
+- UI layout update:
+  - settings panel now includes dedicated `FLASH` row,
+  - `LOG HZ` row moved down to avoid overlap with new button.
+- Verification:
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` (PASS)
+  - `./tools/flash_frdmmcxn947.sh mcuxsdk_ws/build_adaptive_reasoning/edgeai_package_transport_anomaly_demo_cm33_core0.bin` (PASS, probe `2PZWMSBKUXU22`)
+
 ## Update 2026-02-22 (Alert Pipeline Simplification + Flash Alert Logging)
 - Simplified runtime status architecture to a single canonical alert pipeline:
   - UI no longer falls back to a separate non-AI rule-status path for banner/terminal status.

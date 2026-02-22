@@ -454,17 +454,17 @@ static void ConsumeCapturePeaks(int16_t *ax_mg,
     s_mag_capture_peak_valid = false;
 }
 
-static void ClockFromDeciseconds(uint32_t ds_total, uint8_t *hh, uint8_t *mm, uint8_t *ss, uint8_t *ds)
+static void ClockFromDeciseconds(uint32_t ds_total, uint16_t *hh, uint8_t *mm, uint8_t *ss, uint8_t *ds)
 {
     uint32_t sec_total = ds_total / 10u;
     uint32_t rem_ds = ds_total % 10u;
-    uint32_t hh_v = (sec_total / 3600u) % 24u;
+    uint32_t hh_v = sec_total / 3600u;
     uint32_t mm_v = (sec_total % 3600u) / 60u;
     uint32_t ss_v = sec_total % 60u;
 
     if (hh != NULL)
     {
-        *hh = (uint8_t)hh_v;
+        *hh = (uint16_t)((hh_v > 9999u) ? 9999u : hh_v);
     }
     if (mm != NULL)
     {
@@ -2845,6 +2845,15 @@ static bool TouchInSettingsLimitsButton(int32_t x, int32_t y)
     return (x >= x0) && (x <= x1) && (y >= y0) && (y <= y1);
 }
 
+static bool TouchInSettingsClearButton(int32_t x, int32_t y)
+{
+    int32_t x0 = GAUGE_RENDER_SET_CLEAR_BTN_X0;
+    int32_t x1 = x0 + GAUGE_RENDER_SET_CLEAR_BTN_W - 1;
+    int32_t y0 = GAUGE_RENDER_SET_CLEAR_BTN_Y0;
+    int32_t y1 = y0 + GAUGE_RENDER_SET_CLEAR_BTN_H - 1;
+    return (x >= x0) && (x <= x1) && (y >= y0) && (y <= y1);
+}
+
 static bool TouchInSettingsLogDec(int32_t x, int32_t y)
 {
     int32_t x0 = GAUGE_RENDER_SET_LOG_DEC_X0;
@@ -3298,6 +3307,7 @@ int main(void)
         bool timeline_changed = GaugeRender_HandleTouch(tx, ty, pressed);
         bool record_start_request;
         bool record_stop_request;
+        bool clear_flash_request;
 
         modal_active = GaugeRender_IsRecordConfirmActive();
         in_set = pressed && !modal_active && TouchInAiSet(tx, ty);
@@ -3568,6 +3578,16 @@ int main(void)
 
                 if (!handled_setting)
                 {
+                    if (TouchInSettingsClearButton(tx, ty))
+                    {
+                        handled_setting = true;
+                        redraw_ui = true;
+                        GaugeRender_RequestClearFlashConfirm();
+                    }
+                }
+
+                if (!handled_setting)
+                {
                     if (in_set || !TouchInSettingsPanel(tx, ty))
                     {
                         settings_visible = false;
@@ -3691,6 +3711,22 @@ int main(void)
             runtime_clock_start_ticks = TimebaseNowTicks();
             GaugeRender_SetRuntimeClock(0u, 0u, 0u, 0u, true);
             PRINTF("EXT_FLASH_REC: stop_confirmed\r\n");
+            if (lcd_ok)
+            {
+                GaugeRender_DrawFrame(GetFrameSample(), ai_enabled, PowerData_GetReplayProfile());
+            }
+        }
+        clear_flash_request = GaugeRender_ConsumeClearFlashRequest();
+        if (clear_flash_request)
+        {
+            bool cleared = ext_flash_ok && ExtFlashRecorder_ClearAll();
+            playback_active = false;
+            GaugeRender_SetPlayhead(99u, false);
+            runtime_elapsed_ds = 0u;
+            runtime_displayed_sec = UINT32_MAX;
+            runtime_clock_start_ticks = TimebaseNowTicks();
+            GaugeRender_SetRuntimeClock(0u, 0u, 0u, 0u, true);
+            PRINTF("EXT_FLASH_MANUAL_CLEAR: %s\r\n", cleared ? "ok" : "failed");
             if (lcd_ok)
             {
                 GaugeRender_DrawFrame(GetFrameSample(), ai_enabled, PowerData_GetReplayProfile());
@@ -3881,7 +3917,8 @@ int main(void)
 
                 if (elapsed_sec != runtime_displayed_sec)
                 {
-                    uint8_t ch, cm, cs, cds;
+                    uint16_t ch;
+                    uint8_t cm, cs, cds;
                     ClockFromDeciseconds(elapsed_sec * 10u, &ch, &cm, &cs, &cds);
                     GaugeRender_SetRuntimeClock(ch, cm, cs, 0u, true);
                     runtime_displayed_sec = elapsed_sec;
@@ -3988,7 +4025,8 @@ int main(void)
                 }
                 else
                 {
-                    uint8_t ch, cm, cs, cds;
+                    uint16_t ch;
+                    uint8_t cm, cs, cds;
                     ClockFromDeciseconds(rec_sec * 10u, &ch, &cm, &cs, &cds);
                     GaugeRender_SetRuntimeClock(ch, cm, cs, 0u, true);
                     runtime_displayed_sec = rec_sec;
@@ -4020,7 +4058,8 @@ int main(void)
                     s_temp_ready = true;
                     GaugeRender_SetBoardTempC10(s_temp_c10, true);
                     {
-                        uint8_t ch, cm, cs, cds;
+                        uint16_t ch;
+                        uint8_t cm, cs, cds;
                         uint32_t play_sec = playback_sample.ts_ds / 10u;
                         ClockFromDeciseconds(play_sec * 10u, &ch, &cm, &cs, &cds);
                         GaugeRender_SetRuntimeClock(ch, cm, cs, 0u, true);

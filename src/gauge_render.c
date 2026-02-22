@@ -51,9 +51,10 @@ static uint32_t gScopeSampleAccumUs = 0u;
 static bool gTimelineTouchLatch = false;
 static bool gScopePaused = true;
 static bool gRecordConfirmActive = false;
-static uint8_t gRecordConfirmAction = 0u; /* 0:none, 1:start, 2:stop */
+static uint8_t gRecordConfirmAction = 0u; /* 0:none, 1:start, 2:stop, 3:clear-flash */
 static bool gRecordStartRequest = false;
 static bool gRecordStopRequest = false;
+static bool gClearFlashRequest = false;
 static bool gModalWasActive = false;
 static uint8_t gPlayheadPos = 99u;
 static bool gPlayheadValid = false;
@@ -99,7 +100,7 @@ static uint8_t gAnomLevelAy = 0u;
 static uint8_t gAnomLevelAz = 0u;
 static uint8_t gAnomLevelTemp = 0u;
 static uint8_t gAnomOverall = 0u;
-static uint8_t gRtcHh = 0u;
+static uint16_t gRtcHh = 0u;
 static uint8_t gRtcMm = 0u;
 static uint8_t gRtcSs = 0u;
 static uint8_t gRtcDs = 0u;
@@ -435,7 +436,7 @@ static uint16_t DisplayPowerW(const power_sample_t *sample)
     return (uint16_t)p_w;
 }
 
-static uint16_t TempTraceColorFromScaled(uint8_t temp_scaled)
+static uint16_t __attribute__((unused)) TempTraceColorFromScaled(uint8_t temp_scaled)
 {
     uint8_t temp_c = (uint8_t)(((uint16_t)temp_scaled * 100u) / 255u);
     if (temp_c >= 85u)
@@ -449,7 +450,7 @@ static uint16_t TempTraceColorFromScaled(uint8_t temp_scaled)
     return TRACE_TEMP_GREEN;
 }
 
-static uint16_t TempTraceColorFromC10(int16_t temp_c10)
+static uint16_t __attribute__((unused)) TempTraceColorFromC10(int16_t temp_c10)
 {
     if (temp_c10 >= 850)
     {
@@ -1131,7 +1132,12 @@ static void DrawRecordConfirmOverlay(void)
     DrawLine(REC_CONFIRM_X0, REC_CONFIRM_Y1, REC_CONFIRM_X1, REC_CONFIRM_Y1, 2, RGB565(255, 120, 120));
     DrawLine(REC_CONFIRM_X0, REC_CONFIRM_Y0, REC_CONFIRM_X0, REC_CONFIRM_Y1, 2, RGB565(255, 120, 120));
     DrawLine(REC_CONFIRM_X1, REC_CONFIRM_Y0, REC_CONFIRM_X1, REC_CONFIRM_Y1, 2, RGB565(255, 120, 120));
-    if (gRecordConfirmAction == 2u)
+    if (gRecordConfirmAction == 3u)
+    {
+        DrawTextUi(REC_CONFIRM_X0 + 50, REC_CONFIRM_Y0 + 16, 1, "CLEAR FLASH MEMORY?", RGB565(255, 232, 232));
+        DrawTextUi(REC_CONFIRM_X0 + 52, REC_CONFIRM_Y0 + 34, 1, "THIS ERASES ALL LOG DATA", RGB565(255, 190, 190));
+    }
+    else if (gRecordConfirmAction == 2u)
     {
         DrawTextUi(REC_CONFIRM_X0 + 56, REC_CONFIRM_Y0 + 16, 1, "STOP RECORDING?", RGB565(255, 232, 232));
         DrawTextUi(REC_CONFIRM_X0 + 44, REC_CONFIRM_Y0 + 34, 1, "PLAYBACK WILL BE AVAILABLE", RGB565(255, 190, 190));
@@ -1282,6 +1288,7 @@ static void DrawSettingsPopup(void)
     int32_t tune_label_y = GAUGE_RENDER_SET_TUNE_Y0 + ((GAUGE_RENDER_SET_TUNE_H - 7) / 2);
     int32_t ai_label_y = GAUGE_RENDER_SET_AI_Y0 + ((GAUGE_RENDER_SET_AI_H - 7) / 2);
     int32_t lim_label_y = GAUGE_RENDER_SET_LIMIT_BTN_Y0 + ((GAUGE_RENDER_SET_LIMIT_BTN_H - 7) / 2);
+    int32_t clear_label_y = GAUGE_RENDER_SET_CLEAR_BTN_Y0 + ((GAUGE_RENDER_SET_CLEAR_BTN_H - 7) / 2);
     int32_t log_label_y = GAUGE_RENDER_SET_LOG_Y0 + ((GAUGE_RENDER_SET_LOG_H - 7) / 2);
     char log_rate_line[16];
 
@@ -1298,8 +1305,9 @@ static void DrawSettingsPopup(void)
     DrawTextUi(label_col_right - edgeai_text5x7_width(1, "SENS"), tune_label_y, 1, "SENS", body);
     DrawTextUi(label_col_right - edgeai_text5x7_width(1, "AI"), ai_label_y, 1, "AI", body);
     DrawTextUi(label_col_right - edgeai_text5x7_width(1, "LIMITS"), lim_label_y, 1, "LIMITS", body);
+    DrawTextUi(label_col_right - edgeai_text5x7_width(1, "FLASH"), clear_label_y, 1, "FLASH", body);
     DrawTextUi(label_col_right - edgeai_text5x7_width(1, "LOG HZ"), log_label_y, 1, "LOG HZ", body);
-    DrawTextUi(x0 + 14, y0 + 288, 1, "TAP X OR OUTSIDE TO CLOSE", dim);
+    DrawTextUi(x0 + 14, y1 - 14, 1, "TAP X OR OUTSIDE TO CLOSE", dim);
 
     for (int32_t i = 0; i < 2; i++)
     {
@@ -1385,6 +1393,20 @@ static void DrawSettingsPopup(void)
                    1,
                    t,
                    body);
+    }
+
+    {
+        int32_t bx0 = GAUGE_RENDER_SET_CLEAR_BTN_X0;
+        int32_t by0 = GAUGE_RENDER_SET_CLEAR_BTN_Y0;
+        int32_t bx1 = bx0 + GAUGE_RENDER_SET_CLEAR_BTN_W - 1;
+        int32_t by1 = by0 + GAUGE_RENDER_SET_CLEAR_BTN_H - 1;
+        const char *t = "CLEAR FLASH";
+        DrawPillRect(bx0, by0, bx1, by1, RGB565(58, 18, 18), edge);
+        DrawTextUi(bx0 + ((GAUGE_RENDER_SET_CLEAR_BTN_W - edgeai_text5x7_width(1, t)) / 2),
+                   by0 + ((GAUGE_RENDER_SET_CLEAR_BTN_H - 7) / 2),
+                   1,
+                   t,
+                   RGB565(255, 215, 215));
     }
 
     {
@@ -1946,13 +1968,12 @@ static void DrawScopeDynamic(const gauge_style_preset_t *style, bool ai_enabled)
     uint16_t max_start = (gTraceCount > SCOPE_TRACE_POINTS) ? (gTraceCount - SCOPE_TRACE_POINTS) : 0u;
     uint16_t start = max_start;
     int32_t prev_x = 0;
-    int32_t prev_ax = 0;
-    int32_t prev_ay = 0;
-    int32_t prev_az = 0;
-    int32_t prev_tp = 0;
-    uint16_t ax_color = TRACE_AX_COLOR;
-    uint16_t ay_color = TRACE_AY_COLOR;
-    uint16_t az_color = TRACE_AZ_COLOR;
+    int32_t prev_gx = 0;
+    int32_t prev_gy = 0;
+    int32_t prev_gz = 0;
+    uint16_t gx_color = TRACE_GX_COLOR;
+    uint16_t gy_color = TRACE_GY_COLOR;
+    uint16_t gz_color = TRACE_GZ_COLOR;
     uint16_t i;
     (void)ai_enabled;
 
@@ -1969,25 +1990,21 @@ static void DrawScopeDynamic(const gauge_style_preset_t *style, bool ai_enabled)
     {
         int32_t x = px0 + ((int32_t)i * (pw - 1)) / (int32_t)((n > 1u) ? (n - 1u) : 1u);
         uint16_t idx = (uint16_t)(start + i);
-        int32_t y_ax = y_bottom - (int32_t)((gTraceAx[idx] * (uint32_t)(ph - 4)) / 255u);
-        int32_t y_ay = y_bottom - (int32_t)((gTraceAy[idx] * (uint32_t)(ph - 4)) / 255u);
-        int32_t y_az = y_bottom - (int32_t)((gTraceAz[idx] * (uint32_t)(ph - 4)) / 255u);
-        int32_t y_tp = y_bottom - (int32_t)((gTraceTemp[idx] * (uint32_t)(ph - 4)) / 255u);
+        int32_t y_gx = y_bottom - (int32_t)((gTraceGx[idx] * (uint32_t)(ph - 4)) / 255u);
+        int32_t y_gy = y_bottom - (int32_t)((gTraceGy[idx] * (uint32_t)(ph - 4)) / 255u);
+        int32_t y_gz = y_bottom - (int32_t)((gTraceGz[idx] * (uint32_t)(ph - 4)) / 255u);
 
         if (i > 0u)
         {
-            uint16_t tp_color = TempTraceColorFromScaled(gTraceTemp[idx]);
-            DrawLine(prev_x, prev_ax, x, y_ax, 1, ax_color);
-            DrawLine(prev_x, prev_ay, x, y_ay, 1, ay_color);
-            DrawLine(prev_x, prev_az, x, y_az, 1, az_color);
-            DrawLine(prev_x, prev_tp, x, y_tp, 1, tp_color);
+            DrawLine(prev_x, prev_gx, x, y_gx, 1, gx_color);
+            DrawLine(prev_x, prev_gy, x, y_gy, 1, gy_color);
+            DrawLine(prev_x, prev_gz, x, y_gz, 1, gz_color);
         }
 
         prev_x = x;
-        prev_ax = y_ax;
-        prev_ay = y_ay;
-        prev_az = y_az;
-        prev_tp = y_tp;
+        prev_gx = y_gx;
+        prev_gy = y_gy;
+        prev_gz = y_gz;
     }
 
     if (gPlayheadValid)
@@ -2327,9 +2344,9 @@ void GaugeRender_SetBoardTempC10(int16_t temp_c10, bool valid)
     gBoardTempValid = valid;
 }
 
-void GaugeRender_SetRuntimeClock(uint8_t hh, uint8_t mm, uint8_t ss, uint8_t ds, bool valid)
+void GaugeRender_SetRuntimeClock(uint16_t hh, uint8_t mm, uint8_t ss, uint8_t ds, bool valid)
 {
-    gRtcHh = hh;
+    gRtcHh = (hh > 9999u) ? 9999u : hh;
     gRtcMm = mm;
     gRtcSs = ss;
     gRtcDs = (ds > 9u) ? 9u : ds;
@@ -2517,18 +2534,18 @@ void GaugeRender_DrawFrame(const power_sample_t *sample, bool ai_enabled, power_
     }
 
     {
-        char rtc_line[16];
+        char rtc_line[20];
         int32_t rtc_x;
         if (gRtcValid)
         {
-            snprintf(rtc_line, sizeof(rtc_line), "%02u:%02u:%02u",
+            snprintf(rtc_line, sizeof(rtc_line), "%04u:%02u:%02u",
                      (unsigned int)gRtcHh,
                      (unsigned int)gRtcMm,
                      (unsigned int)gRtcSs);
         }
         else
         {
-            snprintf(rtc_line, sizeof(rtc_line), "--:--:--");
+            snprintf(rtc_line, sizeof(rtc_line), "----:--:--");
         }
         par_lcd_s035_fill_rect(170, RTC_TEXT_Y - 2, 308, RTC_TEXT_Y + 15, RGB565(2, 3, 5));
         rtc_x = ((PANEL_X0 + PANEL_X1) / 2) - (edgeai_text5x7_width(2, rtc_line) / 2);
@@ -2543,14 +2560,11 @@ void GaugeRender_DrawFrame(const power_sample_t *sample, bool ai_enabled, power_
     {
         int32_t lx = SCOPE_X + 8;
         int32_t ly = SCOPE_Y + SCOPE_H + 1;
-        uint16_t t_color = TempTraceColorFromC10(DisplayTempC10(sample));
-        DrawTextUi(lx, ly, 1, "AX", TRACE_AX_COLOR);
-        lx += edgeai_text5x7_width(1, "AX ");
-        DrawTextUi(lx, ly, 1, "AY", TRACE_AY_COLOR);
-        lx += edgeai_text5x7_width(1, "AY ");
-        DrawTextUi(lx, ly, 1, "AZ", TRACE_AZ_COLOR);
-        lx += edgeai_text5x7_width(1, "AZ ");
-        DrawTextUi(lx, ly, 1, "T", t_color);
+        DrawTextUi(lx, ly, 1, "GX", TRACE_GX_COLOR);
+        lx += edgeai_text5x7_width(1, "GX ");
+        DrawTextUi(lx, ly, 1, "GY", TRACE_GY_COLOR);
+        lx += edgeai_text5x7_width(1, "GY ");
+        DrawTextUi(lx, ly, 1, "GZ", TRACE_GZ_COLOR);
     }
     DrawLeftBargraphDynamic(style, DisplayTempC10(sample));
     DrawCenterAccelBall();
@@ -2668,6 +2682,10 @@ bool GaugeRender_HandleTouch(int32_t x, int32_t y, bool pressed)
                 {
                     gRecordStopRequest = true;
                 }
+                else if (gRecordConfirmAction == 3u)
+                {
+                    gClearFlashRequest = true;
+                }
                 else
                 {
                     gRecordStartRequest = true;
@@ -2752,5 +2770,18 @@ bool GaugeRender_ConsumeRecordStopRequest(void)
 {
     bool requested = gRecordStopRequest;
     gRecordStopRequest = false;
+    return requested;
+}
+
+void GaugeRender_RequestClearFlashConfirm(void)
+{
+    gRecordConfirmActive = true;
+    gRecordConfirmAction = 3u;
+}
+
+bool GaugeRender_ConsumeClearFlashRequest(void)
+{
+    bool requested = gClearFlashRequest;
+    gClearFlashRequest = false;
     return requested;
 }

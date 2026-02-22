@@ -15,6 +15,7 @@ Last updated: 2026-02-22
 - Latest label update: PASS (`SCORE WARN/FAIL` display renamed to `SHIFT/BREAK`, 2026-02-22)
 - Latest UI/runtime update: PASS (elapsed clock expanded to `HHHH:MM:SS`, scope graph switched to `GX/GY/GZ` with color legend, settings `CLEAR FLASH` confirm added, 2026-02-22)
 - Latest scope fix: PASS (restored `AX/AY/AZ/T` plots and added `GX/GY/GZ`; gyro labels placed to right of accel/temp legend, 2026-02-22)
+- Latest gyro sphere fix: PASS (artifact line cleanup + corrected direct X/Y axis mapping, 2026-02-22)
 
 ## UI Control Scope (Updated)
 - AI enable/disable is settings-only.

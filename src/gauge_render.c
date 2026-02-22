@@ -854,8 +854,6 @@ static void DrawGyroWidgetFrame(const gauge_style_preset_t *style)
         DrawLine(cx, cy, x1, y1, ((i % 2) == 0) ? 2 : 1, c);
     }
 
-    DrawLine(cx - r + 8, cy, cx + r - 8, cy, 1, RGB565(70, 84, 102));
-    DrawLine(cx, cy - r + 8, cx, cy + r - 8, 1, RGB565(70, 84, 102));
     DrawTextUi(cx - (edgeai_text5x7_width(1, "GYRO") / 2), cy - r - 19, 1, "GYRO", style->palette.text_primary);
     DrawCompassWidgetFrame(style);
     DrawCompassWidgetDynamic();
@@ -920,7 +918,7 @@ static void DrawGyroWidgetDynamic(const gauge_style_preset_t *style)
     DrawCompassWidgetDynamic();
 
     /* Clear a slightly larger dynamic area to avoid edge trails from moving line/marker glyphs. */
-    par_lcd_s035_draw_filled_circle(cx, cy, r - 6, RGB565(8, 11, 15));
+    par_lcd_s035_draw_filled_circle(cx, cy, r - 4, RGB565(8, 11, 15));
     DrawRing(cx, cy, r - 13, 1, RGB565(24, 44, 64), RGB565(8, 11, 15));
     DrawRing(cx, cy, r - 22, 1, RGB565(30, 58, 82), RGB565(8, 11, 15));
     DrawLine(cx - r + 14, cy, cx + r - 14, cy, 1, axis_color);
@@ -1298,7 +1296,7 @@ static void DrawSettingsPopup(void)
     DrawLine(x0, y1, x1, y1, 2, edge);
     DrawLine(x0, y0, x0, y1, 2, edge);
     DrawLine(x1, y0, x1, y1, 2, edge);
-    DrawTextUi(x0 + 10, y0 + 8, 2, "SETTINGS", body);
+    DrawTextUi(x0 + 10, y0 + 10, 1, "SETTINGS", body);
     DrawPopupCloseButton(x1, y0);
     DrawTextUi(label_col_right - edgeai_text5x7_width(1, "MODE"), mode_label_y, 1, "MODE", body);
     DrawTextUi(label_col_right - edgeai_text5x7_width(1, "RUN"), run_label_y, 1, "RUN", body);
@@ -1307,7 +1305,7 @@ static void DrawSettingsPopup(void)
     DrawTextUi(label_col_right - edgeai_text5x7_width(1, "LIMITS"), lim_label_y, 1, "LIMITS", body);
     DrawTextUi(label_col_right - edgeai_text5x7_width(1, "FLASH"), clear_label_y, 1, "FLASH", body);
     DrawTextUi(label_col_right - edgeai_text5x7_width(1, "LOG HZ"), log_label_y, 1, "LOG HZ", body);
-    DrawTextUi(x0 + 14, y1 - 14, 1, "TAP X OR OUTSIDE TO CLOSE", dim);
+    DrawTextUi(x0 + 108, y0 + 10, 1, "TAP X OR OUTSIDE TO CLOSE", dim);
 
     for (int32_t i = 0; i < 2; i++)
     {
@@ -1441,12 +1439,12 @@ static void DrawSettingsPopup(void)
                    body);
     }
 
-    DrawTextUi(x0 + 10, y0 + 250, 1, "MODEL:", dim);
-    DrawTextUi(x0 + 58, y0 + 250, 1, gModelName, body);
-    DrawTextUi(x0 + 10, y0 + 262, 1, "EIL EXT:", dim);
-    DrawTextUi(x0 + 58, y0 + 262, 1, gExtensionVersion, dim);
-    DrawTextUi(x0 + 110, y0 + 262, 1, "MODEL V:", dim);
-    DrawTextUi(x0 + 166, y0 + 262, 1, gModelVersion, dim);
+    DrawTextUi(x0 + 10, y0 + 270, 1, "MODEL:", dim);
+    DrawTextUi(x0 + 58, y0 + 270, 1, gModelName, body);
+    DrawTextUi(x0 + 10, y0 + 282, 1, "EIL EXT:", dim);
+    DrawTextUi(x0 + 58, y0 + 282, 1, gExtensionVersion, dim);
+    DrawTextUi(x0 + 110, y0 + 282, 1, "MODEL V:", dim);
+    DrawTextUi(x0 + 166, y0 + 282, 1, gModelVersion, dim);
 }
 
 void GaugeRender_SetProfileInfo(const char *model_name, const char *model_version, const char *extension_version)

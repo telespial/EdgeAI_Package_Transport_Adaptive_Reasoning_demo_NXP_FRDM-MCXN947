@@ -2366,9 +2366,9 @@ static void ShieldGyroUpdate(void)
     s_accel_y_mg = filt_ay;
     s_accel_z_mg = filt_az;
 
-    /* UI orientation mapping: display horizon/sphere use board-rotated axes. */
-    s_ui_gyro_x = filt_ay;
-    s_ui_gyro_y = filt_ax;
+    /* UI orientation mapping: keep IMU axis pairing direct (X->X, Y->Y) for gyro sphere. */
+    s_ui_gyro_x = filt_ax;
+    s_ui_gyro_y = filt_ay;
     s_ui_gyro_z = filt_az;
     GaugeRender_SetLinearAccel(s_accel_x_mg, s_accel_y_mg, s_accel_z_mg, true);
     GaugeRender_SetAccel(s_ui_gyro_x, s_ui_gyro_y, s_ui_gyro_z, true);

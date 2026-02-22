@@ -40,6 +40,16 @@ Project: `EdgeAI_Package_Transport_Anomaly_demo_NXP_FRDM-MCXN947`
   - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` (PASS)
   - `./tools/flash_frdmmcxn947.sh mcuxsdk_ws/build_adaptive_reasoning/edgeai_package_transport_anomaly_demo_cm33_core0.bin` (PASS, probe `2PZWMSBKUXU22`)
 
+## Update 2026-02-22 (Gyro Sphere Artifact + Axis Mapping Correction)
+- Removed persistent line artifact source in gyro sphere rendering:
+  - dropped static frame cross-lines that could appear as stale overdraw artifacts,
+  - increased dynamic clear radius before horizon/vector redraw.
+- Corrected gyro sphere axis mapping:
+  - removed previous X/Y swap in UI feed (`X->X`, `Y->Y` direct mapping).
+- Verification:
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` (PASS)
+  - `./tools/flash_frdmmcxn947.sh mcuxsdk_ws/build_adaptive_reasoning/edgeai_package_transport_anomaly_demo_cm33_core0.bin` (PASS, probe `2PZWMSBKUXU22`)
+
 ## Update 2026-02-22 (Alert Pipeline Simplification + Flash Alert Logging)
 - Simplified runtime status architecture to a single canonical alert pipeline:
   - UI no longer falls back to a separate non-AI rule-status path for banner/terminal status.

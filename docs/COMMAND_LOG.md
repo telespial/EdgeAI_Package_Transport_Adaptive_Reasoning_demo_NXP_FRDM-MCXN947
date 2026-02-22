@@ -580,3 +580,14 @@ Format:
 2026-02-22T04:07:45Z | updated PROJECT_STATE.md with scope regression fix (restore accel/temp + add gyro)
 2026-02-22T04:07:54Z | updated STATUS.md with scope regression fix status
 2026-02-22T04:07:57Z | checked git status before committing scope regression fix
+2026-02-22T04:11:06Z | shifted settings row Y constants upward in gauge_render.h to free bottom area for model metadata
+2026-02-22T04:11:19Z | reduced SETTINGS title size and repositioned close hint/model metadata lines in settings popup
+2026-02-22T04:11:34Z | rebuild after settings popup layout/title sizing updates
+2026-02-22T04:11:48Z | flashed build with settings popup compact title and shifted-up rows for model space
+2026-02-22T04:11:54Z | inspected gyro widget rendering and gyro-to-render axis mapping paths for artifact/axis issues
+2026-02-22T04:12:13Z | removed static gyro frame cross-lines and widened dynamic clear radius to mitigate sphere line artifacts
+2026-02-22T04:12:24Z | corrected gyro sphere axis mapping to direct X/Y pairing (removed X<->Y swap)
+2026-02-22T04:12:32Z | rebuild after gyro sphere artifact and axis mapping fixes
+2026-02-22T04:12:46Z | flashed build with gyro sphere artifact cleanup and corrected axis mapping
+2026-02-22T04:13:01Z | updated PROJECT_STATE.md and STATUS.md for gyro sphere artifact cleanup and axis mapping correction
+2026-02-22T04:13:05Z | checked git status before committing gyro sphere fixes

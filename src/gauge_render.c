@@ -1670,6 +1670,21 @@ static void BuildAnomalyReason(const power_sample_t *sample, char *out, size_t o
         case ALERT_REASON_ANOMALY_WATCH:
             snprintf(out, out_len, "WATCH STATE");
             break;
+        case ALERT_REASON_INVERTED_WARN:
+            snprintf(out, out_len, "INVERTED");
+            break;
+        case ALERT_REASON_TILT_WARN:
+            snprintf(out, out_len, "TILTED");
+            break;
+        case ALERT_REASON_TEMP_APPROACH_LOW:
+            snprintf(out, out_len, "TEMP LOW SOON");
+            break;
+        case ALERT_REASON_TEMP_APPROACH_HIGH:
+            snprintf(out, out_len, "TEMP HIGH SOON");
+            break;
+        case ALERT_REASON_ERRATIC_MOTION:
+            snprintf(out, out_len, "ERRATIC MOTION");
+            break;
         default:
             snprintf(out, out_len, "NORMAL TRACKING");
             break;

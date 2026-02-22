@@ -9,6 +9,7 @@ Last updated: 2026-02-22
 - Latest profile import: PASS (`package_shipping_monitor` imported and model name shown in settings page 1)
 - Latest settings/logging update: PASS (model/version moved near settings footer + configurable `LOG HZ` selector/persistence, 2026-02-22)
 - Latest architecture update: PASS (canonical alert status path + persisted alert status/reason/score in flash rows, 2026-02-22)
+- Latest predictive warning update: PASS (inverted/tilt, temp-approach, erratic-motion warning reasons, 2026-02-22)
 
 ## UI Control Scope (Updated)
 - AI enable/disable is settings-only.
@@ -32,6 +33,8 @@ Last updated: 2026-02-22
 - Compass heading display is disabled until heading tracking is validated.
 - Alert display now uses a single canonical status source (`sample->ai_status`) for system-state rendering.
 - Alert detail text is reason-code based (limit/score/watch causes), not score-band-only text.
+- Predictive warning reasons added for package handling supervision:
+  - `INVERTED`, `TILTED`, `TEMP LOW SOON`, `TEMP HIGH SOON`, `ERRATIC MOTION`
 
 ## EIL Model Integration (In Progress)
 - Added EIL profile adapter (`src/eil_profile.h/.c`) with generated constants (`src/eil_profile_generated.h`).

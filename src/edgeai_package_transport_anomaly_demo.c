@@ -253,6 +253,10 @@ static uint8_t ChannelLevelPct(anomaly_level_t lvl)
 
 static void ApplyAnomalyToFrame(power_sample_t *dst)
 {
+    static bool s_motion_prev_valid = false;
+    static int16_t s_prev_ax_mg = 0;
+    static int16_t s_prev_ay_mg = 0;
+    static int16_t s_prev_az_mg = 0;
     const eil_profile_t *profile = EilProfile_Get();
     uint8_t ax = ChannelLevelPct(s_anom_out.channel_level[ANOMALY_CH_AX]);
     uint8_t ay = ChannelLevelPct(s_anom_out.channel_level[ANOMALY_CH_AY]);
@@ -268,12 +272,22 @@ static void ApplyAnomalyToFrame(power_sample_t *dst)
     int32_t abx;
     int32_t aby;
     int32_t abz;
+    int32_t dax = 0;
+    int32_t day = 0;
+    int32_t daz = 0;
+    int32_t jerk_peak;
     uint16_t accel_peak_mg;
     bool accel_warn_hit;
     bool accel_fail_hit;
     bool temp_limit_hit;
     bool temp_fail_hit;
     bool gyro_limit_hit;
+    bool predicted_inverted_warn;
+    bool predicted_tilt_warn;
+    bool predicted_temp_approach_low;
+    bool predicted_temp_approach_high;
+    bool predicted_erratic_motion;
+    uint16_t gyro_predict_warn_dps;
 
     if (dst == NULL)
     {
@@ -361,6 +375,33 @@ static void ApplyAnomalyToFrame(power_sample_t *dst)
     temp_limit_hit = (s_temp_c10 < s_limit_temp_lo_c10) || (s_temp_c10 > s_limit_temp_hi_c10);
     temp_fail_hit = (s_temp_c10 < (s_limit_temp_lo_c10 - 100)) || (s_temp_c10 > (s_limit_temp_hi_c10 + 100));
     gyro_limit_hit = (s_gyro_peak_dps >= s_limit_gyro_dps);
+    if (s_motion_prev_valid)
+    {
+        dax = (int32_t)s_accel_x_mg - (int32_t)s_prev_ax_mg;
+        day = (int32_t)s_accel_y_mg - (int32_t)s_prev_ay_mg;
+        daz = (int32_t)s_accel_z_mg - (int32_t)s_prev_az_mg;
+        dax = (dax < 0) ? -dax : dax;
+        day = (day < 0) ? -day : day;
+        daz = (daz < 0) ? -daz : daz;
+    }
+    jerk_peak = dax;
+    if (day > jerk_peak)
+    {
+        jerk_peak = day;
+    }
+    if (daz > jerk_peak)
+    {
+        jerk_peak = daz;
+    }
+
+    predicted_inverted_warn = (s_accel_z_mg <= -700) && (abx <= 600) && (aby <= 600);
+    predicted_tilt_warn = !predicted_inverted_warn && ((abx >= 600) || (aby >= 600)) && !accel_warn_hit;
+    predicted_temp_approach_low = !temp_limit_hit && !temp_fail_hit && (s_temp_c10 <= (s_limit_temp_lo_c10 + 30));
+    predicted_temp_approach_high = !temp_limit_hit && !temp_fail_hit && (s_temp_c10 >= (s_limit_temp_hi_c10 - 30));
+    gyro_predict_warn_dps = (uint16_t)((s_limit_gyro_dps * 7u) / 10u);
+    predicted_erratic_motion = !accel_warn_hit &&
+                               ((jerk_peak >= 2200) ||
+                                ((s_gyro_peak_dps >= gyro_predict_warn_dps) && (jerk_peak >= 1400)));
 
     if (accel_fail_hit || temp_fail_hit)
     {
@@ -382,6 +423,31 @@ static void ApplyAnomalyToFrame(power_sample_t *dst)
         {
             dst->alert_reason_code = ALERT_REASON_GYRO_WARN;
         }
+    }
+    else if (predicted_inverted_warn)
+    {
+        dst->ai_status = AI_STATUS_WARNING;
+        dst->alert_reason_code = ALERT_REASON_INVERTED_WARN;
+    }
+    else if (predicted_tilt_warn)
+    {
+        dst->ai_status = AI_STATUS_WARNING;
+        dst->alert_reason_code = ALERT_REASON_TILT_WARN;
+    }
+    else if (predicted_temp_approach_low)
+    {
+        dst->ai_status = AI_STATUS_WARNING;
+        dst->alert_reason_code = ALERT_REASON_TEMP_APPROACH_LOW;
+    }
+    else if (predicted_temp_approach_high)
+    {
+        dst->ai_status = AI_STATUS_WARNING;
+        dst->alert_reason_code = ALERT_REASON_TEMP_APPROACH_HIGH;
+    }
+    else if (predicted_erratic_motion)
+    {
+        dst->ai_status = AI_STATUS_WARNING;
+        dst->alert_reason_code = ALERT_REASON_ERRATIC_MOTION;
     }
     else if ((profile != NULL) && ((weighted_pct / 100.0f) >= profile->alert_fail))
     {
@@ -405,6 +471,10 @@ static void ApplyAnomalyToFrame(power_sample_t *dst)
     }
 
     dst->ai_fault_flags = 0u;
+    s_prev_ax_mg = s_accel_x_mg;
+    s_prev_ay_mg = s_accel_y_mg;
+    s_prev_az_mg = s_accel_z_mg;
+    s_motion_prev_valid = true;
 }
 
 static void AccelAxisSelfTestLog(void)

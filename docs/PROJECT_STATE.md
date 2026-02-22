@@ -30,6 +30,28 @@ Project: `EdgeAI_Package_Transport_Anomaly_demo_NXP_FRDM-MCXN947`
   - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` (PASS)
   - `./tools/flash_frdmmcxn947.sh mcuxsdk_ws/build_adaptive_reasoning/edgeai_package_transport_anomaly_demo_cm33_core0.bin` (PASS, probe `2PZWMSBKUXU22`)
 
+## Update 2026-02-22 (Predictive Warning Layer: Orientation/Temp/Motion)
+- Added predictive warning conditions on top of existing hard limit checks:
+  - orientation risk:
+    - `INVERTED` warning when gravity vector indicates upside-down package orientation.
+    - `TILTED` warning when lateral tilt is elevated but below hard shock limits.
+  - temperature approach risk:
+    - `TEMP LOW SOON` when approaching low limit margin.
+    - `TEMP HIGH SOON` when approaching high limit margin.
+  - motion instability risk:
+    - `ERRATIC MOTION` warning using acceleration jerk + gyro trend logic for possible handling damage onset.
+- Added new reason codes:
+  - `ALERT_REASON_INVERTED_WARN`
+  - `ALERT_REASON_TILT_WARN`
+  - `ALERT_REASON_TEMP_APPROACH_LOW`
+  - `ALERT_REASON_TEMP_APPROACH_HIGH`
+  - `ALERT_REASON_ERRATIC_MOTION`
+- UI alert detail text now renders these predictive causes directly.
+- Predictive warnings are warning-level supervisor signals and do not replace hard fail safety checks.
+- Verification:
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` (PASS)
+  - `./tools/flash_frdmmcxn947.sh mcuxsdk_ws/build_adaptive_reasoning/edgeai_package_transport_anomaly_demo_cm33_core0.bin` (PASS, probe `2PZWMSBKUXU22`)
+
 ## Update 2026-02-22 (Golden/Failsafe Refresh Before Alert-Pipeline Simplification)
 - Cut fresh local golden and promoted active failsafe from current build output:
   - golden tag: `GOLDEN-20260222-032039`

@@ -56,7 +56,8 @@ bool ExtFlashRecorder_SaveUiSettings(uint8_t mode,
                                      uint16_t g_fail_mg,
                                      int16_t temp_low_c10,
                                      int16_t temp_high_c10,
-                                     uint16_t gyro_limit_dps);
+                                     uint16_t gyro_limit_dps,
+                                     uint8_t log_rate_hz);
 bool ExtFlashRecorder_GetUiSettings(uint8_t *mode,
                                     uint8_t *tune,
                                     bool *run_live,
@@ -66,6 +67,7 @@ bool ExtFlashRecorder_GetUiSettings(uint8_t *mode,
                                     int16_t *temp_low_c10,
                                     int16_t *temp_high_c10,
                                     uint16_t *gyro_limit_dps,
+                                    uint8_t *log_rate_hz,
                                     bool *valid);
 
 #endif

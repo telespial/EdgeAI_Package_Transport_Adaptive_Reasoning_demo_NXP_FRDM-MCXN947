@@ -1141,3 +1141,28 @@ Project: `EdgeAI_Package_Transport_Anomaly_demo_NXP_FRDM-MCXN947`
 - Rebuilt and flashed successfully from project-local workflow:
   - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug`
   - `./tools/flash_frdmmcxn947.sh mcuxsdk_ws/build_adaptive_reasoning/edgeai_package_transport_anomaly_demo_cm33_core0.bin`
+
+## Update 2026-02-22 (Settings Footer Placement + Configurable Logging Rate)
+- User request:
+  - move model/version info near the bottom of settings popup,
+  - add configurable log output rate options (`1/5/10/20/30/40/50 Hz`).
+- Implemented UI changes in `src/gauge_render.c` / `src/gauge_render.h`:
+  - added `LOG HZ` row with decrement/increment controls and current value display,
+  - moved settings profile footer to lower panel area:
+    - `MODEL:`
+    - `EIL EXT:`
+    - `MODEL V:`
+- Implemented runtime + persistence wiring:
+  - `src/edgeai_package_transport_anomaly_demo.c`:
+    - added allowed-rate table and clamp/step helpers,
+    - added touch handlers for `LOG HZ` decrement/increment,
+    - added rate-based telemetry scheduler (`LOG,...`) without changing inference cadence.
+  - `src/ext_flash_recorder.h` / `src/ext_flash_recorder.c`:
+    - extended UI settings save/load to include `log_rate_hz`,
+    - persisted `log_rate_hz` in metadata and restored at boot.
+- Reliability note:
+  - this change affects log emission cadence only,
+  - anomaly/adaptive model update cadence and thresholds are unchanged.
+- Verification:
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` (PASS)
+  - `./tools/flash_frdmmcxn947.sh mcuxsdk_ws/build_adaptive_reasoning/edgeai_package_transport_anomaly_demo_cm33_core0.bin` (PASS, probe `2PZWMSBKUXU22`)

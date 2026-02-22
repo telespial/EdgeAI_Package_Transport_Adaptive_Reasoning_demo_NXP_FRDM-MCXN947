@@ -7,6 +7,7 @@ Last updated: 2026-02-22
 - Flash status: PASS in this session (probe `2PZWMSBKUXU22`)
 - Latest hotfix: PASS (LCD/touch responsiveness mitigation in `par_lcd_s035_fill_rect`, 2026-02-22)
 - Latest profile import: PASS (`package_shipping_monitor` imported and model name shown in settings page 1)
+- Latest settings/logging update: PASS (model/version moved near settings footer + configurable `LOG HZ` selector/persistence, 2026-02-22)
 
 ## UI Control Scope (Updated)
 - AI enable/disable is settings-only.
@@ -24,6 +25,8 @@ Last updated: 2026-02-22
 - Temp low/high controls are on the same row in settings.
 - Each limit button now supports direct down/up adjustment (`-` on left, `+` on right).
 - Limit controls now show `v` (decrease) and `^` (increase) markers.
+- Settings includes `LOG HZ` options: `1/5/10/20/30/40/50 Hz` (persistent on boot).
+- Settings footer now places `MODEL`, `EIL EXT`, and `MODEL V` near the bottom of the panel.
 - Modal redraw now uses popup-only dirty region updates (reduced full-screen flashing/latency).
 - Compass heading display is disabled until heading tracking is validated.
 

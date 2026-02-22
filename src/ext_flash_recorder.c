@@ -76,6 +76,7 @@ static uint16_t s_ui_g_fail_mg;
 static int16_t s_ui_temp_low_c10;
 static int16_t s_ui_temp_high_c10;
 static uint16_t s_ui_gyro_limit_dps;
+static uint8_t s_ui_log_rate_hz;
 static bool s_ui_valid;
 
 static uint32_t ExtFlashRecorder_PackUiSettingsCore(void)
@@ -127,7 +128,7 @@ static uint32_t ExtFlashRecorder_PackUiSettingsLimits(void)
     return ((uint32_t)gy_d10 << 24) |
            ((uint32_t)th_c << 16) |
            ((uint32_t)tl_c << 8) |
-           0u;
+           ((uint32_t)s_ui_log_rate_hz & 0xFFu);
 }
 
 static void ExtFlashRecorder_UnpackUiSettings(uint32_t packed_core, uint32_t packed_limits)
@@ -143,6 +144,7 @@ static void ExtFlashRecorder_UnpackUiSettings(uint32_t packed_core, uint32_t pac
         s_ui_temp_low_c10 = 0;
         s_ui_temp_high_c10 = 700;
         s_ui_gyro_limit_dps = 500u;
+        s_ui_log_rate_hz = 10u;
         s_ui_valid = false;
         return;
     }
@@ -156,12 +158,14 @@ static void ExtFlashRecorder_UnpackUiSettings(uint32_t packed_core, uint32_t pac
     s_ui_temp_low_c10 = 0;
     s_ui_temp_high_c10 = 700;
     s_ui_gyro_limit_dps = 500u;
+    s_ui_log_rate_hz = 10u;
     {
         uint32_t gw_d10 = (packed_core >> 16) & 0xFFu;
         uint32_t gf_d10 = (packed_core >> 8) & 0xFFu;
         int32_t tl_c = ((int32_t)((packed_limits >> 8) & 0xFFu)) - 40;
         int32_t th_c = ((int32_t)((packed_limits >> 16) & 0xFFu)) - 40;
         uint32_t gy_d10 = (packed_limits >> 24) & 0xFFu;
+        uint32_t log_hz = packed_limits & 0xFFu;
         if ((gw_d10 >= 20u) && (gw_d10 <= 150u))
         {
             s_ui_g_warn_mg = (uint16_t)(gw_d10 * 100u);
@@ -181,6 +185,11 @@ static void ExtFlashRecorder_UnpackUiSettings(uint32_t packed_core, uint32_t pac
         if ((gy_d10 >= 10u) && (gy_d10 <= 200u))
         {
             s_ui_gyro_limit_dps = (uint16_t)(gy_d10 * 10u);
+        }
+        if ((log_hz == 1u) || (log_hz == 5u) || (log_hz == 10u) || (log_hz == 20u) ||
+            (log_hz == 30u) || (log_hz == 40u) || (log_hz == 50u))
+        {
+            s_ui_log_rate_hz = (uint8_t)log_hz;
         }
     }
     if (s_ui_temp_high_c10 <= s_ui_temp_low_c10)
@@ -344,6 +353,7 @@ bool ExtFlashRecorder_Init(void)
     s_ui_temp_low_c10 = 0;
     s_ui_temp_high_c10 = 700;
     s_ui_gyro_limit_dps = 500u;
+    s_ui_log_rate_hz = 10u;
     s_ui_valid = false;
     memset(&s_norConfig, 0, sizeof(s_norConfig));
 
@@ -642,7 +652,8 @@ bool ExtFlashRecorder_SaveUiSettings(uint8_t mode,
                                      uint16_t g_fail_mg,
                                      int16_t temp_low_c10,
                                      int16_t temp_high_c10,
-                                     uint16_t gyro_limit_dps)
+                                     uint16_t gyro_limit_dps,
+                                     uint8_t log_rate_hz)
 {
     if (!s_ready)
     {
@@ -658,6 +669,7 @@ bool ExtFlashRecorder_SaveUiSettings(uint8_t mode,
     s_ui_temp_low_c10 = temp_low_c10;
     s_ui_temp_high_c10 = temp_high_c10;
     s_ui_gyro_limit_dps = gyro_limit_dps;
+    s_ui_log_rate_hz = log_rate_hz;
     s_ui_valid = true;
     return ExtFlashRecorder_WriteMeta(s_generation);
 }
@@ -671,11 +683,13 @@ bool ExtFlashRecorder_GetUiSettings(uint8_t *mode,
                                     int16_t *temp_low_c10,
                                     int16_t *temp_high_c10,
                                     uint16_t *gyro_limit_dps,
+                                    uint8_t *log_rate_hz,
                                     bool *valid)
 {
     if ((mode == NULL) || (tune == NULL) || (run_live == NULL) || (ai_enabled == NULL) || (g_warn_mg == NULL) ||
         (g_fail_mg == NULL) ||
-        (temp_low_c10 == NULL) || (temp_high_c10 == NULL) || (gyro_limit_dps == NULL) || (valid == NULL))
+        (temp_low_c10 == NULL) || (temp_high_c10 == NULL) || (gyro_limit_dps == NULL) || (log_rate_hz == NULL) ||
+        (valid == NULL))
     {
         return false;
     }
@@ -693,6 +707,7 @@ bool ExtFlashRecorder_GetUiSettings(uint8_t *mode,
     *temp_low_c10 = s_ui_temp_low_c10;
     *temp_high_c10 = s_ui_temp_high_c10;
     *gyro_limit_dps = s_ui_gyro_limit_dps;
+    *log_rate_hz = s_ui_log_rate_hz;
     *valid = s_ui_valid;
     return true;
 }

@@ -114,6 +114,7 @@ static uint16_t gLimitGFailMg = 15000u;
 static int16_t gLimitTempLowC10 = 0;
 static int16_t gLimitTempHighC10 = 700;
 static uint16_t gLimitGyroDps = 500u;
+static uint8_t gLogRateHz = 10u;
 static char gModelName[48] = "UNKNOWN";
 static char gModelVersion[16] = "0.0.0";
 static char gExtensionVersion[16] = "0.1.0";
@@ -1281,6 +1282,8 @@ static void DrawSettingsPopup(void)
     int32_t tune_label_y = GAUGE_RENDER_SET_TUNE_Y0 + ((GAUGE_RENDER_SET_TUNE_H - 7) / 2);
     int32_t ai_label_y = GAUGE_RENDER_SET_AI_Y0 + ((GAUGE_RENDER_SET_AI_H - 7) / 2);
     int32_t lim_label_y = GAUGE_RENDER_SET_LIMIT_BTN_Y0 + ((GAUGE_RENDER_SET_LIMIT_BTN_H - 7) / 2);
+    int32_t log_label_y = GAUGE_RENDER_SET_LOG_Y0 + ((GAUGE_RENDER_SET_LOG_H - 7) / 2);
+    char log_rate_line[16];
 
     par_lcd_s035_fill_rect(x0 - 3, y0 - 3, x1 + 3, y1 + 3, RGB565(0, 0, 0));
     par_lcd_s035_fill_rect(x0, y0, x1, y1, panel);
@@ -1289,18 +1292,13 @@ static void DrawSettingsPopup(void)
     DrawLine(x0, y0, x0, y1, 2, edge);
     DrawLine(x1, y0, x1, y1, 2, edge);
     DrawTextUi(x0 + 10, y0 + 8, 2, "SETTINGS", body);
-    DrawTextUi(x0 + 10, y0 + 28, 1, "MODEL:", body);
-    DrawTextUi(x0 + 58, y0 + 28, 1, gModelName, body);
-    DrawTextUi(x0 + 10, y0 + 40, 1, "EIL EXT:", dim);
-    DrawTextUi(x0 + 58, y0 + 40, 1, gExtensionVersion, dim);
-    DrawTextUi(x0 + 110, y0 + 40, 1, "MODEL V:", dim);
-    DrawTextUi(x0 + 166, y0 + 40, 1, gModelVersion, dim);
     DrawPopupCloseButton(x1, y0);
     DrawTextUi(label_col_right - edgeai_text5x7_width(1, "MODE"), mode_label_y, 1, "MODE", body);
     DrawTextUi(label_col_right - edgeai_text5x7_width(1, "RUN"), run_label_y, 1, "RUN", body);
     DrawTextUi(label_col_right - edgeai_text5x7_width(1, "SENS"), tune_label_y, 1, "SENS", body);
     DrawTextUi(label_col_right - edgeai_text5x7_width(1, "AI"), ai_label_y, 1, "AI", body);
     DrawTextUi(label_col_right - edgeai_text5x7_width(1, "LIMITS"), lim_label_y, 1, "LIMITS", body);
+    DrawTextUi(label_col_right - edgeai_text5x7_width(1, "LOG HZ"), log_label_y, 1, "LOG HZ", body);
     DrawTextUi(x0 + 14, y0 + 288, 1, "TAP X OR OUTSIDE TO CLOSE", dim);
 
     for (int32_t i = 0; i < 2; i++)
@@ -1388,6 +1386,45 @@ static void DrawSettingsPopup(void)
                    t,
                    body);
     }
+
+    {
+        int32_t by0 = GAUGE_RENDER_SET_LOG_Y0;
+        int32_t by1 = by0 + GAUGE_RENDER_SET_LOG_H - 1;
+        int32_t dec_x0 = GAUGE_RENDER_SET_LOG_DEC_X0;
+        int32_t dec_x1 = dec_x0 + GAUGE_RENDER_SET_LOG_DEC_W - 1;
+        int32_t val_x0 = GAUGE_RENDER_SET_LOG_VAL_X0;
+        int32_t val_x1 = val_x0 + GAUGE_RENDER_SET_LOG_VAL_W - 1;
+        int32_t inc_x0 = GAUGE_RENDER_SET_LOG_INC_X0;
+        int32_t inc_x1 = inc_x0 + GAUGE_RENDER_SET_LOG_INC_W - 1;
+
+        snprintf(log_rate_line, sizeof(log_rate_line), "%uHZ", (unsigned int)gLogRateHz);
+
+        DrawPillRect(dec_x0, by0, dec_x1, by1, button_idle, edge);
+        DrawTextUi(dec_x0 + ((GAUGE_RENDER_SET_LOG_DEC_W - edgeai_text5x7_width(1, "-")) / 2),
+                   by0 + ((GAUGE_RENDER_SET_LOG_H - 7) / 2),
+                   1,
+                   "-",
+                   body);
+        DrawPillRect(val_x0, by0, val_x1, by1, button_selected, edge);
+        DrawTextUi(val_x0 + ((GAUGE_RENDER_SET_LOG_VAL_W - edgeai_text5x7_width(1, log_rate_line)) / 2),
+                   by0 + ((GAUGE_RENDER_SET_LOG_H - 7) / 2),
+                   1,
+                   log_rate_line,
+                   text_selected);
+        DrawPillRect(inc_x0, by0, inc_x1, by1, button_idle, edge);
+        DrawTextUi(inc_x0 + ((GAUGE_RENDER_SET_LOG_INC_W - edgeai_text5x7_width(1, "+")) / 2),
+                   by0 + ((GAUGE_RENDER_SET_LOG_H - 7) / 2),
+                   1,
+                   "+",
+                   body);
+    }
+
+    DrawTextUi(x0 + 10, y0 + 250, 1, "MODEL:", dim);
+    DrawTextUi(x0 + 58, y0 + 250, 1, gModelName, body);
+    DrawTextUi(x0 + 10, y0 + 262, 1, "EIL EXT:", dim);
+    DrawTextUi(x0 + 58, y0 + 262, 1, gExtensionVersion, dim);
+    DrawTextUi(x0 + 110, y0 + 262, 1, "MODEL V:", dim);
+    DrawTextUi(x0 + 166, y0 + 262, 1, gModelVersion, dim);
 }
 
 void GaugeRender_SetProfileInfo(const char *model_name, const char *model_version, const char *extension_version)
@@ -1395,6 +1432,11 @@ void GaugeRender_SetProfileInfo(const char *model_name, const char *model_versio
     CopyUiTextUpper(gModelName, sizeof(gModelName), model_name);
     CopyUiTextUpper(gModelVersion, sizeof(gModelVersion), model_version);
     CopyUiTextUpper(gExtensionVersion, sizeof(gExtensionVersion), extension_version);
+}
+
+void GaugeRender_SetLogRateHz(uint8_t hz)
+{
+    gLogRateHz = hz;
 }
 
 static void DrawLimitsPopup(void)

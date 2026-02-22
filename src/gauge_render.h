@@ -49,6 +49,14 @@
 #define GAUGE_RENDER_SET_LIMIT_BTN_Y0 200
 #define GAUGE_RENDER_SET_LIMIT_BTN_W 206
 #define GAUGE_RENDER_SET_LIMIT_BTN_H 28
+#define GAUGE_RENDER_SET_LOG_Y0 236
+#define GAUGE_RENDER_SET_LOG_DEC_X0 184
+#define GAUGE_RENDER_SET_LOG_DEC_W 44
+#define GAUGE_RENDER_SET_LOG_VAL_X0 236
+#define GAUGE_RENDER_SET_LOG_VAL_W 92
+#define GAUGE_RENDER_SET_LOG_INC_X0 336
+#define GAUGE_RENDER_SET_LOG_INC_W 44
+#define GAUGE_RENDER_SET_LOG_H 24
 #define GAUGE_RENDER_HELP_PANEL_X0 32
 #define GAUGE_RENDER_HELP_PANEL_Y0 24
 #define GAUGE_RENDER_HELP_PANEL_X1 448
@@ -82,6 +90,7 @@ void GaugeRender_SetStts(int16_t temp_c10, bool valid);
 void GaugeRender_SetBoardTempC(uint8_t temp_c, bool valid);
 void GaugeRender_SetBoardTempC10(int16_t temp_c10, bool valid);
 void GaugeRender_SetProfileInfo(const char *model_name, const char *model_version, const char *extension_version);
+void GaugeRender_SetLogRateHz(uint8_t hz);
 void GaugeRender_SetRuntimeClock(uint8_t hh, uint8_t mm, uint8_t ss, uint8_t ds, bool valid);
 void GaugeRender_SetLimitInfo(uint16_t g_warn_mg,
                               uint16_t g_fail_mg,

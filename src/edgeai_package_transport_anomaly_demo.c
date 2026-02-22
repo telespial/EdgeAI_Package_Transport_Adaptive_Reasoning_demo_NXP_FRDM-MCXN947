@@ -173,6 +173,9 @@ static uint16_t s_limit_g_fail_mg = 15000u;
 static int16_t s_limit_temp_lo_c10 = 0;
 static int16_t s_limit_temp_hi_c10 = 700;
 static uint16_t s_limit_gyro_dps = 500u;
+static uint8_t s_log_rate_hz = 10u;
+
+static const uint8_t k_log_rate_options[] = {1u, 5u, 10u, 20u, 30u, 40u, 50u};
 static uint16_t s_gyro_peak_dps = 0u;
 static i3c_bus_type_t s_temp_bus_type = kI3C_TypeI2C;
 static power_sample_t s_frame_sample;
@@ -2508,6 +2511,66 @@ static bool TouchInSettingsLimitsButton(int32_t x, int32_t y)
     return (x >= x0) && (x <= x1) && (y >= y0) && (y <= y1);
 }
 
+static bool TouchInSettingsLogDec(int32_t x, int32_t y)
+{
+    int32_t x0 = GAUGE_RENDER_SET_LOG_DEC_X0;
+    int32_t x1 = x0 + GAUGE_RENDER_SET_LOG_DEC_W - 1;
+    int32_t y0 = GAUGE_RENDER_SET_LOG_Y0;
+    int32_t y1 = y0 + GAUGE_RENDER_SET_LOG_H - 1;
+    return (x >= x0) && (x <= x1) && (y >= y0) && (y <= y1);
+}
+
+static bool TouchInSettingsLogInc(int32_t x, int32_t y)
+{
+    int32_t x0 = GAUGE_RENDER_SET_LOG_INC_X0;
+    int32_t x1 = x0 + GAUGE_RENDER_SET_LOG_INC_W - 1;
+    int32_t y0 = GAUGE_RENDER_SET_LOG_Y0;
+    int32_t y1 = y0 + GAUGE_RENDER_SET_LOG_H - 1;
+    return (x >= x0) && (x <= x1) && (y >= y0) && (y <= y1);
+}
+
+static uint8_t ClampLogRateHz(uint8_t hz)
+{
+    for (uint32_t i = 0u; i < (sizeof(k_log_rate_options) / sizeof(k_log_rate_options[0])); i++)
+    {
+        if (hz == k_log_rate_options[i])
+        {
+            return hz;
+        }
+    }
+    return 10u;
+}
+
+static uint8_t NextLogRateHz(uint8_t hz, bool increase)
+{
+    uint32_t count = (uint32_t)(sizeof(k_log_rate_options) / sizeof(k_log_rate_options[0]));
+    uint32_t idx = 0u;
+    hz = ClampLogRateHz(hz);
+    for (idx = 0u; idx < count; idx++)
+    {
+        if (k_log_rate_options[idx] == hz)
+        {
+            break;
+        }
+    }
+    if (idx >= count)
+    {
+        idx = 2u; /* 10Hz default index */
+    }
+    if (increase)
+    {
+        if (idx + 1u < count)
+        {
+            idx++;
+        }
+    }
+    else if (idx > 0u)
+    {
+        idx--;
+    }
+    return k_log_rate_options[idx];
+}
+
 static bool TouchInLimitsPanel(int32_t x, int32_t y)
 {
     return (x >= GAUGE_RENDER_LIMIT_PANEL_X0) && (x <= GAUGE_RENDER_LIMIT_PANEL_X1) &&
@@ -2565,7 +2628,8 @@ static void SaveUiSettingsIfReady(bool ext_flash_ok,
                                   uint16_t g_fail_mg,
                                   int16_t temp_low_c10,
                                   int16_t temp_high_c10,
-                                  uint16_t gyro_limit_dps)
+                                  uint16_t gyro_limit_dps,
+                                  uint8_t log_rate_hz)
 {
     if (!ext_flash_ok)
     {
@@ -2579,7 +2643,8 @@ static void SaveUiSettingsIfReady(bool ext_flash_ok,
                                          g_fail_mg,
                                          temp_low_c10,
                                          temp_high_c10,
-                                         gyro_limit_dps))
+                                         gyro_limit_dps,
+                                         log_rate_hz))
     {
         PRINTF("UI_CFG_SAVE: failed\r\n");
     }
@@ -2699,6 +2764,7 @@ int main(void)
     uint32_t gyro_tick_accum_us = 0u;
     uint32_t accel_live_tick_accum_us = 0u;
     uint32_t runtime_clock_tick_accum_us = 0u;
+    uint32_t log_tick_accum_us = 0u;
     uint32_t temp_tick_accum_us = 0u;
     uint32_t shield_aux_tick_accum_us = 0u;
     uint32_t accel_test_tick_accum_us = 0u;
@@ -2720,6 +2786,7 @@ int main(void)
     int16_t saved_temp_lo_c10 = 0;
     int16_t saved_temp_hi_c10 = 700;
     uint16_t saved_gyro_limit_dps = 500u;
+    uint8_t saved_log_rate_hz = 10u;
     bool saved_valid = false;
     uint64_t time_prev_ticks = 0u;
     uint64_t time_us_rem = 0u;
@@ -2745,6 +2812,7 @@ int main(void)
                                        &saved_temp_lo_c10,
                                        &saved_temp_hi_c10,
                                        &saved_gyro_limit_dps,
+                                       &saved_log_rate_hz,
                                        &saved_valid) &&
         saved_valid)
     {
@@ -2800,16 +2868,18 @@ int main(void)
         {
             saved_gyro_limit_dps = 2000u;
         }
+        saved_log_rate_hz = ClampLogRateHz(saved_log_rate_hz);
         ai_enabled = saved_ai;
         s_limit_g_warn_mg = saved_g_warn_mg;
         s_limit_g_fail_mg = saved_g_fail_mg;
         s_limit_temp_lo_c10 = saved_temp_lo_c10;
         s_limit_temp_hi_c10 = saved_temp_hi_c10;
         s_limit_gyro_dps = saved_gyro_limit_dps;
+        s_log_rate_hz = saved_log_rate_hz;
         AnomalyEngine_SetMode((anomaly_mode_t)saved_mode);
         AnomalyEngine_SetTune((anomaly_tune_t)saved_tune);
         GaugeRender_SetLiveBannerMode(saved_run_live);
-        PRINTF("UI_CFG_LOAD: mode=%u tune=%u run=%u ai=%u gw=%u gf=%u tl=%d th=%d gy=%u\r\n",
+        PRINTF("UI_CFG_LOAD: mode=%u tune=%u run=%u ai=%u gw=%u gf=%u tl=%d th=%d gy=%u log=%uHz\r\n",
                (unsigned int)saved_mode,
                (unsigned int)saved_tune,
                saved_run_live ? 1u : 0u,
@@ -2818,8 +2888,10 @@ int main(void)
                (unsigned int)s_limit_g_fail_mg,
                (int)(s_limit_temp_lo_c10 / 10),
                (int)(s_limit_temp_hi_c10 / 10),
-               (unsigned int)s_limit_gyro_dps);
+               (unsigned int)s_limit_gyro_dps,
+               (unsigned int)s_log_rate_hz);
     }
+    GaugeRender_SetLogRateHz(s_log_rate_hz);
     PowerData_SetAiAssistEnabled(ai_enabled);
     anom_mode = AnomalyEngine_GetMode();
     anom_tune = AnomalyEngine_GetTune();
@@ -2961,7 +3033,8 @@ int main(void)
                                           s_limit_g_fail_mg,
                                           s_limit_temp_lo_c10,
                                           s_limit_temp_hi_c10,
-                                          s_limit_gyro_dps);
+                                          s_limit_gyro_dps,
+                                          s_log_rate_hz);
                     redraw_ui = true;
                     handled_limits = true;
                 }
@@ -3005,7 +3078,8 @@ int main(void)
                                               s_limit_g_fail_mg,
                                               s_limit_temp_lo_c10,
                                               s_limit_temp_hi_c10,
-                                              s_limit_gyro_dps);
+                                              s_limit_gyro_dps,
+                                              s_log_rate_hz);
                         break;
                     }
                 }
@@ -3040,7 +3114,8 @@ int main(void)
                                                   s_limit_g_fail_mg,
                                                   s_limit_temp_lo_c10,
                                                   s_limit_temp_hi_c10,
-                                                  s_limit_gyro_dps);
+                                                  s_limit_gyro_dps,
+                                                  s_log_rate_hz);
                             break;
                         }
                     }
@@ -3066,9 +3141,34 @@ int main(void)
                                                   s_limit_g_fail_mg,
                                                   s_limit_temp_lo_c10,
                                                   s_limit_temp_hi_c10,
-                                                  s_limit_gyro_dps);
+                                                  s_limit_gyro_dps,
+                                                  s_log_rate_hz);
                             break;
                         }
+                    }
+                }
+
+                if (!handled_setting)
+                {
+                    if (TouchInSettingsLogDec(tx, ty) || TouchInSettingsLogInc(tx, ty))
+                    {
+                        bool increase = TouchInSettingsLogInc(tx, ty);
+                        s_log_rate_hz = NextLogRateHz(s_log_rate_hz, increase);
+                        GaugeRender_SetLogRateHz(s_log_rate_hz);
+                        handled_setting = true;
+                        redraw_ui = true;
+                        PRINTF("LOG_RATE,%uHz\r\n", (unsigned int)s_log_rate_hz);
+                        SaveUiSettingsIfReady(ext_flash_ok,
+                                              anom_mode,
+                                              AnomalyEngine_GetTune(),
+                                              GaugeRender_IsLiveBannerMode(),
+                                              ai_enabled,
+                                              s_limit_g_warn_mg,
+                                              s_limit_g_fail_mg,
+                                              s_limit_temp_lo_c10,
+                                              s_limit_temp_hi_c10,
+                                              s_limit_gyro_dps,
+                                              s_log_rate_hz);
                     }
                 }
 
@@ -3092,7 +3192,8 @@ int main(void)
                                               s_limit_g_fail_mg,
                                               s_limit_temp_lo_c10,
                                               s_limit_temp_hi_c10,
-                                              s_limit_gyro_dps);
+                                              s_limit_gyro_dps,
+                                              s_log_rate_hz);
                     }
                     else if (TouchInSettingsAiIndex(tx, ty, 1u))
                     {
@@ -3112,7 +3213,8 @@ int main(void)
                                               s_limit_g_fail_mg,
                                               s_limit_temp_lo_c10,
                                               s_limit_temp_hi_c10,
-                                              s_limit_gyro_dps);
+                                              s_limit_gyro_dps,
+                                              s_log_rate_hz);
                     }
                 }
 
@@ -3343,6 +3445,7 @@ int main(void)
             temp_tick_accum_us += elapsed_loop_us;
             shield_aux_tick_accum_us += elapsed_loop_us;
             accel_test_tick_accum_us += elapsed_loop_us;
+            log_tick_accum_us += elapsed_loop_us;
 
             if (data_tick_accum_us > (POWER_TICK_PERIOD_US * 2u))
             {
@@ -3367,6 +3470,10 @@ int main(void)
             if (accel_test_tick_accum_us > (ACCEL_TEST_LOG_PERIOD_US * 2u))
             {
                 accel_test_tick_accum_us = ACCEL_TEST_LOG_PERIOD_US * 2u;
+            }
+            if (log_tick_accum_us > 2000000u)
+            {
+                log_tick_accum_us = 2000000u;
             }
         }
 
@@ -3427,6 +3534,32 @@ int main(void)
                     GaugeRender_SetRuntimeClock(ch, cm, cs, 0u, true);
                     runtime_displayed_sec = elapsed_sec;
                 }
+            }
+        }
+
+        {
+            uint32_t log_period_us = 100000u;
+            uint32_t log_hz = (uint32_t)ClampLogRateHz(s_log_rate_hz);
+            if (log_hz > 0u)
+            {
+                log_period_us = 1000000u / log_hz;
+            }
+            while (log_tick_accum_us >= log_period_us)
+            {
+                log_tick_accum_us -= log_period_us;
+                PRINTF("LOG,%uHZ,AX=%d,AY=%d,AZ=%d,GX=%d,GY=%d,GZ=%d,T=%d.%dC,P=%d.%dHPA,AL=%u\r\n",
+                       (unsigned int)log_hz,
+                       (int)s_accel_x_mg,
+                       (int)s_accel_y_mg,
+                       (int)s_accel_z_mg,
+                       (int)s_ui_gyro_x,
+                       (int)s_ui_gyro_y,
+                       (int)s_ui_gyro_z,
+                       (int)(s_temp_c10 / 10),
+                       (int)(s_temp_c10 < 0 ? -s_temp_c10 : s_temp_c10) % 10,
+                       (int)(s_baro_dhpa / 10),
+                       (int)(s_baro_dhpa < 0 ? -s_baro_dhpa : s_baro_dhpa) % 10,
+                       (unsigned int)s_anom_out.overall_level);
             }
         }
 
@@ -3563,7 +3696,8 @@ int main(void)
                                       s_limit_g_fail_mg,
                                       s_limit_temp_lo_c10,
                                       s_limit_temp_hi_c10,
-                                      s_limit_gyro_dps);
+                                      s_limit_gyro_dps,
+                                      s_log_rate_hz);
                 PRINTF("AI_TRAIN: complete_live\r\n");
             }
             prev_trained_ready = s_anom_out.trained_ready;

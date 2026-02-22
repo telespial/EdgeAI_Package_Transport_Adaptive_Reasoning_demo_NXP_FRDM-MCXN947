@@ -487,3 +487,4 @@ Format:
 - 2026-02-22 02:14:20 | `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` | rebuilt firmware with timeline/scope cleanup (PASS)
 - 2026-02-22 02:14:35 | `./tools/flash_frdmmcxn947.sh mcuxsdk_ws/build_adaptive_reasoning/edgeai_package_transport_anomaly_demo_cm33_core0.bin` | flashed timeline/scope cleanup fix to FRDM-MCXN947 (PASS, probe `2PZWMSBKUXU22`)
 - 2026-02-22 02:14:55 | update `docs/PROJECT_STATE.md` | documented timeline/scope cleanup root cause, code changes, and validation
+- 2026-02-22 02:15:20 | `git add src/gauge_render.c docs/PROJECT_STATE.md docs/COMMAND_LOG.md && git commit -m "Fix timeline overlap and reduce scope trace clutter" && git push origin main` | committed and pushed timeline/layout and scope-density cleanup (`0a584ec`)

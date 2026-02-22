@@ -802,3 +802,8 @@ Format:
 - 2026-02-22 07:30:21 | git add -A && git commit | committed code/docs + new golden/failsafe artifacts for release
 - 2026-02-22 07:30:31 | git push origin main | pushed release commit with updated golden/failsafe restore point
 - 2026-02-22 07:30:41 | final git status/log check | confirm pushed release and clean working tree
+- 2026-02-22 07:33:00 | inspect README and source sensor identifiers | gather exact ST shield component list for README hardware section update
+- 2026-02-22 07:33:28 | update README.md hardware section | documented ST shield components used by firmware and related probe/fallback devices
+- 2026-02-22 07:33:28 | update docs/PROJECT_STATE.md | recorded README hardware documentation expansion
+- 2026-02-22 07:33:28 | verify README changes with sed + git status | confirm working-tree delta for docs update
+- 2026-02-22 07:36:50 | git add/commit README + project docs | commit hardware section documentation update

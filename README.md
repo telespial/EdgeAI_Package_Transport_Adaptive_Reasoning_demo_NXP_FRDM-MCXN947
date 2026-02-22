@@ -25,6 +25,29 @@ This project is designed as a practical "AI watchover" system:
 - External flash recording/replay with timeline controls.
 - Persistent settings on reboot (mode, AI on/off, limits, log rate).
 
+## Hardware Used In This Firmware
+
+Target platform:
+- NXP FRDM-MCXN947
+- LCD-PAR-S035 display
+- ST sensor shield stack used by this demo firmware
+
+ST shield components used by code:
+- `LSM6DSO16IS` (primary IMU): 3-axis accelerometer + 3-axis gyroscope data source for motion channels.
+- `LIS2MDL` (magnetometer): magnetic field channels (`MX/MY/MZ`) for logging and replay evidence.
+- `LPS22DF` (barometer): pressure channel (`baro`) used in telemetry/log records.
+- `STTS22H` (temperature): shield temperature channel used for operator display and logging.
+
+Additional shield-mounted component used by code:
+- `SHT40` (temperature + humidity): auxiliary environmental channel (`SHT temp` + `RH`) in logs/terminal telemetry.
+
+Shield device detection/probe support present in code:
+- `LSM6DSV16X` WHOAMI fallback handling on IMU probe path.
+- `LIS2DUXS12` address probing entries for shield-bus diagnostics.
+
+Board-level component used by code:
+- `P3T1755DP` board temperature sensor path via I3C/I2C fallback.
+
 ## Architecture Summary
 
 The firmware intentionally separates responsibilities:

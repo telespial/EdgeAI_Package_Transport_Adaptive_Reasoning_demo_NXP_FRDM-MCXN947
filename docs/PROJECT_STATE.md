@@ -11,6 +11,13 @@ Project: `EdgeAI_Package_Transport_Anomaly_demo_NXP_FRDM-MCXN947`
 - Lock tag: `FAILSAFE-ACTIVE`
 - Failsafe binary: `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_failsafe_active.bin`
 
+## Update 2026-02-22 (README Hardware Section Expanded)
+- Updated `README.md` to explicitly document the ST shield component stack used by firmware code:
+  - `LSM6DSO16IS`, `LIS2MDL`, `LPS22DF`, `STTS22H`
+  - plus shield-mounted `SHT40` auxiliary environment channel
+  - plus probe/fallback references (`LSM6DSV16X`, `LIS2DUXS12`) and board temp path (`P3T1755DP`)
+- Purpose: make GitHub-facing hardware coverage clear for integrators and reviewers.
+
 ## Update 2026-02-22 (Golden/Failsafe Release Cut: GOLDEN-20260222-152829)
 - Cut new golden/failsafe from current validated build output:
   - golden tag: `GOLDEN-20260222-152829`

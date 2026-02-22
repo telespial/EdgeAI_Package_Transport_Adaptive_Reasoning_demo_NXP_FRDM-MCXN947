@@ -32,6 +32,24 @@ Target platform:
 - LCD-PAR-S035 display
 - ST sensor shield stack used by this demo firmware
 
+### GitHub Hardware Parts List
+
+This repository firmware is written against the following detected/used hardware parts:
+
+- `FRDM-MCXN947` (target MCU board)
+- `LCD-PAR-S035` (display + touch assembly used by UI)
+- ST multi-sensor shield stack (this firmware probes/uses these ST devices):
+  - `LSM6DSO16IS` IMU (accel + gyro primary path)
+  - `LIS2MDL` magnetometer
+  - `LPS22DF` barometer
+  - `STTS22H` temperature sensor
+  - `LSM6DSV16X` IMU WHOAMI fallback probe path
+  - `LIS2DUXS12` probe entries for shield-bus diagnostics
+- `SHT40` (shield-mounted temperature/humidity path)
+- `P3T1755DP` (board temperature path)
+- `W25Q64` class external flash (record/replay storage path used by firmware)
+- `GT911` touch controller path used by UI input handling
+
 ST shield components used by code:
 - `LSM6DSO16IS` (primary IMU): 3-axis accelerometer + 3-axis gyroscope data source for motion channels.
 - `LIS2MDL` (magnetometer): magnetic field channels (`MX/MY/MZ`) for logging and replay evidence.

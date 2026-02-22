@@ -11,6 +11,13 @@ Project: `EdgeAI_Package_Transport_Anomaly_demo_NXP_FRDM-MCXN947`
 - Lock tag: `FAILSAFE-ACTIVE`
 - Failsafe binary: `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_failsafe_active.bin`
 
+## Update 2026-02-22 (README GitHub Hardware Parts Expansion)
+- Expanded `README.md` with explicit GitHub-facing hardware parts list including board, display, ST shield devices, and key supporting components used in code paths.
+- Added clear component inventory entries for:
+  - `LSM6DSO16IS`, `LIS2MDL`, `LPS22DF`, `STTS22H`
+  - `LSM6DSV16X` and `LIS2DUXS12` probe/fallback entries
+  - `SHT40`, `P3T1755DP`, external flash (`W25Q64` class), and `GT911` touch path
+
 ## Update 2026-02-22 (README Hardware Section Expanded)
 - Updated `README.md` to explicitly document the ST shield component stack used by firmware code:
   - `LSM6DSO16IS`, `LIS2MDL`, `LPS22DF`, `STTS22H`

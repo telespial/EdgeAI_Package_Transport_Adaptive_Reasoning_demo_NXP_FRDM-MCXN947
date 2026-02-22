@@ -807,3 +807,10 @@ Format:
 - 2026-02-22 07:33:28 | update docs/PROJECT_STATE.md | recorded README hardware documentation expansion
 - 2026-02-22 07:33:28 | verify README changes with sed + git status | confirm working-tree delta for docs update
 - 2026-02-22 07:36:50 | git add/commit README + project docs | commit hardware section documentation update
+- 2026-02-22 07:39:01 | read README.md before hardware parts expansion for GitHub-facing docs
+- 2026-02-22 07:39:27 | patch README.md | added explicit GitHub hardware parts list including ST shield devices and supporting components used in firmware
+- 2026-02-22 07:39:27 | patch docs/PROJECT_STATE.md | logged README hardware parts expansion per project documentation rule
+EOF && git add README.md docs/PROJECT_STATE.md docs/COMMAND_LOG.md && git commit -m "Docs: expand GitHub README with shield and component parts list" && git push origin main && git log --oneline -n 1
+- 2026-02-22 07:39:34 | git status --short | checked repo state after failed combined commit command
+- 2026-02-22 07:39:39 | patch README.md + docs/PROJECT_STATE.md | added shield/components inventory for GitHub README and recorded state update
+- 2026-02-22 07:39:39 | git commit docs update | committed README shield/components expansion

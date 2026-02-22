@@ -66,6 +66,10 @@ static int16_t gLinAccelXmg = 0;
 static int16_t gLinAccelYmg = 0;
 static int16_t gLinAccelZmg = 1000;
 static bool gLinAccelValid = false;
+static int16_t gGyroXdps = 0;
+static int16_t gGyroYdps = 0;
+static int16_t gGyroZdps = 0;
+static bool gGyroValid = false;
 static int16_t gMagXmgauss = 0;
 static int16_t gMagYmgauss = 0;
 static int16_t gMagZmgauss = 0;
@@ -533,9 +537,9 @@ static void PushScopeSample(void)
     uint8_t ax = ScaleSignedTo8(acc_x, 2000);
     uint8_t ay = ScaleSignedTo8(acc_y, 2000);
     uint8_t az = ScaleSignedTo8(acc_z, 2000);
-    uint8_t gx = ScaleSignedTo8(gAccelXmg, 2000);
-    uint8_t gy = ScaleSignedTo8(gAccelYmg, 2000);
-    uint8_t gz = ScaleSignedTo8(gAccelZmg, 2000);
+    uint8_t gx = ScaleSignedTo8(gGyroValid ? gGyroXdps : gAccelXmg, 2000);
+    uint8_t gy = ScaleSignedTo8(gGyroValid ? gGyroYdps : gAccelYmg, 2000);
+    uint8_t gz = ScaleSignedTo8(gGyroValid ? gGyroZdps : gAccelZmg, 2000);
     uint8_t tp = ScaleTo8(t, 100u);
     uint8_t bp = ScaleTo8((uint32_t)ClampI32((int32_t)gBaroDhpa - 9600, 0, 1200), 1200u);
     uint8_t rh = ScaleTo8((uint32_t)ClampI32(gShtRhDpct, 0, 1000), 1000u);
@@ -887,7 +891,6 @@ static void DrawGyroWidgetDynamic(const gauge_style_preset_t *style)
     uint16_t axis_color;
     uint16_t horizon_main_color;
     uint16_t horizon_sub_color;
-    uint16_t center_line_color;
     uint16_t vector_color;
     uint16_t cross_color;
     uint16_t ball_color;
@@ -899,7 +902,6 @@ static void DrawGyroWidgetDynamic(const gauge_style_preset_t *style)
         axis_color = RGB565(168, 90, 30);
         horizon_main_color = RGB565(255, 140, 40);
         horizon_sub_color = RGB565(255, 186, 112);
-        center_line_color = RGB565(255, 218, 164);
         vector_color = RGB565(255, 196, 120);
         cross_color = RGB565(255, 236, 210);
         ball_color = RGB565(255, 146, 58);
@@ -909,7 +911,6 @@ static void DrawGyroWidgetDynamic(const gauge_style_preset_t *style)
         axis_color = RGB565(46, 68, 94);
         horizon_main_color = RGB565(74, 212, 255);
         horizon_sub_color = RGB565(140, 236, 255);
-        center_line_color = RGB565(224, 248, 255);
         vector_color = RGB565(180, 250, 255);
         cross_color = RGB565(255, 255, 255);
         ball_color = RGB565(80, 236, 255);
@@ -948,7 +949,6 @@ static void DrawGyroWidgetDynamic(const gauge_style_preset_t *style)
 
     DrawLineClippedCircle(x0, y0, x1, y1, 2, horizon_main_color, cx, cy, r - 10);
     DrawLineClippedCircle(sx0, sy0, sx1, sy1, 1, horizon_sub_color, cx, cy, r - 10);
-    DrawLineClippedCircle(cx - 12, y_mid, cx + 12, y_mid, 1, center_line_color, cx, cy, r - 10);
     vx = cx + roll_px;
     vy = cy + pitch_px;
     DrawLineClippedCircle(cx, cy, vx, vy, 1, vector_color, cx, cy, r - 10);
@@ -1439,12 +1439,12 @@ static void DrawSettingsPopup(void)
                    body);
     }
 
-    DrawTextUi(x0 + 10, y0 + 270, 1, "MODEL:", dim);
-    DrawTextUi(x0 + 58, y0 + 270, 1, gModelName, body);
-    DrawTextUi(x0 + 10, y0 + 282, 1, "EIL EXT:", dim);
-    DrawTextUi(x0 + 58, y0 + 282, 1, gExtensionVersion, dim);
-    DrawTextUi(x0 + 110, y0 + 282, 1, "MODEL V:", dim);
-    DrawTextUi(x0 + 166, y0 + 282, 1, gModelVersion, dim);
+    DrawTextUi(x0 + 10, y0 + 252, 1, "MODEL:", dim);
+    DrawTextUi(x0 + 58, y0 + 252, 1, gModelName, body);
+    DrawTextUi(x0 + 10, y0 + 264, 1, "EIL EXT:", dim);
+    DrawTextUi(x0 + 58, y0 + 264, 1, gExtensionVersion, dim);
+    DrawTextUi(x0 + 110, y0 + 264, 1, "MODEL V:", dim);
+    DrawTextUi(x0 + 166, y0 + 264, 1, gModelVersion, dim);
 }
 
 void GaugeRender_SetProfileInfo(const char *model_name, const char *model_version, const char *extension_version)
@@ -2289,6 +2289,14 @@ void GaugeRender_SetLinearAccel(int16_t ax_mg, int16_t ay_mg, int16_t az_mg, boo
     gLinAccelYmg = ay_mg;
     gLinAccelZmg = az_mg;
     gLinAccelValid = valid;
+}
+
+void GaugeRender_SetGyro(int16_t gx_dps, int16_t gy_dps, int16_t gz_dps, bool valid)
+{
+    gGyroXdps = gx_dps;
+    gGyroYdps = gy_dps;
+    gGyroZdps = gz_dps;
+    gGyroValid = valid;
 }
 
 void GaugeRender_SetMag(int16_t mx_mgauss, int16_t my_mgauss, int16_t mz_mgauss, bool valid)

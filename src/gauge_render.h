@@ -87,6 +87,7 @@ bool GaugeRender_Init(void);
 void GaugeRender_DrawFrame(const power_sample_t *sample, bool ai_enabled, power_replay_profile_t profile);
 void GaugeRender_SetAccel(int16_t ax_mg, int16_t ay_mg, int16_t az_mg, bool valid);
 void GaugeRender_SetLinearAccel(int16_t ax_mg, int16_t ay_mg, int16_t az_mg, bool valid);
+void GaugeRender_SetGyro(int16_t gx_dps, int16_t gy_dps, int16_t gz_dps, bool valid);
 void GaugeRender_SetMag(int16_t mx_mgauss, int16_t my_mgauss, int16_t mz_mgauss, bool valid);
 void GaugeRender_SetBaro(int16_t pressure_dhpa, bool valid);
 void GaugeRender_SetSht(int16_t temp_c10, int16_t rh_dpct, bool valid);

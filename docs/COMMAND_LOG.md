@@ -591,3 +591,12 @@ Format:
 2026-02-22T04:12:46Z | flashed build with gyro sphere artifact cleanup and corrected axis mapping
 2026-02-22T04:13:01Z | updated PROJECT_STATE.md and STATUS.md for gyro sphere artifact cleanup and axis mapping correction
 2026-02-22T04:13:05Z | checked git status before committing gyro sphere fixes
+2026-02-22T04:13:58Z | reflashed current build per user request
+2026-02-22T04:15:58Z | pre-fix scan for true gyro trace feed, settings model text placement, and gyro-sphere center line
+2026-02-22T04:16:35Z | added GaugeRender_SetGyro API declaration in gauge_render.h
+2026-02-22T04:16:48Z | added true gyro state/store in renderer and switched scope gyro traces to gGyro* feed
+2026-02-22T04:17:41Z | wired true live gyro dps feed into renderer, restored swapped sphere X/Y mapping, and adjusted playback sphere/gyro handling
+2026-02-22T04:17:50Z | rebuild after model-text placement, sphere-line removal, and true-gyro trace feed changes
+2026-02-22T04:18:03Z | flashed build with real gyro scope feed, settings model text reposition, and gyro sphere center-line removal
+2026-02-22T04:18:20Z | updated PROJECT_STATE.md and STATUS.md for true-gyro scope feed, sphere-line artifact removal, and settings model text placement fix
+2026-02-22T04:18:25Z | checked git status before committing latest user-requested fixes

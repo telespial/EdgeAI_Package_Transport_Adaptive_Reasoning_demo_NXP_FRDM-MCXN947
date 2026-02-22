@@ -2134,6 +2134,7 @@ static void __attribute__((unused)) AccelInit(void)
     if (!AccelI2CInit())
     {
         GaugeRender_SetAccel(0, 0, 1000, false);
+        GaugeRender_SetGyro(0, 0, 0, false);
         return;
     }
 
@@ -2151,6 +2152,7 @@ static void __attribute__((unused)) AccelInit(void)
     {
         PRINTF("ACCEL not found (WHO_AM_I=0x%02x)\r\n", (unsigned int)who);
         GaugeRender_SetAccel(0, 0, 1000, false);
+        GaugeRender_SetGyro(0, 0, 0, false);
         return;
     }
 
@@ -2276,6 +2278,9 @@ static void ShieldGyroUpdate(void)
     uint16_t gx_dps;
     uint16_t gy_dps;
     uint16_t gz_dps;
+    int16_t gx_dps_signed;
+    int16_t gy_dps_signed;
+    int16_t gz_dps_signed;
     int32_t accel_mg_per_lsb_x1000;
     int32_t ax_mg;
     int32_t ay_mg;
@@ -2291,6 +2296,7 @@ static void ShieldGyroUpdate(void)
         {
             GaugeRender_SetAccel(0, 0, 1000, false);
             GaugeRender_SetLinearAccel(0, 0, 1000, false);
+            GaugeRender_SetGyro(0, 0, 0, false);
             return;
         }
     }
@@ -2299,6 +2305,7 @@ static void ShieldGyroUpdate(void)
     {
         GaugeRender_SetAccel(0, 0, 1000, false);
         GaugeRender_SetLinearAccel(0, 0, 1000, false);
+        GaugeRender_SetGyro(0, 0, 0, false);
         return;
     }
 
@@ -2335,6 +2342,9 @@ static void ShieldGyroUpdate(void)
     gx_raw = (int16_t)(((uint16_t)raw_g[1] << 8) | raw_g[0]);
     gy_raw = (int16_t)(((uint16_t)raw_g[3] << 8) | raw_g[2]);
     gz_raw = (int16_t)(((uint16_t)raw_g[5] << 8) | raw_g[4]);
+    gx_dps_signed = (int16_t)((gx_raw * 70) / 1000);
+    gy_dps_signed = (int16_t)((gy_raw * 70) / 1000);
+    gz_dps_signed = (int16_t)((gz_raw * 70) / 1000);
     gx_dps = (uint16_t)(((gx_raw < 0 ? -gx_raw : gx_raw) * 70) / 1000);
     gy_dps = (uint16_t)(((gy_raw < 0 ? -gy_raw : gy_raw) * 70) / 1000);
     gz_dps = (uint16_t)(((gz_raw < 0 ? -gz_raw : gz_raw) * 70) / 1000);
@@ -2366,12 +2376,13 @@ static void ShieldGyroUpdate(void)
     s_accel_y_mg = filt_ay;
     s_accel_z_mg = filt_az;
 
-    /* UI orientation mapping: keep IMU axis pairing direct (X->X, Y->Y) for gyro sphere. */
-    s_ui_gyro_x = filt_ax;
-    s_ui_gyro_y = filt_ay;
+    /* UI orientation mapping: board is rotated relative to display, so swap X/Y for sphere motion. */
+    s_ui_gyro_x = filt_ay;
+    s_ui_gyro_y = filt_ax;
     s_ui_gyro_z = filt_az;
     GaugeRender_SetLinearAccel(s_accel_x_mg, s_accel_y_mg, s_accel_z_mg, true);
     GaugeRender_SetAccel(s_ui_gyro_x, s_ui_gyro_y, s_ui_gyro_z, true);
+    GaugeRender_SetGyro(gx_dps_signed, gy_dps_signed, gz_dps_signed, true);
 }
 
 static bool BoardTempReadRaw(uint8_t addr, i3c_bus_type_t bus_type, uint8_t *raw2)
@@ -4041,7 +4052,8 @@ int main(void)
                     s_accel_y_mg = playback_sample.ay_mg;
                     s_accel_z_mg = playback_sample.az_mg;
                     GaugeRender_SetLinearAccel(s_accel_x_mg, s_accel_y_mg, s_accel_z_mg, true);
-                    GaugeRender_SetAccel(playback_sample.gx_mdps, playback_sample.gy_mdps, playback_sample.gz_mdps, true);
+                    GaugeRender_SetAccel(s_accel_y_mg, s_accel_x_mg, s_accel_z_mg, true);
+                    GaugeRender_SetGyro(0, 0, 0, false);
                     s_mag_x_mgauss = playback_sample.mag_x_mgauss;
                     s_mag_y_mgauss = playback_sample.mag_y_mgauss;
                     s_mag_z_mgauss = playback_sample.mag_z_mgauss;

@@ -531,3 +531,4 @@ Format:
 - 2026-02-21 19:50:44 | apply_patch on src/edgeai_package_transport_anomaly_demo.c (100Hz accel sampling + log/capture peak windows) | implemented interval-max capture to retain spikes between log/record ticks
 - 2026-02-21 19:50:44 | 'BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug' + './tools/flash_frdmmcxn947.sh mcuxsdk_ws/build_adaptive_reasoning/edgeai_package_transport_anomaly_demo_cm33_core0.bin' | verified 100Hz buffering and flashed firmware
 - 2026-02-21 19:51:13 | 'git status --short' | verified files changed for 100Hz interval-peak update before commit
+- 2026-02-21 19:51:23 | 'git add src/edgeai_package_transport_anomaly_demo.c STATUS.md docs/PROJECT_STATE.md docs/COMMAND_LOG.md' + 'git commit -m Buffer accel at 100Hz and capture interval peak values' + 'git push origin main' | published 100Hz interval peak buffering update

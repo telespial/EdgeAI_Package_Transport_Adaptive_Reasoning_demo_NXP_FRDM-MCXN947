@@ -1,16 +1,58 @@
 # Status
 
-Last updated: 2026-02-18
+Last updated: 2026-02-22
 
 - Project build target: `edgeai_package_transport_anomaly_demo` (`frdmmcxn947/cm33_core0`)
-- Current build status: PASS (`mcuxsdk_ws/build_anomaly_adaptive`)
-- Flash status: PASS (FRDM-MCXN947 probe `UYLKOJI11H2B3`)
+- Current build status: PASS (`mcuxsdk_ws/build_adaptive_reasoning`)
+- Flash status: PASS in this session (probe `2PZWMSBKUXU22`)
+
+## UI Control Scope (Updated)
+- AI enable/disable is settings-only.
+- Main-screen AI badge is status display only and no longer accepts touch toggle.
+- Settings now uses explicit options `AI ON` and `AI OFF` with direct runtime apply.
+- Settings AI order: left=`AI OFF`, right=`AI ON`.
+- Settings mode labels are readable: `ADAPT`, `TRAIN`, `LIVE` (not `M1/M2/M3`).
+- Boot persistence enabled for mode/tune/AI via external flash metadata.
+- Settings popup rows now have aligned labels and vertically centered row text.
+- Selecting any mode (`ADAPT`/`TRAIN`/`LIVE`) now auto-closes settings.
+- Settings now separates `MODE` (`ADAPT`/`TRAINED`) from `RUN` (`TRAIN`/`LIVE`).
+- Added operator limit controls in settings: `G`, `TEMP LOW/HIGH`, `GYRO` (persistent on boot).
+- Limits controls are now rendered in a readable 2x2 grid (no overlap).
+- Shock limits now use separate `GW/GF` defaults: `12.0g` warning, `15.0g` fault.
+- Temp low/high controls are on the same row in settings.
+- Each limit button now supports direct down/up adjustment (`-` on left, `+` on right).
+- Limit controls now show `v` (decrease) and `^` (increase) markers.
+- Modal redraw now uses popup-only dirty region updates (reduced full-screen flashing/latency).
+- Compass heading display is disabled until heading tracking is validated.
+
+## EIL Model Integration (In Progress)
+- Added EIL profile adapter (`src/eil_profile.h/.c`) with generated constants (`src/eil_profile_generated.h`).
+- Added importer tool:
+  - `python3 tools/import_eil_profile.py --model <path-to-model.config.json> --out src/eil_profile_generated.h`
+- Runtime scoring/status now consumes imported model values:
+  - weighted anomaly score from AX/AY/AZ/TEMP input weights
+  - `WARNING`/`FAULT` transitions from `alertThresholds.warn/fail`
+
+## On-Board Training Flow (Current)
+- Train can now complete entirely on board from record/replay/live controls:
+  - `RECORD` captures training samples with training path active.
+  - `PLAY` can continue fitting from recorded timeline if training window is not yet complete.
+  - replay auto-restarts while training remains incomplete.
+  - once trained-ready is reached, firmware auto-switches to live monitoring mode.
+  - selecting `TRAIN` alone does not auto-start recording.
+  - recording start requires confirmation.
+  - during recording, left timeline button shows `STOP` and stop action requires confirmation.
+  - while train mode is armed (not recording), alert banner shows `TRAINING`.
+  - touch responsiveness improved by faster poll cadence (`2000 us`).
+  - while train mode is armed, motion/sensor progression is frozen until `RECORD` confirm.
+  - while recording, timeline left button (`STOP`) is blue for clearer state visibility.
+  - alert banner now shows `NORMAL TRACKING` without the `WARNING` prefix when that detail is active.
 
 ## Golden Baseline (Active)
-- Golden tag: `GOLDEN-20260218-201205`
+- Golden tag: `GOLDEN-20260222-020527`
 - Active failsafe: `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_failsafe_active.bin`
-- Golden image: `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_golden_20260218T201205Z.bin`
-- sha256: `ef3eb2e77a8f8c30974f11ac4aec578da059722a1bce267713a9abfaf3d40167`
+- Golden image: `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_golden_20260222T020527Z.bin`
+- sha256: `ba344ca335e1c67cbc842425b7bf017d9432ad2ae8ca8b61fc7833d94683fc87`
 
 ## Frozen Features in Golden
 - Accelerometer sphere gauge with fast redraw.

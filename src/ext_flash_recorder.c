@@ -7,6 +7,7 @@
 #define EDGEAI_FLEXSPI_INSTANCE (0u)
 #define EDGEAI_REC_MAGIC (0x52454335u)  /* "REC5" */
 #define EDGEAI_META_MAGIC (0x4D455441u) /* "META" */
+#define EDGEAI_UICFG_TAG (0xA6u)
 #define EDGEAI_MAX_PAGE_SIZE (1024u)
 
 typedef struct
@@ -66,6 +67,132 @@ static bool s_ready;
 static uint32_t s_playStartIndex;
 static uint32_t s_playCount;
 static uint32_t s_playOffset;
+static uint8_t s_ui_mode;
+static uint8_t s_ui_tune;
+static bool s_ui_run_live;
+static bool s_ui_ai_enabled;
+static uint16_t s_ui_g_warn_mg;
+static uint16_t s_ui_g_fail_mg;
+static int16_t s_ui_temp_low_c10;
+static int16_t s_ui_temp_high_c10;
+static uint16_t s_ui_gyro_limit_dps;
+static bool s_ui_valid;
+
+static uint32_t ExtFlashRecorder_PackUiSettingsCore(void)
+{
+    uint32_t gw_d10 = (uint32_t)(s_ui_g_warn_mg / 100u);
+    uint32_t gf_d10 = (uint32_t)(s_ui_g_fail_mg / 100u);
+    if (gw_d10 > 255u)
+    {
+        gw_d10 = 255u;
+    }
+    if (gf_d10 > 255u)
+    {
+        gf_d10 = 255u;
+    }
+    return ((uint32_t)EDGEAI_UICFG_TAG << 24) |
+           (gw_d10 << 16) |
+           (gf_d10 << 8) |
+           (((uint32_t)s_ui_tune & 0x3u) << 4) |
+           (((uint32_t)s_ui_mode & 0x3u) << 2) |
+           ((s_ui_run_live ? 1u : 0u) << 1) |
+           (s_ui_ai_enabled ? 1u : 0u);
+}
+
+static uint32_t ExtFlashRecorder_PackUiSettingsLimits(void)
+{
+    int32_t tl_c = (int32_t)(s_ui_temp_low_c10 / 10) + 40;
+    int32_t th_c = (int32_t)(s_ui_temp_high_c10 / 10) + 40;
+    uint32_t gy_d10 = (uint32_t)(s_ui_gyro_limit_dps / 10u);
+    if (tl_c < 0)
+    {
+        tl_c = 0;
+    }
+    if (tl_c > 255)
+    {
+        tl_c = 255;
+    }
+    if (th_c < 0)
+    {
+        th_c = 0;
+    }
+    if (th_c > 255)
+    {
+        th_c = 255;
+    }
+    if (gy_d10 > 255u)
+    {
+        gy_d10 = 255u;
+    }
+    return ((uint32_t)gy_d10 << 24) |
+           ((uint32_t)th_c << 16) |
+           ((uint32_t)tl_c << 8) |
+           0u;
+}
+
+static void ExtFlashRecorder_UnpackUiSettings(uint32_t packed_core, uint32_t packed_limits)
+{
+    if (((packed_core >> 24) & 0xFFu) != EDGEAI_UICFG_TAG)
+    {
+        s_ui_mode = 0u;
+        s_ui_tune = 1u;
+        s_ui_run_live = true;
+        s_ui_ai_enabled = true;
+        s_ui_g_warn_mg = 12000u;
+        s_ui_g_fail_mg = 15000u;
+        s_ui_temp_low_c10 = 0;
+        s_ui_temp_high_c10 = 700;
+        s_ui_gyro_limit_dps = 500u;
+        s_ui_valid = false;
+        return;
+    }
+
+    s_ui_mode = (uint8_t)((packed_core >> 2) & 0x3u);
+    s_ui_tune = (uint8_t)((packed_core >> 4) & 0x3u);
+    s_ui_run_live = (((packed_core >> 1) & 0x1u) != 0u);
+    s_ui_ai_enabled = ((packed_core & 0x1u) != 0u);
+    s_ui_g_warn_mg = 12000u;
+    s_ui_g_fail_mg = 15000u;
+    s_ui_temp_low_c10 = 0;
+    s_ui_temp_high_c10 = 700;
+    s_ui_gyro_limit_dps = 500u;
+    {
+        uint32_t gw_d10 = (packed_core >> 16) & 0xFFu;
+        uint32_t gf_d10 = (packed_core >> 8) & 0xFFu;
+        int32_t tl_c = ((int32_t)((packed_limits >> 8) & 0xFFu)) - 40;
+        int32_t th_c = ((int32_t)((packed_limits >> 16) & 0xFFu)) - 40;
+        uint32_t gy_d10 = (packed_limits >> 24) & 0xFFu;
+        if ((gw_d10 >= 20u) && (gw_d10 <= 150u))
+        {
+            s_ui_g_warn_mg = (uint16_t)(gw_d10 * 100u);
+        }
+        if ((gf_d10 >= 30u) && (gf_d10 <= 160u))
+        {
+            s_ui_g_fail_mg = (uint16_t)(gf_d10 * 100u);
+        }
+        if ((tl_c >= -20) && (tl_c <= 30))
+        {
+            s_ui_temp_low_c10 = (int16_t)(tl_c * 10);
+        }
+        if ((th_c >= 0) && (th_c <= 100))
+        {
+            s_ui_temp_high_c10 = (int16_t)(th_c * 10);
+        }
+        if ((gy_d10 >= 10u) && (gy_d10 <= 200u))
+        {
+            s_ui_gyro_limit_dps = (uint16_t)(gy_d10 * 10u);
+        }
+    }
+    if (s_ui_temp_high_c10 <= s_ui_temp_low_c10)
+    {
+        s_ui_temp_high_c10 = s_ui_temp_low_c10 + 50;
+    }
+    if (s_ui_g_fail_mg <= s_ui_g_warn_mg)
+    {
+        s_ui_g_fail_mg = s_ui_g_warn_mg + 500u;
+    }
+    s_ui_valid = true;
+}
 
 static uint32_t ExtFlashRecorder_PageAddr(uint32_t page_index)
 {
@@ -99,8 +226,8 @@ static bool ExtFlashRecorder_WriteMeta(uint32_t generation)
 
     meta.magic = EDGEAI_META_MAGIC;
     meta.generation = generation;
-    meta.reserved0 = 0u;
-    meta.reserved1 = 0u;
+    meta.reserved0 = ExtFlashRecorder_PackUiSettingsCore();
+    meta.reserved1 = ExtFlashRecorder_PackUiSettingsLimits();
 
     st = FLEXSPI_NorFlash_Erase(EDGEAI_FLEXSPI_INSTANCE, &s_norConfig, s_regionStart, s_norConfig.sectorSize);
     if (st != kStatus_Success)
@@ -134,6 +261,7 @@ static bool ExtFlashRecorder_ReadMeta(uint32_t *generation_out)
     }
 
     *generation_out = meta.generation;
+    ExtFlashRecorder_UnpackUiSettings(meta.reserved0, meta.reserved1);
     return true;
 }
 
@@ -207,6 +335,16 @@ bool ExtFlashRecorder_Init(void)
     s_playStartIndex = 0u;
     s_playCount = 0u;
     s_playOffset = 0u;
+    s_ui_mode = 0u;
+    s_ui_tune = 1u;
+    s_ui_run_live = true;
+    s_ui_ai_enabled = true;
+    s_ui_g_warn_mg = 12000u;
+    s_ui_g_fail_mg = 15000u;
+    s_ui_temp_low_c10 = 0;
+    s_ui_temp_high_c10 = 700;
+    s_ui_gyro_limit_dps = 500u;
+    s_ui_valid = false;
     memset(&s_norConfig, 0, sizeof(s_norConfig));
 
     st = FLEXSPI_NorFlash_GetConfig(EDGEAI_FLEXSPI_INSTANCE, &s_norConfig, &s_norOption);
@@ -493,5 +631,68 @@ bool ExtFlashRecorder_GetRecordInfo(uint32_t *count)
     }
 
     *count = s_sampleCount;
+    return true;
+}
+
+bool ExtFlashRecorder_SaveUiSettings(uint8_t mode,
+                                     uint8_t tune,
+                                     bool run_live,
+                                     bool ai_enabled,
+                                     uint16_t g_warn_mg,
+                                     uint16_t g_fail_mg,
+                                     int16_t temp_low_c10,
+                                     int16_t temp_high_c10,
+                                     uint16_t gyro_limit_dps)
+{
+    if (!s_ready)
+    {
+        return false;
+    }
+
+    s_ui_mode = mode & 0x3u;
+    s_ui_tune = tune & 0x3u;
+    s_ui_run_live = run_live;
+    s_ui_ai_enabled = ai_enabled;
+    s_ui_g_warn_mg = g_warn_mg;
+    s_ui_g_fail_mg = g_fail_mg;
+    s_ui_temp_low_c10 = temp_low_c10;
+    s_ui_temp_high_c10 = temp_high_c10;
+    s_ui_gyro_limit_dps = gyro_limit_dps;
+    s_ui_valid = true;
+    return ExtFlashRecorder_WriteMeta(s_generation);
+}
+
+bool ExtFlashRecorder_GetUiSettings(uint8_t *mode,
+                                    uint8_t *tune,
+                                    bool *run_live,
+                                    bool *ai_enabled,
+                                    uint16_t *g_warn_mg,
+                                    uint16_t *g_fail_mg,
+                                    int16_t *temp_low_c10,
+                                    int16_t *temp_high_c10,
+                                    uint16_t *gyro_limit_dps,
+                                    bool *valid)
+{
+    if ((mode == NULL) || (tune == NULL) || (run_live == NULL) || (ai_enabled == NULL) || (g_warn_mg == NULL) ||
+        (g_fail_mg == NULL) ||
+        (temp_low_c10 == NULL) || (temp_high_c10 == NULL) || (gyro_limit_dps == NULL) || (valid == NULL))
+    {
+        return false;
+    }
+    if (!s_ready)
+    {
+        return false;
+    }
+
+    *mode = s_ui_mode;
+    *tune = s_ui_tune;
+    *run_live = s_ui_run_live;
+    *ai_enabled = s_ui_ai_enabled;
+    *g_warn_mg = s_ui_g_warn_mg;
+    *g_fail_mg = s_ui_g_fail_mg;
+    *temp_low_c10 = s_ui_temp_low_c10;
+    *temp_high_c10 = s_ui_temp_high_c10;
+    *gyro_limit_dps = s_ui_gyro_limit_dps;
+    *valid = s_ui_valid;
     return true;
 }

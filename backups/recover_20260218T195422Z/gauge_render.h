@@ -24,52 +24,26 @@
 #define GAUGE_RENDER_SET_PANEL_X0 40
 #define GAUGE_RENDER_SET_PANEL_Y0 32
 #define GAUGE_RENDER_SET_PANEL_X1 440
-#define GAUGE_RENDER_SET_PANEL_Y1 304
-#define GAUGE_RENDER_SET_MODE_X0 184
-#define GAUGE_RENDER_SET_MODE_Y0 68
-#define GAUGE_RENDER_SET_MODE_W 96
+#define GAUGE_RENDER_SET_PANEL_Y1 214
+#define GAUGE_RENDER_SET_MODE_X0 150
+#define GAUGE_RENDER_SET_MODE_Y0 94
+#define GAUGE_RENDER_SET_MODE_W 54
 #define GAUGE_RENDER_SET_MODE_H 24
-#define GAUGE_RENDER_SET_MODE_GAP 14
-#define GAUGE_RENDER_SET_RUN_X0 184
-#define GAUGE_RENDER_SET_RUN_Y0 100
-#define GAUGE_RENDER_SET_RUN_W 96
-#define GAUGE_RENDER_SET_RUN_H 24
-#define GAUGE_RENDER_SET_RUN_GAP 14
-#define GAUGE_RENDER_SET_TUNE_X0 96
-#define GAUGE_RENDER_SET_TUNE_Y0 132
+#define GAUGE_RENDER_SET_MODE_GAP 12
+#define GAUGE_RENDER_SET_TUNE_X0 110
+#define GAUGE_RENDER_SET_TUNE_Y0 138
 #define GAUGE_RENDER_SET_TUNE_W 80
 #define GAUGE_RENDER_SET_TUNE_H 24
 #define GAUGE_RENDER_SET_TUNE_GAP 10
-#define GAUGE_RENDER_SET_AI_X0 144
-#define GAUGE_RENDER_SET_AI_Y0 164
+#define GAUGE_RENDER_SET_AI_X0 130
+#define GAUGE_RENDER_SET_AI_Y0 170
 #define GAUGE_RENDER_SET_AI_W 98
 #define GAUGE_RENDER_SET_AI_H 24
 #define GAUGE_RENDER_SET_AI_GAP 12
-#define GAUGE_RENDER_SET_LIMIT_BTN_X0 184
-#define GAUGE_RENDER_SET_LIMIT_BTN_Y0 200
-#define GAUGE_RENDER_SET_LIMIT_BTN_W 206
-#define GAUGE_RENDER_SET_LIMIT_BTN_H 28
 #define GAUGE_RENDER_HELP_PANEL_X0 32
 #define GAUGE_RENDER_HELP_PANEL_Y0 24
 #define GAUGE_RENDER_HELP_PANEL_X1 448
-#define GAUGE_RENDER_HELP_PANEL_Y1 304
-#define GAUGE_RENDER_HELP_NEXT_X0 339
-#define GAUGE_RENDER_HELP_NEXT_Y0 272
-#define GAUGE_RENDER_HELP_NEXT_X1 438
-#define GAUGE_RENDER_HELP_NEXT_Y1 296
-#define GAUGE_RENDER_LIMIT_PANEL_X0 26
-#define GAUGE_RENDER_LIMIT_PANEL_Y0 20
-#define GAUGE_RENDER_LIMIT_PANEL_X1 454
-#define GAUGE_RENDER_LIMIT_PANEL_Y1 306
-#define GAUGE_RENDER_LIMIT_ROW_X0 44
-#define GAUGE_RENDER_LIMIT_ROW_W 392
-#define GAUGE_RENDER_LIMIT_ROW_H 40
-#define GAUGE_RENDER_LIMIT_ROW_GAP 8
-#define GAUGE_RENDER_LIMIT_ROW_Y0 62
-#define GAUGE_RENDER_LIMIT_MINUS_X0 280
-#define GAUGE_RENDER_LIMIT_MINUS_W 68
-#define GAUGE_RENDER_LIMIT_PLUS_X0 360
-#define GAUGE_RENDER_LIMIT_PLUS_W 68
+#define GAUGE_RENDER_HELP_PANEL_Y1 236
 
 bool GaugeRender_Init(void);
 void GaugeRender_DrawFrame(const power_sample_t *sample, bool ai_enabled, power_replay_profile_t profile);
@@ -82,11 +56,6 @@ void GaugeRender_SetStts(int16_t temp_c10, bool valid);
 void GaugeRender_SetBoardTempC(uint8_t temp_c, bool valid);
 void GaugeRender_SetBoardTempC10(int16_t temp_c10, bool valid);
 void GaugeRender_SetRuntimeClock(uint8_t hh, uint8_t mm, uint8_t ss, uint8_t ds, bool valid);
-void GaugeRender_SetLimitInfo(uint16_t g_warn_mg,
-                              uint16_t g_fail_mg,
-                              int16_t temp_low_c10,
-                              int16_t temp_high_c10,
-                              uint16_t gyro_limit_dps);
 void GaugeRender_SetAnomalyInfo(uint8_t mode,
                                 uint8_t tune,
                                 bool training_active,
@@ -97,11 +66,7 @@ void GaugeRender_SetAnomalyInfo(uint8_t mode,
                                 uint8_t level_temp,
                                 uint8_t overall_level);
 void GaugeRender_SetHelpVisible(bool visible);
-void GaugeRender_SetHelpPage(uint8_t page);
-void GaugeRender_NextHelpPage(void);
 void GaugeRender_SetSettingsVisible(bool visible);
-void GaugeRender_SetLimitsVisible(bool visible);
-bool GaugeRender_IsLimitsVisible(void);
 void GaugeRender_SetLiveBannerMode(bool enabled);
 bool GaugeRender_IsLiveBannerMode(void);
 void GaugeRender_DrawGyroFast(void);
@@ -112,6 +77,5 @@ void GaugeRender_SetPlayhead(uint8_t position_0_to_99, bool valid);
 void GaugeRender_SetRecordMode(bool record_mode);
 bool GaugeRender_IsRecordConfirmActive(void);
 bool GaugeRender_ConsumeRecordStartRequest(void);
-bool GaugeRender_ConsumeRecordStopRequest(void);
 
 #endif

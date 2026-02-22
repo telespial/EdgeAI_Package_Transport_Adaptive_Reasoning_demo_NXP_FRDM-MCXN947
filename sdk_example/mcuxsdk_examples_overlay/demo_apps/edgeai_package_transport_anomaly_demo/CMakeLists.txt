@@ -20,6 +20,7 @@ mcux_add_source(
             src/fxls8974cf.c
             src/ext_flash_recorder.c
             src/anomaly_engine.c
+            src/eil_profile.c
             src/par_lcd_s035.c
             src/text5x7.c
 )

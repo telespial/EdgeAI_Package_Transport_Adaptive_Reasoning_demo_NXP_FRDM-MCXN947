@@ -1,15 +1,273 @@
 # Project State
 
-Last updated: 2026-02-18
+Last updated: 2026-02-22
 Project: `EdgeAI_Package_Transport_Anomaly_demo_NXP_FRDM-MCXN947`
 
 ## Current Baseline
 - Lifecycle: initialized
 - App target: `edgeai_package_transport_anomaly_demo`
 - Build target: `frdmmcxn947` / `cm33_core0`
-- Golden tag: `GOLDEN-20260218-201205`
+- Golden tag: `GOLDEN-20260222-020527`
 - Lock tag: `FAILSAFE-ACTIVE`
 - Failsafe binary: `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_failsafe_active.bin`
+
+## Update 2026-02-22 (LCD Fill Chunk Buffer + Golden/Failsafe Refresh)
+- Implemented RAM chunk-buffered LCD rectangle fill path in `src/par_lcd_s035.c`:
+  - added `EDGEAI_LCD_FILL_CHUNK_PIXELS` static chunk buffer
+  - switched full-screen fill to use rectangle fill path
+  - reduced per-line area-select overhead by selecting area once and streaming pixels in chunks
+- Build and flash verification:
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` (PASS)
+  - `./tools/flash_frdmmcxn947.sh mcuxsdk_ws/build_adaptive_reasoning/edgeai_package_transport_anomaly_demo_cm33_core0.bin` (PASS, probe `2PZWMSBKUXU22`)
+- New restore point cut from buffered build:
+  - golden tag: `GOLDEN-20260222-020527`
+  - golden binary: `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_golden_20260222T020527Z.bin`
+  - failsafe active: `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_failsafe_active.bin`
+  - sha256: `ba344ca335e1c67cbc842425b7bf017d9432ad2ae8ca8b61fc7833d94683fc87`
+
+## Update 2026-02-22 (AI Toggle Settings-Only)
+- Updated UI/control flow so AI enable/disable is no longer touch-toggleable from the main screen.
+- AI mode is now controlled only from Settings:
+  - settings row labels updated to `AI ON` and `AI OFF` in `src/gauge_render.c`
+  - settings selection state remains in sync with current AI enable state
+  - settings actions map to explicit runtime calls:
+    - `AI ON` -> `PowerData_SetAiAssistEnabled(true)` and `AI_SET,ON`
+    - `AI OFF` -> `PowerData_SetAiAssistEnabled(false)` and `AI_SET,OFF`
+- Removed now-unused main-screen AI touch helper from:
+  - `src/edgeai_package_transport_anomaly_demo.c` (`TouchInAiPill`)
+- Verification:
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` (PASS)
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh` (PASS, probe `2PZWMSBKUXU22`)
+
+## Update 2026-02-22 (Settings AI Button Order)
+- Reordered settings AI controls for operator preference:
+  - left button is now `AI OFF`
+  - right button is now `AI ON`
+- Selection highlight and runtime action mapping were updated to match this layout.
+- Files changed:
+  - `src/gauge_render.c`
+  - `src/edgeai_package_transport_anomaly_demo.c`
+- Verification:
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` (PASS)
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh` (PASS, probe `2PZWMSBKUXU22`)
+
+## Update 2026-02-22 (Train/Live Labels + Persistent Boot Settings)
+- Restored readable settings mode labels in popup:
+  - `ADAPT`, `TRAIN`, `LIVE` (replacing `M1`, `M2`, `M3`)
+  - help text updated to `SET MODE: ADAPT/TRAIN/LIVE`
+- Added persistent UI settings storage in external flash metadata sector:
+  - saved fields: anomaly mode, sensitivity tune, AI on/off
+  - values now reload and apply at boot (`UI_CFG_LOAD` log on restore)
+- Save-on-change wiring added for:
+  - mode changes
+  - sensitivity changes
+  - AI OFF/ON changes
+- Files changed:
+  - `src/gauge_render.c`
+  - `src/ext_flash_recorder.h`
+  - `src/ext_flash_recorder.c`
+  - `src/edgeai_package_transport_anomaly_demo.c`
+- Verification:
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` (PASS)
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh` (PASS, probe `2PZWMSBKUXU22`)
+
+## Update 2026-02-22 (Settings Label/Selection Alignment)
+- Refined settings popup row alignment in `src/gauge_render.c`:
+  - row labels (`MODE`, `SENS`, `AI`) now share a fixed label column
+  - each label is vertically centered with its corresponding selection row
+- This improves readability and makes label-to-control association explicit.
+- Verification:
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` (PASS)
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh` (PASS, probe `2PZWMSBKUXU22`)
+
+## Update 2026-02-22 (Mode Select Close Behavior)
+- Updated settings mode selection behavior in `src/edgeai_package_transport_anomaly_demo.c`:
+  - choosing `ADAPT`, `TRAIN`, or `LIVE` now closes the settings popup immediately.
+- This avoids the follow-up close interaction issue observed after selecting `LIVE`.
+- Verification:
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` (PASS)
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh` (PASS, probe `2PZWMSBKUXU22`)
+
+## Update 2026-02-22 (Settings UX + Limits Controls)
+- Reworked settings popup to reduce crowding and improve readability:
+  - split rows into `MODE` (`ADAPT` / `TRAINED`) and `RUN` (`TRAIN` / `LIVE`)
+  - kept `SENS` and `AI` rows with cleaner alignment
+  - added `LIMIT` row with tappable controls:
+    - `G` max limit
+    - `TEMP LOW`
+    - `TEMP HIGH`
+    - `GYRO` limit
+- Added persistent storage/load for expanded UI settings:
+  - mode, tune, run state, ai state
+  - g/temp/gyro limits
+- Added runtime limit gating in anomaly output path:
+  - exceeding one configured limit forces `WARNING`
+  - exceeding multiple limits forces `FAULT`
+- Files changed:
+  - `src/gauge_render.h`
+  - `src/gauge_render.c`
+  - `src/ext_flash_recorder.h`
+  - `src/ext_flash_recorder.c`
+  - `src/edgeai_package_transport_anomaly_demo.c`
+- Verification:
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` (PASS)
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh` (PASS, probe `2PZWMSBKUXU22`)
+
+## Update 2026-02-22 (Limits Layout Readability Fix)
+- Fixed limits-row overlap/crowding in settings popup:
+  - moved limits controls into a 2x2 grid (`G`, `TL`, `TH`, `GY`)
+  - widened limit buttons and increased spacing
+  - increased settings panel height so bottom hint text no longer collides
+- Files changed:
+  - `src/gauge_render.h`
+  - `src/gauge_render.c`
+  - `src/edgeai_package_transport_anomaly_demo.c` (touch hit-map aligned to new 2x2 layout)
+- Verification:
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` (PASS)
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh` (PASS, probe `2PZWMSBKUXU22`)
+
+## Update 2026-02-22 (G Warn/Fail + Temp Row Fix)
+- Implemented separate acceleration thresholds for package shock detection:
+  - `GW` (g-warn) default: `12.0 g`
+  - `GF` (g-fail) default: `15.0 g`
+- Limits controls updated and stabilized:
+  - first row: `GW` and `GF`
+  - second row: `TL` and `TH` (temp low/high now on the same row)
+  - third row: `GY` (gyro limit)
+- Runtime alert mapping now uses warn/fail semantics:
+  - accel >= `GF` => `FAULT`
+  - accel >= `GW` => `WARNING`
+  - temp out-of-range/gyro threshold continue to contribute warning/fault behavior
+- Updated persistence format to store/reload:
+  - mode, tune, run state, ai state
+  - `GW`, `GF`, `TL`, `TH`, `GY`
+- Files changed:
+  - `src/gauge_render.h`
+  - `src/gauge_render.c`
+  - `src/edgeai_package_transport_anomaly_demo.c`
+  - `src/ext_flash_recorder.h`
+  - `src/ext_flash_recorder.c`
+- Verification:
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` (PASS)
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh` (PASS, probe `2PZWMSBKUXU22`)
+
+## Update 2026-02-22 (Per-Limit Up/Down Controls)
+- Added explicit decrement/increment behavior for every settings limit control:
+  - left side of each limit button = decrease (`-`)
+  - right side of each limit button = increase (`+`)
+- Controls now support:
+  - `GW` (g warn)
+  - `GF` (g fail)
+  - `TL` (temp low)
+  - `TH` (temp high)
+  - `GY` (gyro)
+- Range clamps enforced (no wraparound) and threshold consistency is maintained (`GF > GW`, `TH > TL`).
+- Verification:
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` (PASS)
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh` (PASS, probe `2PZWMSBKUXU22`)
+
+## Update 2026-02-22 (Arrow Markers For Limit Controls)
+- Updated settings limit controls visual markers from `- / +` to `v / ^` for clearer directional intent.
+- File changed:
+  - `src/gauge_render.c`
+- Verification:
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` (PASS)
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh` (PASS, probe `2PZWMSBKUXU22`)
+
+## Update 2026-02-22 (Settings Responsiveness + Real Arrow Icons)
+- Replaced text-based arrow markers with geometric arrow primitives (line-drawn icons), eliminating dependency on font glyph support.
+- Reduced modal redraw cost by changing popup modal base from full-screen repaint to popup-region dirty redraw only.
+- Result: improved touch responsiveness and reduced visible flashing while interacting with Settings.
+- Files changed:
+  - `src/gauge_render.c`
+- Verification:
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` (PASS)
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh` (PASS, probe `2PZWMSBKUXU22`)
+
+## Update 2026-02-22 (Compass Disabled)
+- Removed compass heading presentation from UI due unreliable heading tracking.
+- Compass widget draw path is now disabled and MAG terminal line no longer prints heading (`HDG`).
+- Magnetometer sensor acquisition remains available for future validated heading implementation.
+- Files changed:
+  - `src/gauge_render.c`
+- Verification:
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` (PASS)
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh` (PASS, probe `2PZWMSBKUXU22`)
+
+## Update 2026-02-21 (EIL Adaptive Model Integration Slice 1)
+- Added first EIL model-profile integration path in firmware:
+  - `src/eil_profile_generated.h`
+  - `src/eil_profile.h`
+  - `src/eil_profile.c`
+- Added project-local importer script to map EIL `model.config.json` into firmware constants:
+  - `tools/import_eil_profile.py`
+- Integrated profile-based anomaly scoring in runtime:
+  - `src/edgeai_package_transport_anomaly_demo.c`
+  - anomaly score now uses weighted channel aggregation (`AX/AY/AZ/TEMP`) driven by imported model weights
+  - alert `WARNING`/`FAULT` now use imported `alertThresholds.warn/fail` from EIL profile
+- Build verification:
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` (PASS)
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh` (PASS, probe `2PZWMSBKUXU22`)
+
+## Update 2026-02-21 (On-Board Train/Record/Play/Live Closed Loop)
+- Updated runtime workflow in `src/edgeai_package_transport_anomaly_demo.c` so training can complete on-device without CSV export/import:
+  - Entering `RECORD` now forces non-live training capture path.
+  - Exiting `RECORD` in trained-monitor mode no longer clears training if fit is incomplete.
+  - If replay ends before training completes, playback auto-restarts to continue fitting from recorded data.
+  - When training reaches ready state, runtime auto-promotes to `LIVE` monitoring (`AI_TRAIN: complete_live`).
+  - `LIVE` action in settings now avoids resetting trained model when already in trained-monitor mode.
+- Build verification:
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` (PASS)
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh` (PASS, probe `2PZWMSBKUXU22`)
+
+## Update 2026-02-21 (Record/Stop Confirmation UX Tightening)
+- Updated timeline control behavior to match operator flow requirements:
+  - Selecting `TRAIN` in settings no longer starts recording immediately.
+  - `RECORD` now always requires explicit confirmation before starting and erasing stored data.
+  - While recording, the left timeline button label changes from `PLAY` to `STOP`.
+  - Pressing `STOP` opens a dedicated stop-confirm popup before exiting record mode.
+- Runtime integration:
+  - added `GaugeRender_ConsumeRecordStopRequest()` and stop-confirm action routing from renderer to app loop.
+  - maintained existing replay restart behavior for `PLAY` when already paused.
+- Verification:
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` (PASS)
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh` (PASS, probe `2PZWMSBKUXU22`)
+
+## Update 2026-02-21 (Touch + Training State Responsiveness)
+- Addressed operator feedback on slow touch/training-state visibility:
+  - Reduced touch poll delay from `5000 us` to `2000 us` in `src/edgeai_package_transport_anomaly_demo.c`.
+  - `TRAIN` selection now remains visibly selected in settings even before recording starts.
+  - Alert banner now shows `TRAINING` when train mode is armed and not yet recording.
+  - Terminal mode line now reports `TRAIN` in this armed state (instead of `PLAY`).
+- Verification:
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` (PASS)
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh` (PASS, probe `2PZWMSBKUXU22`)
+
+## Update 2026-02-21 (Train-Armed Idle Freeze Until Record)
+- Added explicit train-armed idle behavior in `src/edgeai_package_transport_anomaly_demo.c`:
+  - when `TRAIN` is selected and `RECORD` is not active, runtime remains idle.
+  - no auto-playback restart in this state.
+  - gyro/aux/temp live updates are held until `RECORD` is confirmed.
+  - entering `RECORD` clears idle freeze and starts capture/training as expected.
+- Verification:
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` (PASS)
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh` (PASS, probe `2PZWMSBKUXU22`)
+
+## Update 2026-02-21 (STOP Visual State Color)
+- Updated timeline left button styling in `src/gauge_render.c`:
+  - `PLAY` keeps green background.
+  - `STOP` now renders with blue background and blue-tinted text for clearer active-record indication.
+- Verification:
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` (PASS)
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh` (PASS, probe `2PZWMSBKUXU22`)
+
+## Update 2026-02-21 (Suppress Warning Prefix For Normal Tracking)
+- Updated alert banner rendering in `src/gauge_render.c`:
+  - when detail text is `NORMAL TRACKING`, the `WARNING` title is suppressed.
+  - banner now shows only `NORMAL TRACKING` text in that case.
+- Verification:
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` (PASS)
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh` (PASS, probe `2PZWMSBKUXU22`)
 
 ## Update 2026-02-18 (Golden/Failsafe Refresh - 20:12:05Z)
 - Added an explicit README notice that this project is work-in-progress and not complete code.
@@ -684,3 +942,123 @@ Project: `EdgeAI_Package_Transport_Anomaly_demo_NXP_FRDM-MCXN947`
 - Rebuilt and flashed successfully from project-local workflow:
   - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug`
   - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh`
+
+## Update 2026-02-22 (Gyro Sphere Vertically Centered)
+- User request: move gyro sphere so it is centered top-to-bottom on the display.
+- `src/gauge_render.c`:
+  - Changed `GYRO_WIDGET_CY` from a lower-offset expression to `SPACEBOX_BG_HEIGHT / 2` for exact vertical centering.
+- Rebuilt and flashed successfully from project-local workflow:
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug`
+  - `./tools/flash_frdmmcxn947.sh mcuxsdk_ws/build_adaptive_reasoning/edgeai_package_transport_anomaly_demo_cm33_core0.bin`
+
+## Update 2026-02-22 (Dedicated Limits Popup In Settings)
+- User request: add a `LIMITS` button in Settings and move limit edits to a separate larger popup with easier touch targets.
+- `src/gauge_render.h`:
+  - Added settings limits-button geometry and dedicated limits-popup geometry constants.
+  - Added `GaugeRender_SetLimitsVisible(bool)` / `GaugeRender_IsLimitsVisible(void)` APIs.
+- `src/gauge_render.c`:
+  - Added limits modal state and rendering path (`DrawLimitsPopup`).
+  - Replaced inline limits controls in Settings with a single `OPEN LIMITS` button.
+  - Added large per-row +/- controls for `G WARN`, `G FAIL`, `TEMP LOW`, `TEMP HIGH`, and `GYRO LIMIT`.
+  - Updated modal gating so limits popup blocks fast-path/background interactions consistently.
+- `src/edgeai_package_transport_anomaly_demo.c`:
+  - Added limits-popup touch handlers (open button, close button, row +/- hit zones).
+  - Added `ApplyLimitAdjustment(...)` helper and moved limit edits into limits-popup flow.
+  - Updated UI modal arbitration so settings/help/limits are mutually exclusive and persistent settings save still applies after limit changes.
+- Rebuilt and flashed successfully from project-local workflow:
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug`
+  - `./tools/flash_frdmmcxn947.sh mcuxsdk_ws/build_adaptive_reasoning/edgeai_package_transport_anomaly_demo_cm33_core0.bin`
+
+## Update 2026-02-22 (Limits Popup Freeze Fix + Visible Up/Down Labels)
+- User-reported issue after limits-popup rollout: popup opened but adjustment labels were missing and UI appeared frozen.
+- Root cause:
+  - Main-loop touch gate treated limits popup as a blocking modal in the pre-touch condition, preventing limits-popup touch handlers from running.
+- `src/edgeai_package_transport_anomaly_demo.c`:
+  - Restored `modal_active` gating to record-confirm only so limits popup remains interactive.
+- `src/gauge_render.c`:
+  - Updated limits adjustment button text from symbol-only controls to explicit labels:
+    - left button: `DOWN`
+    - right button: `UP`
+- Rebuilt and flashed successfully from project-local workflow:
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug`
+  - `./tools/flash_frdmmcxn947.sh mcuxsdk_ws/build_adaptive_reasoning/edgeai_package_transport_anomaly_demo_cm33_core0.bin`
+
+## Update 2026-02-22 (G WARN/G FAIL Value Rendering Fix + Persistence Confirmation)
+- User-reported issue: `G WARN` and `G FAIL` values were blank in limits popup.
+- Root cause:
+  - Limits popup used floating-point `snprintf("%.1f")` formatting, which is not available in the embedded `nano.specs` printf configuration.
+- `src/gauge_render.c`:
+  - Replaced float formatting with integer fixed-point formatting for mg->g display (`X.Yg`) for both `G WARN` and `G FAIL`.
+- Persistence status:
+  - All limit edits (`G WARN`, `G FAIL`, `TEMP LOW`, `TEMP HIGH`, `GYRO LIMIT`) are saved immediately after each change through `SaveUiSettingsIfReady(...)` -> `ExtFlashRecorder_SaveUiSettings(...)`.
+  - On boot, values are reloaded via `ExtFlashRecorder_GetUiSettings(...)` and applied to runtime/UI state.
+- Rebuilt and flashed successfully from project-local workflow:
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug`
+  - `./tools/flash_frdmmcxn947.sh mcuxsdk_ws/build_adaptive_reasoning/edgeai_package_transport_anomaly_demo_cm33_core0.bin`
+
+## Update 2026-02-22 (Detailed On-Device Help Popup)
+- User request: expand help popup with detailed, practical guidance so users understand how to operate the system.
+- `src/gauge_render.h`:
+  - Increased help panel height (`GAUGE_RENDER_HELP_PANEL_Y1`) to fit expanded content.
+- `src/gauge_render.c` (`DrawHelpPopup`):
+  - Replaced short checklist with detailed sections:
+    - Quick start and control mapping (`*` settings / `?` help)
+    - Mode and run-state intent (`ADAPT`/`TRAINED`, `TRAIN`/`LIVE`)
+    - Limits workflow (open limits and adjust thresholds)
+    - Main screen controls (play/stop, record flow)
+    - Alert meaning (green/yellow/red semantics)
+    - Persistence behavior (settings auto-save and restore on reboot)
+- Rebuilt and flashed successfully from project-local workflow:
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug`
+  - `./tools/flash_frdmmcxn947.sh mcuxsdk_ws/build_adaptive_reasoning/edgeai_package_transport_anomaly_demo_cm33_core0.bin`
+
+## Update 2026-02-22 (Two-Page Deep Help Popup)
+- User request: add deeper help information beyond the operator quick-start content.
+- `src/gauge_render.c`:
+  - Added help page state (`gHelpPage`) and page-aware rendering in `DrawHelpPopup`.
+  - Added page indicator (`PAGE 1/2`, `PAGE 2/2`) in the popup header.
+  - Page 1 remains operations-oriented quick usage guidance.
+  - Page 2 adds deeper engineering guidance:
+    - Adapt vs trained behavior
+    - Train vs live runtime semantics
+    - Threshold intent for G/temp/gyro
+    - Host-firmware + AI-layer integration notes
+  - Added APIs:
+    - `GaugeRender_SetHelpPage(uint8_t page)`
+    - `GaugeRender_NextHelpPage(void)`
+- `src/gauge_render.h`:
+  - Declared new help-page APIs.
+- `src/edgeai_package_transport_anomaly_demo.c`:
+  - While help popup is open, tapping `?` now switches between page 1 and page 2 instead of closing help.
+  - Opening help from main screen always starts at page 1 (`GaugeRender_SetHelpPage(0u)`).
+- Rebuilt and flashed successfully from project-local workflow:
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug`
+  - `./tools/flash_frdmmcxn947.sh mcuxsdk_ws/build_adaptive_reasoning/edgeai_package_transport_anomaly_demo_cm33_core0.bin`
+
+## Update 2026-02-22 (Help Popup Interaction Reliability Fix)
+- User-reported issues after deep-help rollout:
+  - Could not switch to page 2 reliably.
+  - Footer note appeared too low.
+  - `X` close action could fail.
+- Root causes and fixes:
+  - `ui_block_touch` could suppress modal popup interactions:
+    - In main loop, modal-visible states now clear `ui_block_touch` and allow modal tap handling.
+  - Reliance on top-level `?` icon while help popup is open was ambiguous:
+    - Added explicit in-popup `NEXT PAGE` button and touch hitbox.
+  - Footer close note placement adjusted upward so it remains clearly inside help panel.
+- Files updated:
+  - `src/gauge_render.h` (help next-button geometry constants)
+  - `src/gauge_render.c` (draw next-page button + footer alignment)
+  - `src/edgeai_package_transport_anomaly_demo.c` (help-next touch handler + modal touch unblock)
+- Rebuilt and flashed successfully from project-local workflow:
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug`
+  - `./tools/flash_frdmmcxn947.sh mcuxsdk_ws/build_adaptive_reasoning/edgeai_package_transport_anomaly_demo_cm33_core0.bin`
+
+## Update 2026-02-22 (Help Next Button Geometry Tweak)
+- User request: move help `NEXT PAGE` button to the right and reduce its width by ~20%.
+- `src/gauge_render.h`:
+  - Updated `GAUGE_RENDER_HELP_NEXT_X0` from `314` to `339`.
+  - Kept `GAUGE_RENDER_HELP_NEXT_X1=438`, shrinking width from 125px to 100px (~20% smaller) while right-aligning the control.
+- Rebuilt and flashed successfully from project-local workflow:
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug`
+  - `./tools/flash_frdmmcxn947.sh mcuxsdk_ws/build_adaptive_reasoning/edgeai_package_transport_anomaly_demo_cm33_core0.bin`

@@ -48,5 +48,24 @@ bool ExtFlashRecorder_StartPlayback(void);
 bool ExtFlashRecorder_ReadNextSample(ext_flash_sample_t *sample);
 bool ExtFlashRecorder_GetPlaybackInfo(uint32_t *offset, uint32_t *count);
 bool ExtFlashRecorder_GetRecordInfo(uint32_t *count);
+bool ExtFlashRecorder_SaveUiSettings(uint8_t mode,
+                                     uint8_t tune,
+                                     bool run_live,
+                                     bool ai_enabled,
+                                     uint16_t g_warn_mg,
+                                     uint16_t g_fail_mg,
+                                     int16_t temp_low_c10,
+                                     int16_t temp_high_c10,
+                                     uint16_t gyro_limit_dps);
+bool ExtFlashRecorder_GetUiSettings(uint8_t *mode,
+                                    uint8_t *tune,
+                                    bool *run_live,
+                                    bool *ai_enabled,
+                                    uint16_t *g_warn_mg,
+                                    uint16_t *g_fail_mg,
+                                    int16_t *temp_low_c10,
+                                    int16_t *temp_high_c10,
+                                    uint16_t *gyro_limit_dps,
+                                    bool *valid);
 
 #endif

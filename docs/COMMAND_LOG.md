@@ -245,3 +245,231 @@ Format:
 - 2026-02-18 20:12:05 | `cp mcuxsdk_ws/build_anomaly_adaptive/edgeai_package_transport_anomaly_demo_cm33_core0.bin failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_golden_20260218T201205Z.bin` + `cp ... failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_failsafe_active.bin` | published new golden artifact and promoted active failsafe from current build output
 - 2026-02-18 20:12:05 | `sha256sum failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_golden_20260218T201205Z.bin failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_failsafe_active.bin mcuxsdk_ws/build_anomaly_adaptive/edgeai_package_transport_anomaly_demo_cm33_core0.bin` | recorded checksum `ef3eb2e77a8f8c30974f11ac4aec578da059722a1bce267713a9abfaf3d40167` for restore parity
 - 2026-02-18 20:12:30 | update `README.md`, `docs/START_HERE.md`, `docs/PROJECT_STATE.md`, `docs/RESTORE_POINTS.md`, `docs/failsafe.md`, `failsafe/README_GOLDEN.txt`, `STATUS.md`, `docs/COMMAND_LOG.md` | added WIP disclaimer and synchronized baseline metadata to `GOLDEN-20260218-201205`
+- 2026-02-21 15:42:38 | context scan (ls, rg --files, sed) across <workspace-root> and project docs | located required runbook/state files and loaded repo instructions before code changes
+- 2026-02-21 15:42:38 | tail/wc checks on docs/COMMAND_LOG.md | verified malformed log append and cleanup status
+- 2026-02-21 15:42:38 | sed cleanup of docs/COMMAND_LOG.md malformed trailing block | restored command log formatting
+- 2026-02-21 15:42:38 | date and append operations for logging recovery | re-established command logging continuity for current session
+- 2026-02-21 15:42:50 | rg/sed inspection of src and sdk CMake files | identified anomaly pipeline integration points and build wiring path
+- 2026-02-21 15:43:20 | added src/eil_profile_generated.h, src/eil_profile.h, src/eil_profile.c and updated sdk_example/.../CMakeLists.txt | introduced firmware-side EIL model profile adapter
+- 2026-02-21 15:43:40 | patched src/edgeai_package_transport_anomaly_demo.c | switched anomaly score/status logic to imported EIL weights and alert thresholds
+- 2026-02-21 15:44:00 | added tools/import_eil_profile.py and ran python3 tools/import_eil_profile.py --model <external-model-config.json> --out src/eil_profile_generated.h | created model-config importer and regenerated firmware profile constants
+- 2026-02-21 15:44:20 | BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug | compile verification PASS after EIL profile integration slice
+- 2026-02-21 15:44:40 | updated README.md, STATUS.md, docs/PROJECT_STATE.md | documented EIL import workflow and current integration state
+- 2026-02-21 15:44:50 | git status --short | verified working tree changes after integration
+- 2026-02-21 15:45:00 | git diff --stat and tail docs/COMMAND_LOG.md | verified final change set and command log integrity
+- 2026-02-21 15:45:08 | git status --short | captured final working tree state after EIL integration slice
+- 2026-02-21 15:45:20 | sanitized docs/COMMAND_LOG.md path references | removed private workspace path strings for standalone repo hygiene
+- 2026-02-21 15:45:30 | rg-based line reference checks across modified files | captured line anchors for handoff summary
+- 2026-02-21 15:48:56 | inspected train/record/play/live flow via rg+sed in runtime and anomaly engine sources | mapped current on-board training state transitions before implementing closed-loop integration
+- 2026-02-21 15:50:05 | patched train/record/play/live state machine in src/edgeai_package_transport_anomaly_demo.c and ran BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug | enabled on-board closed-loop training flow and compile verification PASS
+- 2026-02-21 15:50:32 | patched train/play/live runtime transitions and updated docs (README.md, STATUS.md, docs/PROJECT_STATE.md); ran rg+git diff checks | confirmed closed-loop on-board training integration footprint
+- 2026-02-21 15:50:42 | BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh | hardware flash FAIL for closed-loop train/play/live integration build
+- 2026-02-21 15:50:54 | updated STATUS.md and docs/PROJECT_STATE.md after flash attempt | recorded probe-not-detected flash failure in project state
+- 2026-02-21 15:55:43 | BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh | flash PASS (user requested flash)
+- 2026-02-21 15:55:57 | updated STATUS.md and docs/PROJECT_STATE.md after successful flash | recorded PASS flash state for probe 2PZWMSBKUXU22
+- 2026-02-21 16:01:28 | rg/sed inspection across src/gauge_render.[ch] and src/edgeai_package_transport_anomaly_demo.c | located current record-confirm and timeline touch flow to implement requested UX behavior
+- 2026-02-21 16:01:28 | patched src/gauge_render.h, src/gauge_render.c, src/edgeai_package_transport_anomaly_demo.c | added stop-confirm request path, STOP label during record, and removed auto-record on TRAIN selection
+- 2026-02-21 16:01:28 | BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug | compile verification PASS for confirm-flow updates
+- 2026-02-21 16:01:28 | BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh | flash PASS on probe 2PZWMSBKUXU22 for confirm-flow updates
+- 2026-02-21 16:01:28 | updated docs/PROJECT_STATE.md and STATUS.md | documented record/stop confirmation UX and verification status
+- 2026-02-21 16:01:34 | rg line-anchor scan over modified files | captured exact references for handoff and test instructions
+- 2026-02-21 16:01:40 | git status --short | verified modified files for requested TRAIN/RECORD/STOP confirmation changes
+- 2026-02-21 16:05:18 | patched touch/training UX (touch poll rate + TRAIN selection/label behavior in src/edgeai_package_transport_anomaly_demo.c and src/gauge_render.c), then ran BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug | build PASS
+- 2026-02-21 16:05:31 | BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh | flash PASS after touch/training responsiveness fixes
+- 2026-02-21 16:05:53 | updated docs/PROJECT_STATE.md and STATUS.md for touch/training responsiveness fixes | documented reduced touch poll interval and TRAINING banner behavior
+- 2026-02-21 16:05:53 | git status --short and rg line-reference checks in modified runtime/renderer files | prepared verification anchors for user retest guidance
+- 2026-02-21 16:06:00 | updated docs/PROJECT_STATE.md and STATUS.md for touch/training responsiveness fixes | documented reduced touch poll interval and TRAINING banner behavior
+- 2026-02-21 16:06:00 | git status --short and rg line-reference checks in modified runtime/renderer files | prepared verification anchors for user retest guidance
+- 2026-02-21 16:17:01 | inspected runtime and renderer gating for TRAIN idle behavior via rg | identified movement/data update paths to freeze before RECORD
+- 2026-02-21 16:17:06 | inspected PushScopeSample and DrawGyroFast call path via sed | confirmed ungated scope sampling during TRAIN armed state
+- 2026-02-21 16:17:55 | patched TRAIN armed-idle gating in app loop (freeze live/play movement until RECORD confirm) and ran build+flash commands | build PASS and flash PASS for train idle behavior fix
+- 2026-02-21 16:18:12 | updated docs/PROJECT_STATE.md and STATUS.md for train-armed idle freeze behavior | documented no data movement until RECORD confirm
+- 2026-02-21 16:18:22 | verified train_armed_idle references and git status after flash | confirmed train-idle freeze wiring and current working-tree state
+- 2026-02-21 16:18:27 | cleaned malformed COMMAND_LOG line from prior shell quoting error | restored command log readability
+- 2026-02-21 16:19:07 | patched STOP button color to blue in src/gauge_render.c and ran build+flash | build PASS and flash PASS for STOP visual update
+- 2026-02-21 16:19:21 | updated STATUS.md and docs/PROJECT_STATE.md for STOP blue button styling; verified build+flash outputs | documented STOP visual-state update
+- 2026-02-21 16:19:24 | finalized STOP button blue styling change with build+flash and docs updates | ready for hardware visual verification
+- 2026-02-21 16:22:53 | updated docs/PROJECT_STATE.md and STATUS.md for NORMAL TRACKING banner text behavior | documented warning-prefix suppression and verification results
+- 2026-02-21 16:25:51 | adjusted NORMAL TRACKING warning-suppressed banner style in src/gauge_render.c and ran build+flash | build PASS and flash PASS for yellow-highlight/yellow-text behavior
+- 2026-02-21 16:25:51 | updated docs/PROJECT_STATE.md and STATUS.md for NORMAL TRACKING yellow style request | recorded visual behavior intent and verification status
+- 2026-02-21 16:28:11 | increased NORMAL TRACKING banner text size to 2-line scale-2 fill in src/gauge_render.c and ran build+flash | build PASS and flash PASS for box-fill text request
+- 2026-02-21 16:28:11 | documented NORMAL TRACKING box-fill text behavior update in docs/PROJECT_STATE.md and STATUS.md context | state synchronized after visual adjustment
+- 2026-02-22T00:31:05Z CMD: ls docs; sed -n '1,220p' docs/{START_HERE.md,PROJECT_STATE.md,OPS_RUNBOOK.md}
+- 2026-02-22T00:31:11Z CMD: rg -n "TouchInAiPill|ai_enabled|AI_SET|DrawSettingsPopup|AI ON|AI OFF" src/edgeai_package_transport_anomaly_demo.c src/gauge_render.c src/gauge_render.h
+- 2026-02-22T00:31:14Z CMD: sed -n '2320,2395p' src/edgeai_package_transport_anomaly_demo.c
+- 2026-02-22T00:31:23Z CHANGE: removed unused TouchInAiPill() in src/edgeai_package_transport_anomaly_demo.c (AI toggle now settings-only).
+- 2026-02-22T00:31:46Z CMD: BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug (PASS)
+- 2026-02-22T00:31:46Z CMD: BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh (PASS)
+- 2026-02-22T00:31:51Z CMD: sed -n '1,180p' docs/PROJECT_STATE.md; sed -n '1,180p' STATUS.md
+- 2026-02-22T00:32:08Z CHANGE: updated docs/PROJECT_STATE.md and STATUS.md for settings-only AI toggle update + build/flash PASS.
+- 2026-02-22T00:32:14Z CMD: rg -n "AI ON|AI OFF|TouchInAiSet|AI_SET,ON|AI_SET,OFF|ai_enabled = true|ai_enabled = false" src/gauge_render.c src/edgeai_package_transport_anomaly_demo.c STATUS.md docs/PROJECT_STATE.md
+- 2026-02-22T00:32:17Z CMD: sed -n '2500,2655p' src/edgeai_package_transport_anomaly_demo.c
+- 2026-02-22T00:32:21Z CMD: git status --short
+- 2026-02-22T00:32:38Z CMD: rg -n "TouchInSettingsAiIndex|AI ON|AI OFF|selected_ai" src/gauge_render.c src/edgeai_package_transport_anomaly_demo.c
+- 2026-02-22T00:32:45Z CMD: sed -n '1275,1365p' src/gauge_render.c
+- 2026-02-22T00:33:01Z CHANGE: settings AI order reversed (left=OFF, right=ON) in src/gauge_render.c and src/edgeai_package_transport_anomaly_demo.c.
+- 2026-02-22T00:33:05Z CMD: BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug (PASS)
+- 2026-02-22T00:33:20Z CMD: BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh (PASS)
+- 2026-02-22T00:33:35Z CMD: rg -n "AI OFF|AI ON|TouchInSettingsAiIndex\(tx, ty, 0u\)|TouchInSettingsAiIndex\(tx, ty, 1u\)|Settings AI order" src/gauge_render.c src/edgeai_package_transport_anomaly_demo.c STATUS.md docs/PROJECT_STATE.md
+- 2026-02-22T00:33:35Z CHANGE: updated docs/PROJECT_STATE.md and STATUS.md for settings AI order (OFF-left, ON-right).
+- 2026-02-22T00:33:44Z CMD: BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug (PASS)
+- 2026-02-22T00:34:17Z CMD: rg -n "DrawSettingsPopup|TouchInSettingsModeIndex|AnomalyEngine_SetMode|ANOMALY_MODE_|TRAIN|LIVE|M1|M2|M3|settings|persist|nvm|flash|kv" src include
+- 2026-02-22T00:34:25Z CMD: sed -n '1,260p' src/ext_flash_recorder.c; sed -n '1,220p' src/ext_flash_recorder.h
+- 2026-02-22T00:34:28Z CMD: sed -n '260,560p' src/ext_flash_recorder.c
+- 2026-02-22T00:34:44Z CMD: sed -n '260,380p' src/anomaly_engine.c; sed -n '1,140p' src/anomaly_engine.h
+- 2026-02-22T00:34:53Z CMD: sed -n '2380,2515p' src/edgeai_package_transport_anomaly_demo.c
+- 2026-02-22T00:34:59Z CMD: sed -n '1360,1395p' src/gauge_render.c
+- 2026-02-22T00:35:52Z CHANGE: restored settings mode labels (ADAPT/TRAIN/LIVE) and added flash-persistent UI settings APIs + app wiring.
+- 2026-02-22T00:35:52Z CMD: rg -n "ADAPT|TRAIN|LIVE|UI_CFG|ExtFlashRecorder_SaveUiSettings|ExtFlashRecorder_GetUiSettings|SaveUiSettingsIfReady" src/edgeai_package_transport_anomaly_demo.c src/gauge_render.c src/ext_flash_recorder.c src/ext_flash_recorder.h
+- 2026-02-22T00:36:14Z CMD: BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug (PASS)
+- 2026-02-22T00:36:14Z CMD: BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh (PASS)
+- 2026-02-22T00:36:32Z CHANGE: updated docs/PROJECT_STATE.md and STATUS.md for restored ADAPT/TRAIN/LIVE labels and boot persistence (mode/tune/ai).
+- 2026-02-22T00:36:32Z CMD: git diff -- src/gauge_render.c src/ext_flash_recorder.h src/ext_flash_recorder.c src/edgeai_package_transport_anomaly_demo.c docs/PROJECT_STATE.md STATUS.md | sed -n '1,260p'
+- 2026-02-22T00:38:27Z CMD: rg -n "GAUGE_RENDER_SET_|DrawSettingsPopup|MODE|SENS|AI" src/gauge_render.h src/gauge_render.c
+- 2026-02-22T00:38:52Z CHANGE: aligned settings row labels with selection rows in src/gauge_render.c (fixed label column + vertical centering).
+- 2026-02-22T00:38:52Z CMD: BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug (PASS)
+- 2026-02-22T00:39:11Z CMD: BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh (PASS)
+- 2026-02-22T00:39:27Z CHANGE: updated docs/PROJECT_STATE.md and STATUS.md for settings label/selection alignment update.
+- 2026-02-22T00:39:27Z CMD: git diff -- src/gauge_render.c docs/PROJECT_STATE.md STATUS.md | sed -n '1,220p'
+- 2026-02-22T00:45:43Z CMD: rg -n "ui_block_touch|settings_visible|TouchInSettingsClose|GaugeRender_SetSettingsVisible|live|LIVE|TouchInAiSet" src/edgeai_package_transport_anomaly_demo.c src/gauge_render.c
+- 2026-02-22T00:45:47Z CMD: sed -n '2578,2735p' src/edgeai_package_transport_anomaly_demo.c
+- 2026-02-22T00:46:17Z CHANGE: mode selection now auto-closes settings popup (fix for LIVE selection close behavior) in src/edgeai_package_transport_anomaly_demo.c.
+- 2026-02-22T00:46:17Z CMD: BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug (PASS)
+- 2026-02-22T00:46:17Z CMD: BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh (PASS)
+- 2026-02-22T00:46:46Z CHANGE: updated docs/PROJECT_STATE.md and STATUS.md for mode-select auto-close behavior fix.
+- 2026-02-22T00:46:46Z CMD: apply_patch docs/PROJECT_STATE.md; apply_patch STATUS.md
+- 2026-02-22T00:55:45Z CMD: rg -n "DrawSettingsPopup|SetAnomalyInfo|Alert|threshold|limit|gyro|temp|anomaly_score_pct|ai_status|RuleStatus|GaugeRender_SetLiveBannerMode|GaugeRender_IsLiveBannerMode" src/*.c src/*.h
+- 2026-02-22T00:55:56Z CMD: sed -n '1840,2015p' src/edgeai_package_transport_anomaly_demo.c; sed -n '240,360p' src/edgeai_package_transport_anomaly_demo.c; sed -n '1410,1465p' src/gauge_render.c
+- 2026-02-22T00:56:13Z CMD: sed -n '2800,3135p' src/edgeai_package_transport_anomaly_demo.c
+- 2026-02-22T00:56:17Z CMD: sed -n '1,140p' src/gauge_render.h
+- 2026-02-22T00:56:22Z CMD: sed -n '1,130p' src/gauge_render.c
+- 2026-02-22T00:56:41Z CMD: sed -n '1,120p' src/power_data_source.h; rg -n "AI_FAULT_" src/*.h src/*.c
+- 2026-02-22T00:58:51Z CMD: sed -n '2480,2555p' src/edgeai_package_transport_anomaly_demo.c
+- 2026-02-22T00:58:54Z CMD: sed -n '2555,2665p' src/edgeai_package_transport_anomaly_demo.c
+- 2026-02-22T00:58:58Z CMD: sed -n '2665,2735p' src/edgeai_package_transport_anomaly_demo.c
+- 2026-02-22T00:59:11Z CMD: sed -n '2735,2865p' src/edgeai_package_transport_anomaly_demo.c
+- 2026-02-22T00:59:44Z CMD: rg -n "SaveUiSettingsIfReady\(" src/edgeai_package_transport_anomaly_demo.c
+- 2026-02-22T00:59:57Z CMD: rg -n "UICFG|s_ui_|PackUi|UnpackUi|SaveUiSettings|GetUiSettings|reserved0|reserved1" src/ext_flash_recorder.c; sed -n '1,130p' src/ext_flash_recorder.c; sed -n '520,590p' src/ext_flash_recorder.c
+- 2026-02-22T01:00:54Z CMD: rg -n "ExtFlashRecorder_SaveUiSettings|ExtFlashRecorder_GetUiSettings" src
+- 2026-02-22T01:01:07Z CHANGE: refactored settings UI (MODEL/RUN split + limits row) and wired persistent model/run/ai/limits state + limit-based alerts.
+- 2026-02-22T01:01:07Z CMD: BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug (PASS)
+- 2026-02-22T01:01:26Z CMD: BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh (PASS)
+- 2026-02-22T01:01:44Z CHANGE: updated docs/PROJECT_STATE.md and STATUS.md for MODE/RUN split, limits controls, and persistence updates.
+- 2026-02-22T01:01:44Z CMD: rg -n "MODE \(|RUN|limit controls|persistent" docs/PROJECT_STATE.md STATUS.md
+- 2026-02-22T01:01:50Z CMD: rg -n "MODE|RUN|limit controls|persistent" docs/PROJECT_STATE.md STATUS.md
+- 2026-02-22T01:04:54Z CHANGE: fixed limit control overlap by moving to 2x2 grid and expanding settings panel height.
+- 2026-02-22T01:04:54Z CMD: BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug (PASS)
+- 2026-02-22T01:04:54Z CMD: BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh (PASS)
+- 2026-02-22T01:05:22Z CHANGE: updated docs/PROJECT_STATE.md and STATUS.md for limits 2x2 readability/overlap fix.
+- 2026-02-22T01:14:56Z CMD: perl replacements for g warn/fail args in src/edgeai_package_transport_anomaly_demo.c
+- 2026-02-22T01:16:46Z CMD: BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug (PASS)
+- 2026-02-22T01:17:01Z CMD: BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh (PASS)
+- 2026-02-22T01:17:22Z CHANGE: updated docs/PROJECT_STATE.md and STATUS.md for GW/GF defaults and temp low/high same-row settings fix.
+- 2026-02-22T01:17:22Z CMD: rg -n "GW|GF|Temp low/high|same row|12.0g|15.0g" docs/PROJECT_STATE.md STATUS.md
+- 2026-02-22T01:19:29Z CHANGE: added per-limit +/- controls (left=down, right=up), GW/GF defaults, and repaired TL/TH row behavior.
+- 2026-02-22T01:19:29Z CMD: BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug (PASS)
+- 2026-02-22T01:19:48Z CMD: BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh (PASS)
+- 2026-02-22T01:20:03Z CHANGE: updated docs/PROJECT_STATE.md and STATUS.md for per-limit +/- controls and clamp behavior.
+- 2026-02-22T01:20:03Z CMD: rg -n "Per-Limit Up/Down Controls|direct down/up adjustment|\- on left" docs/PROJECT_STATE.md STATUS.md
+- 2026-02-22T01:24:23Z CHANGE: switched limit control markers from -/+ to v/^ in src/gauge_render.c.
+- 2026-02-22T01:24:23Z CMD: BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug (PASS)
+- 2026-02-22T01:24:23Z CMD: BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh (PASS)
+- 2026-02-22T01:27:38Z CMD: rg -n "GaugeRender_DrawFrame|gSettingsVisible|gHelpVisible|gDynamicReady|DrawSettingsPopup|DrawHelpPopup|DrawGyroFast|par_lcd_s035_fill_rect|blit_rect" src/gauge_render.c src/par_lcd_s035.c
+- 2026-02-22T01:27:43Z CMD: sed -n '2284,2435p' src/gauge_render.c
+- 2026-02-22T01:27:55Z CMD: sed -n '1248,1308p' src/gauge_render.c; sed -n '560,640p' src/gauge_render.c
+- 2026-02-22T01:28:28Z CHANGE: modal redraw optimized to popup dirty-region only; limit arrows now geometric DrawLine icons (font-independent).
+- 2026-02-22T01:28:28Z CMD: BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug (PASS)
+- 2026-02-22T01:28:28Z CMD: BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh (PASS)
+- 2026-02-22T01:28:57Z CHANGE: updated docs/PROJECT_STATE.md and STATUS.md for dirty-region modal redraw and geometric arrow icons.
+- 2026-02-22T01:30:28Z CMD: rg -n "compass|Compass|MAG|heading|gCompass|DrawCompass|DrawMag" src/gauge_render.c src/gauge_render.h src/edgeai_package_transport_anomaly_demo.c
+- 2026-02-22T01:30:35Z CMD: sed -n '740,980p' src/gauge_render.c; sed -n '1688,1770p' src/gauge_render.c; sed -n '2100,2148p' src/gauge_render.c
+- 2026-02-22T01:31:07Z CHANGE: disabled compass visuals + removed heading text from MAG terminal line in src/gauge_render.c.
+- 2026-02-22T01:31:07Z CMD: BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug (FAIL:1)
+- 2026-02-22T01:31:28Z CMD: BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug (PASS)
+- 2026-02-22T01:31:28Z CMD: BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh (PASS)
+- 2026-02-22T01:31:52Z CHANGE: updated docs/PROJECT_STATE.md and STATUS.md for compass removal/disable state.
+- 2026-02-22T01:34:14Z CMD: rg -n "GYRO_WIDGET_CY|GYRO_WIDGET_CX|GYRO_WIDGET_R|MAIN_CY|enum" src/gauge_render.c
+2026-02-21T17:34:37-08:00 | rg -n GYRO_WIDGET_* src/gauge_render.c | ok
+2026-02-21T17:34:51-08:00 | rg --files for required docs | ok
+2026-02-21T17:34:51-08:00 | sed missing /home/user/python_projects/docs/*.md | not_found
+2026-02-21T17:34:55-08:00 | sed START_HERE/PROJECT_STATE/OPS_RUNBOOK | ok
+2026-02-21T17:35:12-08:00 | ./scripts/build_and_flash.sh | fail:not_found
+2026-02-21T17:35:16-08:00 | BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug | ok
+2026-02-21T17:35:30-08:00 | ./tools/flash_frdmmcxn947.sh mcuxsdk_ws/build_adaptive_reasoning/edgeai_package_transport_anomaly_demo_cm33_core0.bin | ok
+2026-02-21T17:35:34-08:00 | ls -la docs | ok
+2026-02-21T17:35:38-08:00 | tail -n 80 docs/PROJECT_STATE.md | ok
+2026-02-21T17:35:44-08:00 | append update to docs/PROJECT_STATE.md (gyro vertical centering) | ok
+2026-02-21T17:35:48-08:00 | git status --short && nl -ba src/gauge_render.c | sed -n 196,212p | ok
+2026-02-21T17:37:04-08:00 | rg settings/limits handlers | ok
+2026-02-21T17:37:14-08:00 | read snippets gauge_render.c/gauge_render.h/edgeai_package_transport_anomaly_demo.c | ok
+2026-02-21T17:37:26-08:00 | read top globals/modal logic in gauge_render.c | ok
+2026-02-21T17:37:29-08:00 | read touch helper functions 2320-2515 | ok
+2026-02-21T17:37:33-08:00 | read modal/render/touch sections 1470-2428 | ok
+2026-02-21T17:38:01-08:00 | apply_patch src/gauge_render.h (limits button/popup constants + APIs) | ok
+2026-02-21T17:38:55-08:00 | apply_patch src/gauge_render.c (limits modal refactor) | fail:context_mismatch
+2026-02-21T17:39:02-08:00 | apply_patch src/gauge_render.c add gLimitsVisible | ok
+2026-02-21T17:39:12-08:00 | apply_patch DrawPopupModalBase add limits region | ok
+2026-02-21T17:39:16-08:00 | read DrawSettingsPopup section | ok
+2026-02-21T17:39:54-08:00 | apply_patch DrawSettingsPopup + add DrawLimitsPopup | ok
+2026-02-21T17:40:04-08:00 | apply_patch help text + alert modal condition include limits | ok
+2026-02-21T17:40:13-08:00 | apply_patch add GaugeRender_SetLimitsVisible/IsLimitsVisible + exclusivity | ok
+2026-02-21T17:40:17-08:00 | rg modal conditions in gauge_render.c | ok
+2026-02-21T17:40:20-08:00 | read gauge_render.c 2304-2510 for modal conditions | ok
+2026-02-21T17:40:30-08:00 | apply_patch gauge_render modal conditions/draw include limits | ok
+2026-02-21T17:40:34-08:00 | rg verify limits conditions in gauge_render.c | ok
+2026-02-21T17:40:38-08:00 | read old settings limit touch helper | ok
+2026-02-21T17:40:58-08:00 | apply_patch touch helpers: settings limits button + limits popup adjust | ok
+2026-02-21T17:41:04-08:00 | read main loop state/branches 2570-3145 | ok
+2026-02-21T17:41:14-08:00 | apply_patch main state add limits_visible + init + modal_active | ok
+2026-02-21T17:41:31-08:00 | apply_patch add ApplyLimitAdjustment helper | ok
+2026-02-21T17:42:01-08:00 | rg modal_active_now and visibility vars | ok
+2026-02-21T17:42:08-08:00 | apply_patch main UI flow: limits modal branch + settings limits button + modal_active_now | ok
+2026-02-21T17:42:12-08:00 | rg verify renamed limits symbols | ok
+2026-02-21T17:42:26-08:00 | BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug | fail:unused_function_DrawAdjustArrow
+2026-02-21T17:42:35-08:00 | read DrawAdjustArrow function block | ok
+2026-02-21T17:42:44-08:00 | apply_patch remove unused DrawAdjustArrow | ok
+2026-02-21T17:42:55-08:00 | BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug | ok
+2026-02-21T17:43:09-08:00 | ./tools/flash_frdmmcxn947.sh mcuxsdk_ws/build_adaptive_reasoning/edgeai_package_transport_anomaly_demo_cm33_core0.bin | ok
+2026-02-21T17:43:15-08:00 | tail -n 60 docs/PROJECT_STATE.md | ok
+2026-02-21T17:43:23-08:00 | append update to docs/PROJECT_STATE.md (limits popup) | ok
+2026-02-21T17:43:29-08:00 | git status + capture snippets to /tmp/limits_feature_snippets.txt | ok
+2026-02-21T17:44:32-08:00 | apply_patch modal_active excludes limits popup | ok
+2026-02-21T17:44:47-08:00 | BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug | ok
+2026-02-21T17:45:01-08:00 | ./tools/flash_frdmmcxn947.sh mcuxsdk_ws/build_adaptive_reasoning/edgeai_package_transport_anomaly_demo_cm33_core0.bin | ok
+2026-02-21T17:45:07-08:00 | append update to docs/PROJECT_STATE.md (limits freeze fix + UP/DOWN labels) | ok
+2026-02-21T17:47:53-08:00 | rg float format + persistence paths | ok
+2026-02-21T17:48:08-08:00 | BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug | ok
+2026-02-21T17:48:22-08:00 | ./tools/flash_frdmmcxn947.sh mcuxsdk_ws/build_adaptive_reasoning/edgeai_package_transport_anomaly_demo_cm33_core0.bin | ok
+2026-02-21T17:48:30-08:00 | append update to docs/PROJECT_STATE.md (G WARN/G FAIL render fix + persistence) | ok
+2026-02-21T17:50:48-08:00 | apply_patch src/gauge_render.h expand help panel height | ok
+2026-02-21T17:51:06-08:00 | apply_patch DrawHelpPopup detailed instructions | ok
+2026-02-21T17:51:15-08:00 | BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug | ok
+2026-02-21T17:51:29-08:00 | ./tools/flash_frdmmcxn947.sh mcuxsdk_ws/build_adaptive_reasoning/edgeai_package_transport_anomaly_demo_cm33_core0.bin | ok
+2026-02-21T17:51:37-08:00 | append update to docs/PROJECT_STATE.md (detailed help popup) | ok
+2026-02-21T17:52:13-08:00 | rg help flow before deep-help patch | ok
+2026-02-21T17:52:24-08:00 | read help draw + help state blocks | ok
+2026-02-21T17:53:07-08:00 | apply_patch deep-help: help page state + page toggle behavior | ok
+2026-02-21T17:53:17-08:00 | BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug | ok
+2026-02-21T17:53:32-08:00 | ./tools/flash_frdmmcxn947.sh mcuxsdk_ws/build_adaptive_reasoning/edgeai_package_transport_anomaly_demo_cm33_core0.bin | ok
+2026-02-21T17:53:41-08:00 | append update to docs/PROJECT_STATE.md (two-page deep help) | ok
+2026-02-21T17:56:10-08:00 | inspect help/touch branches for fixes | ok
+2026-02-21T17:56:40-08:00 | apply_patch help UX fixes: next button + ui_block_touch modal bypass + footer placement | ok
+2026-02-21T17:56:49-08:00 | BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug | fail:1
+2026-02-21T17:56:53-08:00 | BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug | fail:btn_idle_scope
+2026-02-21T17:57:06-08:00 | BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug | fail:1
+2026-02-21T17:57:11-08:00 | inspect btn_idle placement in gauge_render.c | ok
+2026-02-21T17:57:26-08:00 | BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug | ok
+2026-02-21T17:57:41-08:00 | ./tools/flash_frdmmcxn947.sh mcuxsdk_ws/build_adaptive_reasoning/edgeai_package_transport_anomaly_demo_cm33_core0.bin | ok
+2026-02-21T17:57:48-08:00 | append update to docs/PROJECT_STATE.md (help interaction reliability fix) | ok
+2026-02-21T17:59:25-08:00 | apply_patch src/gauge_render.h help next width/right shift | ok
+2026-02-21T17:59:25-08:00 | BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug | ok
+2026-02-21T17:59:37-08:00 | ./tools/flash_frdmmcxn947.sh mcuxsdk_ws/build_adaptive_reasoning/edgeai_package_transport_anomaly_demo_cm33_core0.bin | ok
+2026-02-21T17:59:42-08:00 | append update to docs/PROJECT_STATE.md (help next geometry tweak) | ok
+2026-02-21T18:01:23-08:00 | rg lcd buffer/driver architecture | ok
+2026-02-21T18:04:08-08:00 | apply_patch src/par_lcd_s035.c buffered chunk fill path | ok
+2026-02-21T18:04:19-08:00 | BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug | ok
+- 2026-02-22 02:03:40 | `rg --files` + `sed` over `docs/START_HERE.md`, `docs/PROJECT_STATE.md`, `docs/OPS_RUNBOOK.md`, `docs/COMMAND_LOG.md`, `docs/RESTORE_POINTS.md`, `docs/failsafe.md`, `failsafe/README_GOLDEN.txt`, `STATUS.md` | loaded required runbook/state docs and verified current baseline before restore-point cut
+- 2026-02-22 02:04:50 | `./tools/flash_frdmmcxn947.sh mcuxsdk_ws/build_adaptive_reasoning/edgeai_package_transport_anomaly_demo_cm33_core0.bin` | flashed buffered LCD build to FRDM-MCXN947 (PASS, probe `2PZWMSBKUXU22`)
+- 2026-02-22 02:05:27 | `cp mcuxsdk_ws/build_adaptive_reasoning/edgeai_package_transport_anomaly_demo_cm33_core0.bin failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_golden_20260222T020527Z.bin` + `cp ... failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_failsafe_active.bin` | published new timestamped golden artifact and promoted active failsafe
+- 2026-02-22 02:05:27 | `sha256sum failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_golden_20260222T020527Z.bin failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_failsafe_active.bin mcuxsdk_ws/build_adaptive_reasoning/edgeai_package_transport_anomaly_demo_cm33_core0.bin` | recorded checksum `ba344ca335e1c67cbc842425b7bf017d9432ad2ae8ca8b61fc7833d94683fc87` for restore parity
+- 2026-02-22 02:06:40 | update `docs/START_HERE.md`, `docs/PROJECT_STATE.md`, `docs/RESTORE_POINTS.md`, `docs/failsafe.md`, `failsafe/README_GOLDEN.txt`, `STATUS.md` | synchronized baseline metadata to `GOLDEN-20260222-020527` and documented LCD fill chunk-buffer optimization

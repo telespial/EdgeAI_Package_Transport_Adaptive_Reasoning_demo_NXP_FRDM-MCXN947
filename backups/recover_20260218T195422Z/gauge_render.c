@@ -51,9 +51,7 @@ static uint32_t gScopeSampleAccumUs = 0u;
 static bool gTimelineTouchLatch = false;
 static bool gScopePaused = true;
 static bool gRecordConfirmActive = false;
-static uint8_t gRecordConfirmAction = 0u; /* 0:none, 1:start, 2:stop */
 static bool gRecordStartRequest = false;
-static bool gRecordStopRequest = false;
 static bool gModalWasActive = false;
 static uint8_t gPlayheadPos = 99u;
 static bool gPlayheadValid = false;
@@ -105,15 +103,8 @@ static uint8_t gRtcSs = 0u;
 static uint8_t gRtcDs = 0u;
 static bool gRtcValid = false;
 static bool gHelpVisible = false;
-static uint8_t gHelpPage = 0u;
 static bool gSettingsVisible = false;
-static bool gLimitsVisible = false;
 static bool gLiveBannerMode = false;
-static uint16_t gLimitGWarnMg = 12000u;
-static uint16_t gLimitGFailMg = 15000u;
-static int16_t gLimitTempLowC10 = 0;
-static int16_t gLimitTempHighC10 = 700;
-static uint16_t gLimitGyroDps = 500u;
 
 #define SCOPE_TRACE_POINTS 100u
 #define SCOPE_FAST_STEP_US 100000u
@@ -203,7 +194,7 @@ enum
     REC_CONFIRM_NO_Y1 = 204,
     GYRO_WIDGET_CX = 88,
     GYRO_WIDGET_R = 62,
-    GYRO_WIDGET_CY = SPACEBOX_BG_HEIGHT / 2,
+    GYRO_WIDGET_CY = 179 + ((2 * GYRO_WIDGET_R) / 3),
     COMPASS_WIDGET_R = 30,
     COMPASS_WIDGET_CX = GYRO_WIDGET_CX,
     COMPASS_WIDGET_CY = GYRO_WIDGET_CY - GYRO_WIDGET_R - 68,
@@ -216,7 +207,7 @@ static int32_t ClampI32(int32_t v, int32_t lo, int32_t hi)
     return v;
 }
 
-static __attribute__((unused)) uint16_t HeadingDegFromMag(int32_t mx, int32_t my)
+static uint16_t HeadingDegFromMag(int32_t mx, int32_t my)
 {
     if ((mx == 0) && (my == 0))
     {
@@ -305,7 +296,7 @@ static void FormatShieldEnvCompact(char *out, size_t out_len)
 
     snprintf(out,
              out_len,
-             "B%s%4d.%1dh H %s%2d.%1d S%s%2d.%1d",
+             "B%s%4d.%1dh H%s%2d.%1d S%s%2d.%1d",
              gBaroValid ? "" : "-",
              (int)(p_abs / 10),
              (int)(p_abs % 10),
@@ -718,7 +709,7 @@ static int16_t ClampI16(int32_t v, int32_t lo, int32_t hi)
     return (int16_t)v;
 }
 
-static __attribute__((unused)) void CompassDisplayVector(int32_t *vx, int32_t *vy, bool *valid)
+static void CompassDisplayVector(int32_t *vx, int32_t *vy, bool *valid)
 {
     int32_t mx = gMagXmgauss;
     int32_t my = gMagYmgauss;
@@ -789,13 +780,81 @@ static __attribute__((unused)) void CompassDisplayVector(int32_t *vx, int32_t *v
 
 static void DrawCompassWidgetFrame(const gauge_style_preset_t *style)
 {
-    (void)style;
-    /* Compass intentionally disabled until heading tracking is validated. */
+    int32_t cx = COMPASS_WIDGET_CX;
+    int32_t cy = COMPASS_WIDGET_CY;
+    int32_t r = COMPASS_WIDGET_R;
+
+    DrawRing(cx, cy, r + 2, 2, RGB565(70, 120, 165), RGB565(7, 10, 14));
+    DrawRing(cx, cy, r - 2, 1, RGB565(36, 70, 98), RGB565(9, 12, 16));
+    DrawLine(cx, cy - r + 2, cx, cy + r - 2, 1, RGB565(50, 70, 92));
+    DrawLine(cx - r + 2, cy, cx + r - 2, cy, 1, RGB565(50, 70, 92));
+    DrawTextUi(cx - (edgeai_text5x7_width(1, "N") / 2), cy - r - 10, 1, "N", style->palette.text_primary);
+    DrawTextUi(cx - (edgeai_text5x7_width(1, "S") / 2), cy + r + 4, 1, "S", style->palette.text_primary);
+    DrawTextUi(cx - r - 10, cy - 4, 1, "W", style->palette.text_primary);
+    DrawTextUi(cx + r + 4, cy - 4, 1, "E", style->palette.text_primary);
 }
 
 static void DrawCompassWidgetDynamic(void)
 {
-    /* Compass intentionally disabled until heading tracking is validated. */
+    int32_t cx = COMPASS_WIDGET_CX;
+    int32_t cy = COMPASS_WIDGET_CY;
+    int32_t r = COMPASS_WIDGET_R;
+    int32_t vx = 0;
+    int32_t vy = 0;
+    float mag_len;
+    float scale;
+    int32_t nx_full;
+    int32_t ny_full;
+    int32_t nx;
+    int32_t ny;
+    int32_t tx;
+    int32_t ty;
+    bool valid = false;
+
+    par_lcd_s035_draw_filled_circle(cx, cy, r - 3, RGB565(8, 11, 15));
+    DrawLine(cx, cy - r + 4, cx, cy + r - 4, 1, RGB565(48, 72, 96));
+    DrawLine(cx - r + 4, cy, cx + r - 4, cy, 1, RGB565(48, 72, 96));
+
+    CompassDisplayVector(&vx, &vy, &valid);
+    if (!valid)
+    {
+        return;
+    }
+
+    if (!gCompassFiltPrimed)
+    {
+        gCompassVxFilt = vx;
+        gCompassVyFilt = vy;
+        gCompassFiltPrimed = true;
+    }
+    else
+    {
+        /* Keep heading response immediate; update rate handles visual stability. */
+        gCompassVxFilt = vx;
+        gCompassVyFilt = vy;
+    }
+
+    vx = gCompassVxFilt;
+    vy = gCompassVyFilt;
+    mag_len = sqrtf((float)(vx * vx) + (float)(vy * vy));
+    if (mag_len < 1.0f)
+    {
+        return;
+    }
+    scale = (float)(r - 5) / mag_len;
+
+    nx_full = (int32_t)((float)vx * scale);
+    ny_full = (int32_t)((float)vy * scale);
+    /* Make white lead section half as long as before. */
+    nx = nx_full / 4;
+    ny = ny_full / 4;
+    tx = -((nx_full * 3) / 4);
+    ty = -((ny_full * 3) / 4);
+
+    DrawLine(cx, cy, cx + nx, cy + ny, 2, RGB565(255, 255, 255));
+    DrawLine(cx, cy, cx + tx, cy + ty, 2, RGB565(180, 230, 255));
+    par_lcd_s035_draw_filled_circle(cx + nx, cy + ny, 2, RGB565(255, 255, 255));
+    par_lcd_s035_draw_filled_circle(cx, cy, 2, RGB565(210, 236, 255));
 }
 
 static void DrawGyroWidgetFrame(const gauge_style_preset_t *style)
@@ -966,18 +1025,10 @@ static void DrawScopeFrame(const gauge_style_preset_t *style)
     }
     else
     {
-        par_lcd_s035_fill_rect(lx0 + 1,
-                               TIMELINE_Y0 + 1,
-                               lx1 - 1,
-                               TIMELINE_Y1 - 1,
-                               gScopePaused ? RGB565(20, 180, 36) : RGB565(24, 82, 210));
+        par_lcd_s035_fill_rect(lx0 + 1, TIMELINE_Y0 + 1, lx1 - 1, TIMELINE_Y1 - 1, RGB565(20, 180, 36));
         par_lcd_s035_fill_rect(rx0 + 1, TIMELINE_Y0 + 1, rx1 - 1, TIMELINE_Y1 - 1, RGB565(220, 24, 24));
         ty = TIMELINE_Y0 + ((TIMELINE_Y1 - TIMELINE_Y0 - 7) / 2);
-        DrawTextUi(lx0 + ((lx1 - lx0 + 1 - edgeai_text5x7_width(1, gScopePaused ? "PLAY" : "STOP")) / 2),
-                   ty,
-                   1,
-                   gScopePaused ? "PLAY" : "STOP",
-                   gScopePaused ? RGB565(232, 255, 232) : RGB565(210, 236, 255));
+        DrawTextUi(lx0 + ((lx1 - lx0 + 1 - edgeai_text5x7_width(1, "PLAY")) / 2), ty, 1, "PLAY", RGB565(232, 255, 232));
         DrawTextUi(rx0 + ((rx1 - rx0 + 1 - edgeai_text5x7_width(1, "RECORD")) / 2), ty, 1, "RECORD", RGB565(255, 232, 232));
     }
 }
@@ -1033,19 +1084,14 @@ static void DrawCenterAccelBall(void)
     int32_t bx1 = x1 + depth_x;
     int32_t by0 = y0 - depth_y;
     int32_t by1 = y1 - depth_y;
-    /* Use the same board-rotated accel channels as the gyro sphere for consistent X/Y behavior. */
-    int16_t ax = gAccelValid ? gAccelXmg : gLinAccelXmg;
-    int16_t ay = gAccelValid ? gAccelYmg : gLinAccelYmg;
-    int16_t az = gLinAccelValid ? gLinAccelZmg : (int16_t)ClampI32((int32_t)gAccelZmg - 1000, -1000, 1000);
+    int16_t ax = gLinAccelValid ? gLinAccelXmg : gAccelXmg;
+    int16_t ay = gLinAccelValid ? gLinAccelYmg : gAccelYmg;
     int32_t margin = 7;
     int32_t rx = (front_w / 2) - margin;
     int32_t ry = (front_h / 2) - margin;
-    int32_t rz = depth_x;
     int32_t bx;
     int32_t by;
     int32_t yy;
-    int32_t zoff;
-    int32_t br;
     uint16_t c = RGB565(235, 245, 255);
 
     if (rx < 1) rx = 1;
@@ -1074,20 +1120,13 @@ static void DrawCenterAccelBall(void)
     DrawLine(x1, y1, bx1, by1, 1, c);
     DrawLine(x0, y1, bx0, by1, 1, c);
 
-    /* User orientation convention: X and Y are intentionally flipped. */
-    bx = cx - ((int32_t)ClampI16(ax, -1000, 1000) * rx) / 1000;
-    by = cy - ((int32_t)ClampI16(ay, -1000, 1000) * ry) / 1000;
-    /* Project along the wire-box depth axis so Z moves toward/away from screen. */
-    zoff = ((int32_t)ClampI16(az, -1000, 1000) * rz) / 1000;
-    bx += zoff;
-    by -= (zoff * depth_y) / depth_x;
+    bx = cx + ((int32_t)ClampI16(ax, -1000, 1000) * rx) / 1000;
+    by = cy + ((int32_t)ClampI16(ay, -1000, 1000) * ry) / 1000;
     bx = ClampI32(bx, x0 + margin, x1 - margin);
     by = ClampI32(by, y0 + margin, y1 - margin);
-    br = 4 - ((int32_t)ClampI16(az, -1000, 1000) / 500);
-    br = ClampI32(br, 3, 6);
 
-    par_lcd_s035_draw_filled_circle(bx, by, (uint16_t)br, RGB565(255, 255, 255));
-    par_lcd_s035_draw_filled_circle(bx, by, (uint16_t)ClampI32(br - 2, 1, 3), RGB565(170, 210, 240));
+    par_lcd_s035_draw_filled_circle(bx, by, 4, RGB565(255, 255, 255));
+    par_lcd_s035_draw_filled_circle(bx, by, 2, RGB565(170, 210, 240));
 }
 
 static void DrawRecordConfirmOverlay(void)
@@ -1098,16 +1137,8 @@ static void DrawRecordConfirmOverlay(void)
     DrawLine(REC_CONFIRM_X0, REC_CONFIRM_Y1, REC_CONFIRM_X1, REC_CONFIRM_Y1, 2, RGB565(255, 120, 120));
     DrawLine(REC_CONFIRM_X0, REC_CONFIRM_Y0, REC_CONFIRM_X0, REC_CONFIRM_Y1, 2, RGB565(255, 120, 120));
     DrawLine(REC_CONFIRM_X1, REC_CONFIRM_Y0, REC_CONFIRM_X1, REC_CONFIRM_Y1, 2, RGB565(255, 120, 120));
-    if (gRecordConfirmAction == 2u)
-    {
-        DrawTextUi(REC_CONFIRM_X0 + 56, REC_CONFIRM_Y0 + 16, 1, "STOP RECORDING?", RGB565(255, 232, 232));
-        DrawTextUi(REC_CONFIRM_X0 + 44, REC_CONFIRM_Y0 + 34, 1, "PLAYBACK WILL BE AVAILABLE", RGB565(255, 190, 190));
-    }
-    else
-    {
-        DrawTextUi(REC_CONFIRM_X0 + 18, REC_CONFIRM_Y0 + 16, 1, "START NEW RECORDING?", RGB565(255, 232, 232));
-        DrawTextUi(REC_CONFIRM_X0 + 30, REC_CONFIRM_Y0 + 34, 1, "THIS WILL ERASE STORED DATA", RGB565(255, 190, 190));
-    }
+    DrawTextUi(REC_CONFIRM_X0 + 18, REC_CONFIRM_Y0 + 16, 1, "START NEW RECORDING?", RGB565(255, 232, 232));
+    DrawTextUi(REC_CONFIRM_X0 + 30, REC_CONFIRM_Y0 + 34, 1, "THIS WILL ERASE STORED DATA", RGB565(255, 190, 190));
 
     par_lcd_s035_fill_rect(REC_CONFIRM_YES_X0, REC_CONFIRM_YES_Y0, REC_CONFIRM_YES_X1, REC_CONFIRM_YES_Y1, RGB565(30, 170, 36));
     par_lcd_s035_fill_rect(REC_CONFIRM_NO_X0, REC_CONFIRM_NO_Y0, REC_CONFIRM_NO_X1, REC_CONFIRM_NO_Y1, RGB565(80, 80, 90));
@@ -1203,31 +1234,8 @@ static void DrawPopupCloseButton(int32_t panel_x1, int32_t panel_y0)
 
 static void DrawPopupModalBase(void)
 {
-    /* Dirty-region modal redraw: only repaint active popup region to reduce touch latency/flicker. */
-    if (gSettingsVisible)
-    {
-        par_lcd_s035_fill_rect(GAUGE_RENDER_SET_PANEL_X0 - 4,
-                               GAUGE_RENDER_SET_PANEL_Y0 - 4,
-                               GAUGE_RENDER_SET_PANEL_X1 + 4,
-                               GAUGE_RENDER_SET_PANEL_Y1 + 4,
-                               RGB565(6, 8, 12));
-    }
-    if (gHelpVisible)
-    {
-        par_lcd_s035_fill_rect(GAUGE_RENDER_HELP_PANEL_X0 - 4,
-                               GAUGE_RENDER_HELP_PANEL_Y0 - 4,
-                               GAUGE_RENDER_HELP_PANEL_X1 + 4,
-                               GAUGE_RENDER_HELP_PANEL_Y1 + 4,
-                               RGB565(6, 8, 12));
-    }
-    if (gLimitsVisible)
-    {
-        par_lcd_s035_fill_rect(GAUGE_RENDER_LIMIT_PANEL_X0 - 4,
-                               GAUGE_RENDER_LIMIT_PANEL_Y0 - 4,
-                               GAUGE_RENDER_LIMIT_PANEL_X1 + 4,
-                               GAUGE_RENDER_LIMIT_PANEL_Y1 + 4,
-                               RGB565(6, 8, 12));
-    }
+    /* Dedicated modal layer base so all runtime widgets stay visually below popup panels. */
+    par_lcd_s035_fill_rect(0, 0, SPACEBOX_BG_WIDTH - 1, SPACEBOX_BG_HEIGHT - 1, RGB565(6, 8, 12));
 }
 
 static void DrawSettingsPopup(void)
@@ -1240,15 +1248,6 @@ static void DrawSettingsPopup(void)
     uint16_t edge = RGB565(52, 54, 58);
     uint16_t body = RGB565(214, 215, 217);
     uint16_t dim = RGB565(150, 152, 156);
-    uint16_t button_idle = RGB565(26, 27, 31);
-    uint16_t button_selected = RGB565(210, 214, 222);
-    uint16_t text_selected = RGB565(10, 10, 12);
-    int32_t label_col_right = GAUGE_RENDER_SET_MODE_X0 - 12;
-    int32_t mode_label_y = GAUGE_RENDER_SET_MODE_Y0 + ((GAUGE_RENDER_SET_MODE_H - 7) / 2);
-    int32_t run_label_y = GAUGE_RENDER_SET_RUN_Y0 + ((GAUGE_RENDER_SET_RUN_H - 7) / 2);
-    int32_t tune_label_y = GAUGE_RENDER_SET_TUNE_Y0 + ((GAUGE_RENDER_SET_TUNE_H - 7) / 2);
-    int32_t ai_label_y = GAUGE_RENDER_SET_AI_Y0 + ((GAUGE_RENDER_SET_AI_H - 7) / 2);
-    int32_t lim_label_y = GAUGE_RENDER_SET_LIMIT_BTN_Y0 + ((GAUGE_RENDER_SET_LIMIT_BTN_H - 7) / 2);
 
     par_lcd_s035_fill_rect(x0 - 3, y0 - 3, x1 + 3, y1 + 3, RGB565(0, 0, 0));
     par_lcd_s035_fill_rect(x0, y0, x1, y1, panel);
@@ -1258,44 +1257,24 @@ static void DrawSettingsPopup(void)
     DrawLine(x1, y0, x1, y1, 2, edge);
     DrawTextUi(x0 + 10, y0 + 8, 2, "SETTINGS", body);
     DrawPopupCloseButton(x1, y0);
-    DrawTextUi(label_col_right - edgeai_text5x7_width(1, "MODE"), mode_label_y, 1, "MODE", body);
-    DrawTextUi(label_col_right - edgeai_text5x7_width(1, "RUN"), run_label_y, 1, "RUN", body);
-    DrawTextUi(label_col_right - edgeai_text5x7_width(1, "SENS"), tune_label_y, 1, "SENS", body);
-    DrawTextUi(label_col_right - edgeai_text5x7_width(1, "AI"), ai_label_y, 1, "AI", body);
-    DrawTextUi(label_col_right - edgeai_text5x7_width(1, "LIMITS"), lim_label_y, 1, "LIMITS", body);
-    DrawTextUi(x0 + 14, y0 + 288, 1, "TAP X OR OUTSIDE TO CLOSE", dim);
+    DrawTextUi(x0 + 14, y0 + 48, 1, "MODE", body);
+    DrawTextUi(x0 + 14, y0 + 92, 1, "SENS", body);
+    DrawTextUi(x0 + 14, y0 + 124, 1, "AI", body);
+    DrawTextUi(x0 + 14, y0 + 198, 1, "TAP X OR OUTSIDE TO CLOSE", dim);
 
-    for (int32_t i = 0; i < 2; i++)
+    for (int32_t i = 0; i < 3; i++)
     {
         int32_t bx0 = GAUGE_RENDER_SET_MODE_X0 + i * (GAUGE_RENDER_SET_MODE_W + GAUGE_RENDER_SET_MODE_GAP);
         int32_t by0 = GAUGE_RENDER_SET_MODE_Y0;
         int32_t bx1 = bx0 + GAUGE_RENDER_SET_MODE_W - 1;
         int32_t by1 = by0 + GAUGE_RENDER_SET_MODE_H - 1;
         bool sel = ((uint8_t)i == gAnomMode);
-        const char *t = (i == 0) ? "ADAPT" : "TRAINED";
-        uint16_t f = sel ? button_selected : button_idle;
-        uint16_t tc = sel ? text_selected : body;
+        const char *t = (i == 0) ? "M1" : (i == 1) ? "M2" : "M3";
+        uint16_t f = sel ? RGB565(214, 215, 217) : RGB565(26, 27, 31);
+        uint16_t tc = sel ? RGB565(10, 10, 12) : body;
         DrawPillRect(bx0, by0, bx1, by1, f, edge);
         DrawTextUi(bx0 + ((GAUGE_RENDER_SET_MODE_W - edgeai_text5x7_width(1, t)) / 2),
                    by0 + ((GAUGE_RENDER_SET_MODE_H - 7) / 2),
-                   1,
-                   t,
-                   tc);
-    }
-
-    for (int32_t i = 0; i < 2; i++)
-    {
-        int32_t bx0 = GAUGE_RENDER_SET_RUN_X0 + i * (GAUGE_RENDER_SET_RUN_W + GAUGE_RENDER_SET_RUN_GAP);
-        int32_t by0 = GAUGE_RENDER_SET_RUN_Y0;
-        int32_t bx1 = bx0 + GAUGE_RENDER_SET_RUN_W - 1;
-        int32_t by1 = by0 + GAUGE_RENDER_SET_RUN_H - 1;
-        bool sel = (i == 0) ? !gLiveBannerMode : gLiveBannerMode;
-        const char *t = (i == 0) ? "TRAIN" : "LIVE";
-        uint16_t f = sel ? button_selected : button_idle;
-        uint16_t tc = sel ? text_selected : body;
-        DrawPillRect(bx0, by0, bx1, by1, f, edge);
-        DrawTextUi(bx0 + ((GAUGE_RENDER_SET_RUN_W - edgeai_text5x7_width(1, t)) / 2),
-                   by0 + ((GAUGE_RENDER_SET_RUN_H - 7) / 2),
                    1,
                    t,
                    tc);
@@ -1309,8 +1288,8 @@ static void DrawSettingsPopup(void)
         int32_t by1 = by0 + GAUGE_RENDER_SET_TUNE_H - 1;
         bool sel = ((uint8_t)i == gAnomTune);
         const char *t = (i == 0) ? "LOOSE" : (i == 1) ? "NORM" : "STRICT";
-        uint16_t f = sel ? button_selected : button_idle;
-        uint16_t tc = sel ? text_selected : body;
+        uint16_t f = sel ? RGB565(214, 215, 217) : RGB565(26, 27, 31);
+        uint16_t tc = sel ? RGB565(10, 10, 12) : body;
         DrawPillRect(bx0, by0, bx1, by1, f, edge);
         DrawTextUi(bx0 + ((GAUGE_RENDER_SET_TUNE_W - edgeai_text5x7_width(1, t)) / 2),
                    by0 + ((GAUGE_RENDER_SET_TUNE_H - 7) / 2),
@@ -1325,116 +1304,16 @@ static void DrawSettingsPopup(void)
         int32_t by0 = GAUGE_RENDER_SET_AI_Y0;
         int32_t bx1 = bx0 + GAUGE_RENDER_SET_AI_W - 1;
         int32_t by1 = by0 + GAUGE_RENDER_SET_AI_H - 1;
-        bool sel = (i == 0) ? !gPrevAiEnabled : gPrevAiEnabled;
-        const char *t = (i == 0) ? "AI OFF" : "AI ON";
-        uint16_t f = sel ? button_selected : button_idle;
-        uint16_t tc = sel ? text_selected : body;
+        bool sel = (i == 0) ? gAnomTraining : gLiveBannerMode;
+        const char *t = (i == 0) ? "TRAIN" : "LIVE";
+        uint16_t f = sel ? RGB565(214, 215, 217) : RGB565(26, 27, 31);
+        uint16_t tc = sel ? RGB565(10, 10, 12) : body;
         DrawPillRect(bx0, by0, bx1, by1, f, edge);
         DrawTextUi(bx0 + ((GAUGE_RENDER_SET_AI_W - edgeai_text5x7_width(1, t)) / 2),
                    by0 + ((GAUGE_RENDER_SET_AI_H - 7) / 2),
                    1,
                    t,
                    tc);
-    }
-
-    {
-        int32_t bx0 = GAUGE_RENDER_SET_LIMIT_BTN_X0;
-        int32_t by0 = GAUGE_RENDER_SET_LIMIT_BTN_Y0;
-        int32_t bx1 = bx0 + GAUGE_RENDER_SET_LIMIT_BTN_W - 1;
-        int32_t by1 = by0 + GAUGE_RENDER_SET_LIMIT_BTN_H - 1;
-        const char *t = "OPEN LIMITS";
-        DrawPillRect(bx0, by0, bx1, by1, button_idle, edge);
-        DrawTextUi(bx0 + ((GAUGE_RENDER_SET_LIMIT_BTN_W - edgeai_text5x7_width(1, t)) / 2),
-                   by0 + ((GAUGE_RENDER_SET_LIMIT_BTN_H - 7) / 2),
-                   1,
-                   t,
-                   body);
-    }
-}
-
-static void DrawLimitsPopup(void)
-{
-    int32_t x0 = GAUGE_RENDER_LIMIT_PANEL_X0;
-    int32_t y0 = GAUGE_RENDER_LIMIT_PANEL_Y0;
-    int32_t x1 = GAUGE_RENDER_LIMIT_PANEL_X1;
-    int32_t y1 = GAUGE_RENDER_LIMIT_PANEL_Y1;
-    uint16_t panel = RGB565(18, 19, 22);
-    uint16_t edge = RGB565(52, 54, 58);
-    uint16_t body = RGB565(214, 215, 217);
-    uint16_t dim = RGB565(150, 152, 156);
-    uint16_t button_idle = RGB565(26, 27, 31);
-    char value[20];
-    const char *labels[5] = {"G WARN", "G FAIL", "TEMP LOW", "TEMP HIGH", "GYRO LIMIT"};
-
-    par_lcd_s035_fill_rect(x0 - 3, y0 - 3, x1 + 3, y1 + 3, RGB565(0, 0, 0));
-    par_lcd_s035_fill_rect(x0, y0, x1, y1, panel);
-    DrawLine(x0, y0, x1, y0, 2, edge);
-    DrawLine(x0, y1, x1, y1, 2, edge);
-    DrawLine(x0, y0, x0, y1, 2, edge);
-    DrawLine(x1, y0, x1, y1, 2, edge);
-    DrawTextUi(x0 + 10, y0 + 8, 2, "LIMITS", body);
-    DrawPopupCloseButton(x1, y0);
-    DrawTextUi(x0 + 14, y0 + 272, 1, "TAP X OR OUTSIDE TO CLOSE", dim);
-
-    for (int32_t i = 0; i < 5; i++)
-    {
-        int32_t row_y0 = GAUGE_RENDER_LIMIT_ROW_Y0 + i * (GAUGE_RENDER_LIMIT_ROW_H + GAUGE_RENDER_LIMIT_ROW_GAP);
-        int32_t row_y1 = row_y0 + GAUGE_RENDER_LIMIT_ROW_H - 1;
-        int32_t minus_x0 = GAUGE_RENDER_LIMIT_MINUS_X0;
-        int32_t minus_x1 = minus_x0 + GAUGE_RENDER_LIMIT_MINUS_W - 1;
-        int32_t plus_x0 = GAUGE_RENDER_LIMIT_PLUS_X0;
-        int32_t plus_x1 = plus_x0 + GAUGE_RENDER_LIMIT_PLUS_W - 1;
-
-        if (i == 0)
-        {
-            uint16_t whole = (uint16_t)(gLimitGWarnMg / 1000u);
-            uint16_t tenths = (uint16_t)((gLimitGWarnMg % 1000u) / 100u);
-            snprintf(value, sizeof(value), "%u.%ug", (unsigned int)whole, (unsigned int)tenths);
-        }
-        else if (i == 1)
-        {
-            uint16_t whole = (uint16_t)(gLimitGFailMg / 1000u);
-            uint16_t tenths = (uint16_t)((gLimitGFailMg % 1000u) / 100u);
-            snprintf(value, sizeof(value), "%u.%ug", (unsigned int)whole, (unsigned int)tenths);
-        }
-        else if (i == 2)
-        {
-            snprintf(value, sizeof(value), "%dC", (int)(gLimitTempLowC10 / 10));
-        }
-        else if (i == 3)
-        {
-            snprintf(value, sizeof(value), "%dC", (int)(gLimitTempHighC10 / 10));
-        }
-        else
-        {
-            snprintf(value, sizeof(value), "%udps", (unsigned int)gLimitGyroDps);
-        }
-
-        DrawPillRect(GAUGE_RENDER_LIMIT_ROW_X0,
-                     row_y0,
-                     GAUGE_RENDER_LIMIT_ROW_X0 + GAUGE_RENDER_LIMIT_ROW_W - 1,
-                     row_y1,
-                     RGB565(20, 21, 24),
-                     edge);
-        DrawTextUi(GAUGE_RENDER_LIMIT_ROW_X0 + 10,
-                   row_y0 + ((GAUGE_RENDER_LIMIT_ROW_H - 7) / 2),
-                   1,
-                   labels[i],
-                   body);
-
-        DrawPillRect(minus_x0, row_y0, minus_x1, row_y1, button_idle, edge);
-        DrawPillRect(plus_x0, row_y0, plus_x1, row_y1, button_idle, edge);
-        DrawTextUi(minus_x0 + ((GAUGE_RENDER_LIMIT_MINUS_W - edgeai_text5x7_width(1, "DOWN")) / 2),
-                   row_y0 + ((GAUGE_RENDER_LIMIT_ROW_H - 7) / 2),
-                   1,
-                   "DOWN",
-                   body);
-        DrawTextUi(plus_x0 + ((GAUGE_RENDER_LIMIT_PLUS_W - edgeai_text5x7_width(1, "UP")) / 2),
-                   row_y0 + ((GAUGE_RENDER_LIMIT_ROW_H - 7) / 2),
-                   1,
-                   "UP",
-                   body);
-        DrawTextUi(226, row_y0 + ((GAUGE_RENDER_LIMIT_ROW_H - 7) / 2), 1, value, RGB565(186, 228, 248));
     }
 }
 
@@ -1448,7 +1327,6 @@ static void DrawHelpPopup(void)
     uint16_t edge = RGB565(52, 54, 58);
     uint16_t body = RGB565(214, 215, 217);
     uint16_t dim = RGB565(150, 152, 156);
-    uint16_t btn_idle = RGB565(26, 27, 31);
 
     par_lcd_s035_fill_rect(x0 - 3, y0 - 3, x1 + 3, y1 + 3, RGB565(0, 0, 0));
     par_lcd_s035_fill_rect(x0, y0, x1, y1, panel);
@@ -1457,59 +1335,13 @@ static void DrawHelpPopup(void)
     DrawLine(x0, y0, x0, y1, 2, edge);
     DrawLine(x1, y0, x1, y1, 2, edge);
     DrawTextUi(x0 + 10, y0 + 8, 2, "HELP", body);
-    DrawTextUi(x0 + 318, y0 + 12, 1, (gHelpPage == 0u) ? "PAGE 1/2" : "PAGE 2/2", dim);
     DrawPopupCloseButton(x1, y0);
-    DrawPillRect(GAUGE_RENDER_HELP_NEXT_X0,
-                 GAUGE_RENDER_HELP_NEXT_Y0,
-                 GAUGE_RENDER_HELP_NEXT_X1,
-                 GAUGE_RENDER_HELP_NEXT_Y1,
-                 btn_idle,
-                 edge);
-    DrawTextUi(GAUGE_RENDER_HELP_NEXT_X0 + 18, GAUGE_RENDER_HELP_NEXT_Y0 + 9, 1, "NEXT PAGE", body);
-    if (gHelpPage == 0u)
-    {
-        DrawTextUi(x0 + 12, y0 + 42, 1, "QUICK START", RGB565(210, 234, 255));
-        DrawTextUi(x0 + 12, y0 + 56, 1, "* = SETTINGS, ? = NEXT HELP PAGE", body);
-        DrawTextUi(x0 + 12, y0 + 70, 1, "SET MODE: ADAPT (LEARN) OR TRAINED (FIXED)", body);
-        DrawTextUi(x0 + 12, y0 + 84, 1, "SET RUN: TRAIN OR LIVE", body);
-        DrawTextUi(x0 + 12, y0 + 98, 1, "OPEN LIMITS TO SET G/TEMP/GYRO THRESHOLDS", body);
-
-        DrawTextUi(x0 + 12, y0 + 118, 1, "MAIN SCREEN CONTROL", RGB565(210, 234, 255));
-        DrawTextUi(x0 + 12, y0 + 132, 1, "TOP-LEFT: PLAY/STOP", body);
-        DrawTextUi(x0 + 12, y0 + 146, 1, "TOP-RIGHT: RECORD TRAINING DATA", body);
-        DrawTextUi(x0 + 12, y0 + 160, 1, "RECORD/STOP REQUIRES CONFIRM DIALOG", body);
-
-        DrawTextUi(x0 + 12, y0 + 180, 1, "ALERT MEANING", RGB565(210, 234, 255));
-        DrawTextUi(x0 + 12, y0 + 194, 1, "GREEN = NORMAL, YELLOW = WARNING, RED = FAIL", body);
-        DrawTextUi(x0 + 12, y0 + 208, 1, "TRAINING OR RECORDING STATES OVERRIDE ALERT TEXT", body);
-
-        DrawTextUi(x0 + 12, y0 + 228, 1, "PERSISTENCE", RGB565(210, 234, 255));
-        DrawTextUi(x0 + 12, y0 + 242, 1, "MODE, RUN, AI, SENS, LIMITS SAVE ON CHANGE", body);
-        DrawTextUi(x0 + 12, y0 + 256, 1, "SETTINGS ARE RESTORED AUTOMATICALLY AFTER REBOOT", body);
-        DrawTextUi(x0 + 12, y0 + 264, 1, "TAP X OR OUTSIDE TO CLOSE", dim);
-    }
-    else
-    {
-        DrawTextUi(x0 + 12, y0 + 42, 1, "DEEP DIVE", RGB565(210, 234, 255));
-        DrawTextUi(x0 + 12, y0 + 56, 1, "ADAPT MODE: BASELINE UPDATES FROM LIVE SIGNALS.", body);
-        DrawTextUi(x0 + 12, y0 + 70, 1, "TRAINED MODE: FREEZES LEARNING, USES STORED MODEL.", body);
-        DrawTextUi(x0 + 12, y0 + 84, 1, "RUN=TRAIN ENABLES RECORD/PLAY WORKFLOW FOR DATA.", body);
-        DrawTextUi(x0 + 12, y0 + 98, 1, "RUN=LIVE USES REAL-TIME SENSOR STREAM ONLY.", body);
-
-        DrawTextUi(x0 + 12, y0 + 118, 1, "THRESHOLDS", RGB565(210, 234, 255));
-        DrawTextUi(x0 + 12, y0 + 132, 1, "G WARN/FAIL: PACKAGE SHOCK LEVELS IN G.", body);
-        DrawTextUi(x0 + 12, y0 + 146, 1, "TEMP LOW/HIGH: OPERATING WINDOW BOUNDS.", body);
-        DrawTextUi(x0 + 12, y0 + 160, 1, "GYRO LIMIT: ROTATION RATE LIMIT IN DEG/S.", body);
-
-        DrawTextUi(x0 + 12, y0 + 180, 1, "INTEGRATION NOTES", RGB565(210, 234, 255));
-        DrawTextUi(x0 + 12, y0 + 194, 1, "HOST FIRMWARE KEEPS PRIMARY CONTROL LOGIC.", body);
-        DrawTextUi(x0 + 12, y0 + 208, 1, "AI LAYER ADDS WATCHDOG/PREDICTIVE SIGNALS.", body);
-        DrawTextUi(x0 + 12, y0 + 222, 1, "USE ALERT/REASON OUTPUTS TO GATE ACTIONS.", body);
-
-        DrawTextUi(x0 + 12, y0 + 242, 1, "UI TIP", RGB565(210, 234, 255));
-        DrawTextUi(x0 + 12, y0 + 256, 1, "TAP ? AGAIN TO RETURN TO PAGE 1.", body);
-        DrawTextUi(x0 + 12, y0 + 264, 1, "TAP X OR OUTSIDE TO CLOSE", dim);
-    }
+    DrawTextUi(x0 + 12, y0 + 46, 1, "*  OPEN SETTINGS", body);
+    DrawTextUi(x0 + 12, y0 + 64, 1, "?  TOGGLE HELP", body);
+    DrawTextUi(x0 + 12, y0 + 82, 1, "SET MODE: M1/M2/M3", body);
+    DrawTextUi(x0 + 12, y0 + 100, 1, "SET SENS: LOOSE/NORM/STRICT", body);
+    DrawTextUi(x0 + 12, y0 + 118, 1, "PLAY/RECORD: TOP BAR", body);
+    DrawTextUi(x0 + 12, y0 + 156, 1, "TAP X OR OUTSIDE TO CLOSE", dim);
 }
 
 static void DrawTerminalFrame(const gauge_style_preset_t *style)
@@ -1595,12 +1427,11 @@ static void DrawAiAlertOverlay(const gauge_style_preset_t *style, const power_sa
     int32_t tx;
     bool severe;
     bool recording = !gScopePaused;
-    bool training_mode = (!gLiveBannerMode && (gAnomMode == 1u) && gScopePaused);
     const char *normal_label = "SYSTEM NORMAL";
     uint8_t status = ai_enabled ? sample->ai_status : RuleStatus(sample);
     char detail[30];
 
-    if (gSettingsVisible || gHelpVisible || gLimitsVisible || gRecordConfirmActive)
+    if (gSettingsVisible || gHelpVisible || gRecordConfirmActive)
     {
         gAlertVisualValid = false;
         par_lcd_s035_fill_rect(ALERT_X0, ALERT_Y0, ALERT_X1, ALERT_Y1, RGB565(2, 3, 5));
@@ -1631,27 +1462,6 @@ static void DrawAiAlertOverlay(const gauge_style_preset_t *style, const power_sa
         return;
     }
 
-    if (training_mode)
-    {
-        if (gAlertVisualValid &&
-            !gAlertVisualRecording &&
-            (strcmp(gAlertVisualDetail, "TRAINING") == 0))
-        {
-            return;
-        }
-
-        par_lcd_s035_fill_rect(ALERT_X0, ALERT_Y0, ALERT_X1, ALERT_Y1, RGB565(2, 3, 5));
-        tx = ALERT_X0 + ((ALERT_X1 - ALERT_X0 + 1) - edgeai_text5x7_width(3, "TRAINING")) / 2;
-        DrawTextUi(tx, ALERT_Y0 + 10, 3, "TRAINING", WARN_YELLOW);
-        gAlertVisualValid = true;
-        gAlertVisualStatus = status;
-        gAlertVisualSevere = false;
-        gAlertVisualAiEnabled = ai_enabled;
-        gAlertVisualRecording = false;
-        snprintf(gAlertVisualDetail, sizeof(gAlertVisualDetail), "%s", "TRAINING");
-        return;
-    }
-
     if (gAlertVisualValid &&
         (gAlertVisualStatus == status) &&
         (gAlertVisualSevere == severe) &&
@@ -1676,7 +1486,6 @@ static void DrawAiAlertOverlay(const gauge_style_preset_t *style, const power_sa
     }
     else
     {
-        bool suppress_warning_label = (status == AI_STATUS_WARNING) && (strcmp(detail, "NORMAL TRACKING") == 0);
         color = severe ? ALERT_RED : AiStatusColor(style, status);
         par_lcd_s035_fill_rect(ALERT_X0 + 1, ALERT_Y0 + 1, ALERT_X1 - 1, ALERT_Y1 - 1, RGB565(18, 3, 7));
         DrawLine(ALERT_X0, ALERT_Y0, ALERT_X1, ALERT_Y0, 2, color);
@@ -1684,26 +1493,10 @@ static void DrawAiAlertOverlay(const gauge_style_preset_t *style, const power_sa
         DrawLine(ALERT_X0, ALERT_Y0, ALERT_X0, ALERT_Y1, 2, color);
         DrawLine(ALERT_X1, ALERT_Y0, ALERT_X1, ALERT_Y1, 2, color);
 
-        if (!suppress_warning_label)
-        {
-            tx = ALERT_X0 + ((ALERT_X1 - ALERT_X0 + 1) - edgeai_text5x7_width(2, AiStatusText(status))) / 2;
-            DrawTextUi(tx, ALERT_Y0 + 8, 2, AiStatusText(status), color);
-            tx = ALERT_X0 + ((ALERT_X1 - ALERT_X0 + 1) - edgeai_text5x7_width(1, detail)) / 2;
-            DrawTextUi(tx, ALERT_Y0 + 28, 1, detail, style->palette.text_primary);
-        }
-        else
-        {
-            /* Special-case: keep WARNING color semantics but render detail as yellow-highlight state. */
-            const char *line1 = "NORMAL";
-            const char *line2 = "TRACKING";
-            int32_t l1x;
-            int32_t l2x;
-            par_lcd_s035_fill_rect(ALERT_X0 + 1, ALERT_Y0 + 1, ALERT_X1 - 1, ALERT_Y1 - 1, RGB565(34, 30, 0));
-            l1x = ALERT_X0 + ((ALERT_X1 - ALERT_X0 + 1) - edgeai_text5x7_width(2, line1)) / 2;
-            l2x = ALERT_X0 + ((ALERT_X1 - ALERT_X0 + 1) - edgeai_text5x7_width(2, line2)) / 2;
-            DrawTextUi(l1x, ALERT_Y0 + 6, 2, line1, WARN_YELLOW);
-            DrawTextUi(l2x, ALERT_Y0 + 22, 2, line2, WARN_YELLOW);
-        }
+        tx = ALERT_X0 + ((ALERT_X1 - ALERT_X0 + 1) - edgeai_text5x7_width(2, AiStatusText(status))) / 2;
+        DrawTextUi(tx, ALERT_Y0 + 8, 2, AiStatusText(status), color);
+        tx = ALERT_X0 + ((ALERT_X1 - ALERT_X0 + 1) - edgeai_text5x7_width(1, detail)) / 2;
+        DrawTextUi(tx, ALERT_Y0 + 28, 1, detail, style->palette.text_primary);
     }
 
     gAlertVisualValid = true;
@@ -1717,7 +1510,7 @@ static void DrawAiAlertOverlay(const gauge_style_preset_t *style, const power_sa
 static void DrawTerminalDynamic(const gauge_style_preset_t *style, const power_sample_t *sample, uint16_t cpu_pct, bool ai_enabled)
 {
     char line[48];
-    const char *mode_text = gLiveBannerMode ? "LIVE" : ((gAnomMode == 1u && gScopePaused) ? "TRAIN" : (gScopePaused ? "PLAY" : "REC"));
+    const char *mode_text = gLiveBannerMode ? "LIVE" : (gScopePaused ? "PLAY" : "REC");
     uint8_t status = ai_enabled ? sample->ai_status : RuleStatus(sample);
     uint16_t ai_color = ai_enabled ? AiStatusColor(style, sample->ai_status) : AiStatusColor(style, status);
     const char *status_text = ai_enabled ? AiStatusText(sample->ai_status) : "OFF";
@@ -1760,12 +1553,19 @@ static void DrawTerminalDynamic(const gauge_style_preset_t *style, const power_s
     DrawTerminalLine(TERM_Y + 90, line, RGB565(170, 240, 255));
     if (gMagEverValid)
     {
+        int32_t hvx = 0;
+        int32_t hvy = 0;
+        uint16_t heading_deg;
+        bool hvalid = false;
+        CompassDisplayVector(&hvx, &hvy, &hvalid);
+        heading_deg = hvalid ? HeadingDegFromMag(hvx, hvy) : 0u;
         snprintf(line,
                  sizeof(line),
-                 "MAG X%+4d Y%+4d Z%+4d%s",
+                 "MAG X%+4d Y%+4d Z%+4d HDG%03u%s",
                  (int)gMagXmgauss,
                  (int)gMagYmgauss,
                  (int)gMagZmgauss,
+                 (unsigned int)heading_deg,
                  gMagValid ? "" : " !");
     }
     else
@@ -1963,18 +1763,10 @@ static void DrawScopeDynamic(const gauge_style_preset_t *style, bool ai_enabled)
         else
         {
             par_lcd_s035_fill_rect(TIMELINE_X0 + 1, TIMELINE_Y0 + 1, TIMELINE_X1 - 1, TIMELINE_Y1 - 1, RGB565(20, 28, 34));
-            par_lcd_s035_fill_rect(lx0 + 1,
-                                   TIMELINE_Y0 + 1,
-                                   lx1 - 1,
-                                   TIMELINE_Y1 - 1,
-                                   gScopePaused ? RGB565(20, 180, 36) : RGB565(24, 82, 210));
+            par_lcd_s035_fill_rect(lx0 + 1, TIMELINE_Y0 + 1, lx1 - 1, TIMELINE_Y1 - 1, RGB565(20, 180, 36));
             par_lcd_s035_fill_rect(rx0 + 1, TIMELINE_Y0 + 1, rx1 - 1, TIMELINE_Y1 - 1, RGB565(220, 24, 24));
             ty = TIMELINE_Y0 + ((TIMELINE_Y1 - TIMELINE_Y0 - 7) / 2);
-            DrawTextUi(lx0 + ((lx1 - lx0 + 1 - edgeai_text5x7_width(1, gScopePaused ? "PLAY" : "STOP")) / 2),
-                       ty,
-                       1,
-                       gScopePaused ? "PLAY" : "STOP",
-                       gScopePaused ? RGB565(232, 255, 232) : RGB565(210, 236, 255));
+            DrawTextUi(lx0 + ((lx1 - lx0 + 1 - edgeai_text5x7_width(1, "PLAY")) / 2), ty, 1, "PLAY", RGB565(232, 255, 232));
             DrawTextUi(rx0 + ((rx1 - rx0 + 1 - edgeai_text5x7_width(1, "RECORD")) / 2), ty, 1, "RECORD", RGB565(255, 232, 232));
         }
     }
@@ -2147,9 +1939,7 @@ bool GaugeRender_Init(void)
         gTimelineTouchLatch = false;
         gScopePaused = true;
         gRecordConfirmActive = false;
-        gRecordConfirmAction = 0u;
         gRecordStartRequest = false;
-        gRecordStopRequest = false;
         gModalWasActive = false;
         gCompassVxFilt = 0;
         gCompassVyFilt = 0;
@@ -2261,19 +2051,6 @@ void GaugeRender_SetRuntimeClock(uint8_t hh, uint8_t mm, uint8_t ss, uint8_t ds,
     gRtcValid = valid;
 }
 
-void GaugeRender_SetLimitInfo(uint16_t g_warn_mg,
-                              uint16_t g_fail_mg,
-                              int16_t temp_low_c10,
-                              int16_t temp_high_c10,
-                              uint16_t gyro_limit_dps)
-{
-    gLimitGWarnMg = g_warn_mg;
-    gLimitGFailMg = g_fail_mg;
-    gLimitTempLowC10 = temp_low_c10;
-    gLimitTempHighC10 = temp_high_c10;
-    gLimitGyroDps = gyro_limit_dps;
-}
-
 void GaugeRender_SetAnomalyInfo(uint8_t mode,
                                 uint8_t tune,
                                 bool training_active,
@@ -2301,18 +2078,7 @@ void GaugeRender_SetHelpVisible(bool visible)
     if (visible)
     {
         gSettingsVisible = false;
-        gLimitsVisible = false;
     }
-}
-
-void GaugeRender_SetHelpPage(uint8_t page)
-{
-    gHelpPage = (page > 1u) ? 1u : page;
-}
-
-void GaugeRender_NextHelpPage(void)
-{
-    gHelpPage = (uint8_t)((gHelpPage == 0u) ? 1u : 0u);
 }
 
 void GaugeRender_SetSettingsVisible(bool visible)
@@ -2321,23 +2087,7 @@ void GaugeRender_SetSettingsVisible(bool visible)
     if (visible)
     {
         gHelpVisible = false;
-        gLimitsVisible = false;
     }
-}
-
-void GaugeRender_SetLimitsVisible(bool visible)
-{
-    gLimitsVisible = visible;
-    if (visible)
-    {
-        gHelpVisible = false;
-        gSettingsVisible = false;
-    }
-}
-
-bool GaugeRender_IsLimitsVisible(void)
-{
-    return gLimitsVisible;
 }
 
 void GaugeRender_SetLiveBannerMode(bool enabled)
@@ -2356,7 +2106,7 @@ void GaugeRender_DrawGyroFast(void)
     {
         return;
     }
-    if (gHelpVisible || gSettingsVisible || gLimitsVisible || gRecordConfirmActive)
+    if (gHelpVisible || gSettingsVisible || gRecordConfirmActive)
     {
         /* Freeze fast path while any modal is active to prevent layer contention. */
         return;
@@ -2381,7 +2131,7 @@ void GaugeRender_DrawFrame(const power_sample_t *sample, bool ai_enabled, power_
 
     style = GaugeStyle_GetCockpitPreset();
     power_w = DisplayPowerW(sample);
-    modal_active = (gSettingsVisible || gHelpVisible || gLimitsVisible || gRecordConfirmActive);
+    modal_active = (gSettingsVisible || gHelpVisible || gRecordConfirmActive);
 
     if (gModalWasActive && !modal_active)
     {
@@ -2422,7 +2172,7 @@ void GaugeRender_DrawFrame(const power_sample_t *sample, bool ai_enabled, power_
     }
     gFrameCounter++;
 
-    if (gSettingsVisible || gHelpVisible || gLimitsVisible)
+    if (gSettingsVisible || gHelpVisible)
     {
         DrawPopupModalBase();
         if (gSettingsVisible)
@@ -2432,10 +2182,6 @@ void GaugeRender_DrawFrame(const power_sample_t *sample, bool ai_enabled, power_
         if (gHelpVisible)
         {
             DrawHelpPopup();
-        }
-        if (gLimitsVisible)
-        {
-            DrawLimitsPopup();
         }
         gModalWasActive = modal_active;
         return;
@@ -2482,7 +2228,7 @@ void GaugeRender_DrawFrame(const power_sample_t *sample, bool ai_enabled, power_
     /* Repaint full gyro widget above bargraph/ticks to prevent perimeter jaggies. */
     DrawGyroWidgetFrame(style);
     DrawGyroWidgetDynamic(style);
-    if (!(gSettingsVisible || gHelpVisible || gLimitsVisible))
+    if (!(gSettingsVisible || gHelpVisible))
     {
         DrawAiAlertOverlay(style, sample, ai_enabled);
     }
@@ -2502,10 +2248,6 @@ void GaugeRender_DrawFrame(const power_sample_t *sample, bool ai_enabled, power_
     if (gHelpVisible)
     {
         DrawHelpPopup();
-    }
-    if (gLimitsVisible)
-    {
-        DrawLimitsPopup();
     }
     if (gRecordConfirmActive)
     {
@@ -2549,7 +2291,7 @@ bool GaugeRender_HandleTouch(int32_t x, int32_t y, bool pressed)
     bool live_banner_mode = gLiveBannerMode;
 
     /* Help/settings popups own touch interaction; block timeline state changes behind them. */
-    if (gHelpVisible || gSettingsVisible || gLimitsVisible)
+    if (gHelpVisible || gSettingsVisible)
     {
         if (!pressed)
         {
@@ -2589,21 +2331,12 @@ bool GaugeRender_HandleTouch(int32_t x, int32_t y, bool pressed)
             if (in_yes)
             {
                 gRecordConfirmActive = false;
-                if (gRecordConfirmAction == 2u)
-                {
-                    gRecordStopRequest = true;
-                }
-                else
-                {
-                    gRecordStartRequest = true;
-                }
-                gRecordConfirmAction = 0u;
+                gRecordStartRequest = true;
                 changed = true;
             }
             else if (in_no)
             {
                 gRecordConfirmActive = false;
-                gRecordConfirmAction = 0u;
                 changed = true;
             }
         }
@@ -2620,8 +2353,7 @@ bool GaugeRender_HandleTouch(int32_t x, int32_t y, bool pressed)
         gTimelineTouchLatch = true;
         if (in_left && !gScopePaused)
         {
-            gRecordConfirmActive = true;
-            gRecordConfirmAction = 2u;
+            gScopePaused = true;
             changed = true;
         }
         else if (in_left && gScopePaused)
@@ -2632,7 +2364,6 @@ bool GaugeRender_HandleTouch(int32_t x, int32_t y, bool pressed)
         else if (in_right && gScopePaused)
         {
             gRecordConfirmActive = true;
-            gRecordConfirmAction = 1u;
             changed = true;
         }
     }
@@ -2670,12 +2401,5 @@ bool GaugeRender_ConsumeRecordStartRequest(void)
 {
     bool requested = gRecordStartRequest;
     gRecordStartRequest = false;
-    return requested;
-}
-
-bool GaugeRender_ConsumeRecordStopRequest(void)
-{
-    bool requested = gRecordStopRequest;
-    gRecordStopRequest = false;
     return requested;
 }

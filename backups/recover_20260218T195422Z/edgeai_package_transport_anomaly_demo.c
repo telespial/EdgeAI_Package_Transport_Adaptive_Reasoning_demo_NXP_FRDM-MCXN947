@@ -15,7 +15,6 @@
 #include "gauge_render.h"
 #include "power_data_source.h"
 #include "anomaly_engine.h"
-#include "eil_profile.h"
 #include "accel4_click.h"
 #include "fxls8974cf.h"
 #include "ext_flash_recorder.h"
@@ -85,7 +84,7 @@
 #define SHIELD_STTS22H_REG_TEMP_L 0x06u
 #define SHIELD_AUX_POLL_PERIOD_US 150000u
 
-#define TOUCH_POLL_DELAY_US 2000u
+#define TOUCH_POLL_DELAY_US 5000u
 #define POWER_TICK_PERIOD_US 1000000u
 #define DISPLAY_REFRESH_PERIOD_US 100000u
 #define RECPLAY_TICK_PERIOD_US 100000u
@@ -168,12 +167,6 @@ static bool s_temp_i3c_inited = false;
 static uint8_t s_temp_addr = 0u;
 static uint8_t s_temp_c = 25u;
 static int16_t s_temp_c10 = 250;
-static uint16_t s_limit_g_warn_mg = 12000u;
-static uint16_t s_limit_g_fail_mg = 15000u;
-static int16_t s_limit_temp_lo_c10 = 0;
-static int16_t s_limit_temp_hi_c10 = 700;
-static uint16_t s_limit_gyro_dps = 500u;
-static uint16_t s_gyro_peak_dps = 0u;
 static i3c_bus_type_t s_temp_bus_type = kI3C_TypeI2C;
 static power_sample_t s_frame_sample;
 static anomaly_output_t s_anom_out;
@@ -250,27 +243,12 @@ static uint8_t ChannelLevelPct(anomaly_level_t lvl)
 
 static void ApplyAnomalyToFrame(power_sample_t *dst)
 {
-    const eil_profile_t *profile = EilProfile_Get();
+    uint8_t overall = (uint8_t)s_anom_out.overall_level;
     uint8_t ax = ChannelLevelPct(s_anom_out.channel_level[ANOMALY_CH_AX]);
     uint8_t ay = ChannelLevelPct(s_anom_out.channel_level[ANOMALY_CH_AY]);
     uint8_t az = ChannelLevelPct(s_anom_out.channel_level[ANOMALY_CH_AZ]);
     uint8_t tp = ChannelLevelPct(s_anom_out.channel_level[ANOMALY_CH_TEMP]);
-    float w_ax = 1.0f;
-    float w_ay = 1.0f;
-    float w_az = 1.0f;
-    float w_tp = 1.0f;
-    float weighted_pct;
-    float weight_sum;
     uint8_t maxch = ax;
-    int32_t abx;
-    int32_t aby;
-    int32_t abz;
-    uint16_t accel_peak_mg;
-    bool accel_warn_hit;
-    bool accel_fail_hit;
-    bool temp_limit_hit;
-    bool temp_fail_hit;
-    bool gyro_limit_hit;
 
     if (dst == NULL)
     {
@@ -290,91 +268,18 @@ static void ApplyAnomalyToFrame(power_sample_t *dst)
         maxch = tp;
     }
 
-    if (profile != NULL)
-    {
-        w_ax = profile->weight_ax;
-        w_ay = profile->weight_ay;
-        w_az = profile->weight_az;
-        w_tp = profile->weight_temp_c;
-    }
-    if (w_ax < 0.0f)
-    {
-        w_ax = 0.0f;
-    }
-    if (w_ay < 0.0f)
-    {
-        w_ay = 0.0f;
-    }
-    if (w_az < 0.0f)
-    {
-        w_az = 0.0f;
-    }
-    if (w_tp < 0.0f)
-    {
-        w_tp = 0.0f;
-    }
-
-    weight_sum = w_ax + w_ay + w_az + w_tp;
-    if (weight_sum > 0.0f)
-    {
-        weighted_pct = ((float)ax * w_ax + (float)ay * w_ay + (float)az * w_az + (float)tp * w_tp) / weight_sum;
-    }
-    else
-    {
-        weighted_pct = (float)maxch;
-    }
-    if (weighted_pct < 0.0f)
-    {
-        weighted_pct = 0.0f;
-    }
-    if (weighted_pct > 100.0f)
-    {
-        weighted_pct = 100.0f;
-    }
-
-    dst->anomaly_score_pct = (uint16_t)(weighted_pct + 0.5f);
+    dst->anomaly_score_pct = maxch;
     dst->connector_risk_pct = ax;
     dst->wire_risk_pct = ay;
     dst->thermal_damage_risk_pct = tp;
     dst->degradation_drift_pct = az;
     dst->thermal_risk_s = 0u;
 
-    abx = (s_accel_x_mg < 0) ? -s_accel_x_mg : s_accel_x_mg;
-    aby = (s_accel_y_mg < 0) ? -s_accel_y_mg : s_accel_y_mg;
-    abz = (s_accel_z_mg < 0) ? -s_accel_z_mg : s_accel_z_mg;
-    accel_peak_mg = (uint16_t)abx;
-    if ((uint16_t)aby > accel_peak_mg)
-    {
-        accel_peak_mg = (uint16_t)aby;
-    }
-    if ((uint16_t)abz > accel_peak_mg)
-    {
-        accel_peak_mg = (uint16_t)abz;
-    }
-
-    accel_warn_hit = (accel_peak_mg >= s_limit_g_warn_mg);
-    accel_fail_hit = (accel_peak_mg >= s_limit_g_fail_mg);
-    temp_limit_hit = (s_temp_c10 < s_limit_temp_lo_c10) || (s_temp_c10 > s_limit_temp_hi_c10);
-    temp_fail_hit = (s_temp_c10 < (s_limit_temp_lo_c10 - 100)) || (s_temp_c10 > (s_limit_temp_hi_c10 + 100));
-    gyro_limit_hit = (s_gyro_peak_dps >= s_limit_gyro_dps);
-
-    if (accel_fail_hit || temp_fail_hit)
+    if (overall >= (uint8_t)ANOMALY_LEVEL_MAJOR)
     {
         dst->ai_status = AI_STATUS_FAULT;
     }
-    else if (accel_warn_hit || temp_limit_hit || gyro_limit_hit)
-    {
-        dst->ai_status = AI_STATUS_WARNING;
-    }
-    else if ((profile != NULL) && ((weighted_pct / 100.0f) >= profile->alert_fail))
-    {
-        dst->ai_status = AI_STATUS_FAULT;
-    }
-    else if ((profile != NULL) && ((weighted_pct / 100.0f) >= profile->alert_warn))
-    {
-        dst->ai_status = AI_STATUS_WARNING;
-    }
-    else if (s_anom_out.overall_level >= ANOMALY_LEVEL_WATCH)
+    else if (overall >= (uint8_t)ANOMALY_LEVEL_WATCH)
     {
         dst->ai_status = AI_STATUS_WARNING;
     }
@@ -1933,12 +1838,6 @@ static void ShieldGyroUpdate(void)
     int16_t ax_raw;
     int16_t ay_raw;
     int16_t az_raw;
-    int16_t gx_raw;
-    int16_t gy_raw;
-    int16_t gz_raw;
-    uint16_t gx_dps;
-    uint16_t gy_dps;
-    uint16_t gz_dps;
     int32_t accel_mg_per_lsb_x1000;
     int32_t ax_mg;
     int32_t ay_mg;
@@ -1994,22 +1893,6 @@ static void ShieldGyroUpdate(void)
     }
     s_shield_gyro_read_fail_streak = 0u;
     s_shield_gyro_read_fail_logged = false;
-
-    gx_raw = (int16_t)(((uint16_t)raw_g[1] << 8) | raw_g[0]);
-    gy_raw = (int16_t)(((uint16_t)raw_g[3] << 8) | raw_g[2]);
-    gz_raw = (int16_t)(((uint16_t)raw_g[5] << 8) | raw_g[4]);
-    gx_dps = (uint16_t)(((gx_raw < 0 ? -gx_raw : gx_raw) * 70) / 1000);
-    gy_dps = (uint16_t)(((gy_raw < 0 ? -gy_raw : gy_raw) * 70) / 1000);
-    gz_dps = (uint16_t)(((gz_raw < 0 ? -gz_raw : gz_raw) * 70) / 1000);
-    s_gyro_peak_dps = gx_dps;
-    if (gy_dps > s_gyro_peak_dps)
-    {
-        s_gyro_peak_dps = gy_dps;
-    }
-    if (gz_dps > s_gyro_peak_dps)
-    {
-        s_gyro_peak_dps = gz_dps;
-    }
 
     ax_raw = (int16_t)(((uint16_t)raw_a[1] << 8) | raw_a[0]);
     ay_raw = (int16_t)(((uint16_t)raw_a[3] << 8) | raw_a[2]);
@@ -2415,6 +2298,12 @@ static bool TouchGetPoint(int32_t *x_out, int32_t *y_out)
     return true;
 }
 
+static bool TouchInAiPill(int32_t x, int32_t y)
+{
+    return (x >= GAUGE_RENDER_AI_PILL_X0) && (x <= GAUGE_RENDER_AI_PILL_X1) &&
+           (y >= GAUGE_RENDER_AI_PILL_Y0) && (y <= GAUGE_RENDER_AI_PILL_Y1);
+}
+
 static bool TouchInAiSet(int32_t x, int32_t y)
 {
     return (x >= GAUGE_RENDER_AI_SET_X0) && (x <= GAUGE_RENDER_AI_SET_X1) &&
@@ -2457,27 +2346,12 @@ static bool TouchInHelpClose(int32_t x, int32_t y)
     return (x >= bx0) && (x <= bx1) && (y >= by0) && (y <= by1);
 }
 
-static bool TouchInHelpNext(int32_t x, int32_t y)
-{
-    return (x >= GAUGE_RENDER_HELP_NEXT_X0) && (x <= GAUGE_RENDER_HELP_NEXT_X1) &&
-           (y >= GAUGE_RENDER_HELP_NEXT_Y0) && (y <= GAUGE_RENDER_HELP_NEXT_Y1);
-}
-
 static bool TouchInSettingsModeIndex(int32_t x, int32_t y, uint8_t idx)
 {
     int32_t x0 = GAUGE_RENDER_SET_MODE_X0 + (int32_t)idx * (GAUGE_RENDER_SET_MODE_W + GAUGE_RENDER_SET_MODE_GAP);
     int32_t x1 = x0 + GAUGE_RENDER_SET_MODE_W - 1;
     int32_t y0 = GAUGE_RENDER_SET_MODE_Y0;
     int32_t y1 = y0 + GAUGE_RENDER_SET_MODE_H - 1;
-    return (x >= x0) && (x <= x1) && (y >= y0) && (y <= y1);
-}
-
-static bool TouchInSettingsRunIndex(int32_t x, int32_t y, uint8_t idx)
-{
-    int32_t x0 = GAUGE_RENDER_SET_RUN_X0 + (int32_t)idx * (GAUGE_RENDER_SET_RUN_W + GAUGE_RENDER_SET_RUN_GAP);
-    int32_t x1 = x0 + GAUGE_RENDER_SET_RUN_W - 1;
-    int32_t y0 = GAUGE_RENDER_SET_RUN_Y0;
-    int32_t y1 = y0 + GAUGE_RENDER_SET_RUN_H - 1;
     return (x >= x0) && (x <= x1) && (y >= y0) && (y <= y1);
 }
 
@@ -2499,182 +2373,6 @@ static bool TouchInSettingsAiIndex(int32_t x, int32_t y, uint8_t idx)
     return (x >= x0) && (x <= x1) && (y >= y0) && (y <= y1);
 }
 
-static bool TouchInSettingsLimitsButton(int32_t x, int32_t y)
-{
-    int32_t x0 = GAUGE_RENDER_SET_LIMIT_BTN_X0;
-    int32_t x1 = x0 + GAUGE_RENDER_SET_LIMIT_BTN_W - 1;
-    int32_t y0 = GAUGE_RENDER_SET_LIMIT_BTN_Y0;
-    int32_t y1 = y0 + GAUGE_RENDER_SET_LIMIT_BTN_H - 1;
-    return (x >= x0) && (x <= x1) && (y >= y0) && (y <= y1);
-}
-
-static bool TouchInLimitsPanel(int32_t x, int32_t y)
-{
-    return (x >= GAUGE_RENDER_LIMIT_PANEL_X0) && (x <= GAUGE_RENDER_LIMIT_PANEL_X1) &&
-           (y >= GAUGE_RENDER_LIMIT_PANEL_Y0) && (y <= GAUGE_RENDER_LIMIT_PANEL_Y1);
-}
-
-static bool TouchInLimitsClose(int32_t x, int32_t y)
-{
-    int32_t bx1 = GAUGE_RENDER_LIMIT_PANEL_X1 - 8;
-    int32_t bx0 = bx1 - 22;
-    int32_t by0 = GAUGE_RENDER_LIMIT_PANEL_Y0 + 8;
-    int32_t by1 = by0 + 22;
-    return (x >= bx0) && (x <= bx1) && (y >= by0) && (y <= by1);
-}
-
-static bool TouchInLimitsAdjust(int32_t x, int32_t y, uint8_t *idx_out, bool *increase_out)
-{
-    for (uint8_t idx = 0u; idx < 5u; idx++)
-    {
-        int32_t y0 = GAUGE_RENDER_LIMIT_ROW_Y0 + (int32_t)idx * (GAUGE_RENDER_LIMIT_ROW_H + GAUGE_RENDER_LIMIT_ROW_GAP);
-        int32_t y1 = y0 + GAUGE_RENDER_LIMIT_ROW_H - 1;
-        int32_t minus_x0 = GAUGE_RENDER_LIMIT_MINUS_X0;
-        int32_t minus_x1 = minus_x0 + GAUGE_RENDER_LIMIT_MINUS_W - 1;
-        int32_t plus_x0 = GAUGE_RENDER_LIMIT_PLUS_X0;
-        int32_t plus_x1 = plus_x0 + GAUGE_RENDER_LIMIT_PLUS_W - 1;
-
-        if ((y < y0) || (y > y1))
-        {
-            continue;
-        }
-
-        if ((x >= minus_x0) && (x <= minus_x1))
-        {
-            *idx_out = idx;
-            *increase_out = false;
-            return true;
-        }
-        if ((x >= plus_x0) && (x <= plus_x1))
-        {
-            *idx_out = idx;
-            *increase_out = true;
-            return true;
-        }
-    }
-
-    return false;
-}
-
-static void SaveUiSettingsIfReady(bool ext_flash_ok,
-                                  anomaly_mode_t mode,
-                                  anomaly_tune_t tune,
-                                  bool run_live,
-                                  bool ai_enabled,
-                                  uint16_t g_warn_mg,
-                                  uint16_t g_fail_mg,
-                                  int16_t temp_low_c10,
-                                  int16_t temp_high_c10,
-                                  uint16_t gyro_limit_dps)
-{
-    if (!ext_flash_ok)
-    {
-        return;
-    }
-    if (!ExtFlashRecorder_SaveUiSettings((uint8_t)mode,
-                                         (uint8_t)tune,
-                                         run_live,
-                                         ai_enabled,
-                                         g_warn_mg,
-                                         g_fail_mg,
-                                         temp_low_c10,
-                                         temp_high_c10,
-                                         gyro_limit_dps))
-    {
-        PRINTF("UI_CFG_SAVE: failed\r\n");
-    }
-}
-
-static void ApplyLimitAdjustment(uint8_t lim_idx, bool increase)
-{
-    switch (lim_idx)
-    {
-        case 0u: /* G warn */
-            if (increase)
-            {
-                if (s_limit_g_warn_mg < 15000u)
-                {
-                    s_limit_g_warn_mg += 500u;
-                }
-            }
-            else if (s_limit_g_warn_mg > 2000u)
-            {
-                s_limit_g_warn_mg -= 500u;
-            }
-            if (s_limit_g_fail_mg <= s_limit_g_warn_mg)
-            {
-                s_limit_g_fail_mg = (uint16_t)(s_limit_g_warn_mg + 500u);
-            }
-            break;
-        case 1u: /* G fail */
-            if (increase)
-            {
-                if (s_limit_g_fail_mg < 16000u)
-                {
-                    s_limit_g_fail_mg += 500u;
-                }
-            }
-            else if (s_limit_g_fail_mg > 3000u)
-            {
-                s_limit_g_fail_mg -= 500u;
-            }
-            if (s_limit_g_fail_mg <= s_limit_g_warn_mg)
-            {
-                s_limit_g_warn_mg = (uint16_t)(s_limit_g_fail_mg - 500u);
-            }
-            break;
-        case 2u: /* Temp low */
-            if (increase)
-            {
-                if (s_limit_temp_lo_c10 < 300)
-                {
-                    s_limit_temp_lo_c10 += 50;
-                }
-            }
-            else if (s_limit_temp_lo_c10 > -200)
-            {
-                s_limit_temp_lo_c10 -= 50;
-            }
-            if (s_limit_temp_lo_c10 >= s_limit_temp_hi_c10)
-            {
-                s_limit_temp_hi_c10 = s_limit_temp_lo_c10 + 50;
-            }
-            break;
-        case 3u: /* Temp high */
-            if (increase)
-            {
-                if (s_limit_temp_hi_c10 < 1000)
-                {
-                    s_limit_temp_hi_c10 += 50;
-                }
-            }
-            else if (s_limit_temp_hi_c10 > (s_limit_temp_lo_c10 + 50))
-            {
-                s_limit_temp_hi_c10 -= 50;
-            }
-            if (s_limit_temp_hi_c10 <= s_limit_temp_lo_c10)
-            {
-                s_limit_temp_hi_c10 = s_limit_temp_lo_c10 + 50;
-            }
-            break;
-        default: /* Gyro */
-            if (increase)
-            {
-                if (s_limit_gyro_dps < 2000u)
-                {
-                    s_limit_gyro_dps += 100u;
-                }
-            }
-            else if (s_limit_gyro_dps > 100u)
-            {
-                s_limit_gyro_dps -= 100u;
-            }
-            break;
-    }
-
-    GaugeRender_SetLimitInfo(s_limit_g_warn_mg, s_limit_g_fail_mg, s_limit_temp_lo_c10, s_limit_temp_hi_c10, s_limit_gyro_dps);
-}
-
 int main(void)
 {
 #if EDGEAI_SENSOR_SCAN_MODE
@@ -2685,12 +2383,9 @@ int main(void)
     bool ext_flash_ok;
     bool help_visible = false;
     bool settings_visible = false;
-    bool limits_visible = false;
     bool ui_block_touch = false;
-    bool train_armed_idle = false;
     bool record_mode;
     bool prev_record_mode;
-    bool prev_trained_ready;
     bool playback_active = false;
     ext_flash_sample_t playback_sample;
     uint32_t data_tick_accum_us = 0u;
@@ -2710,17 +2405,6 @@ int main(void)
     uint32_t rec_cnt = 0u;
     const power_sample_t *sample;
     anomaly_mode_t anom_mode;
-    anomaly_tune_t anom_tune;
-    uint8_t saved_mode = 0u;
-    uint8_t saved_tune = 0u;
-    bool saved_run_live = true;
-    bool saved_ai = true;
-    uint16_t saved_g_warn_mg = 12000u;
-    uint16_t saved_g_fail_mg = 15000u;
-    int16_t saved_temp_lo_c10 = 0;
-    int16_t saved_temp_hi_c10 = 700;
-    uint16_t saved_gyro_limit_dps = 500u;
-    bool saved_valid = false;
     uint64_t time_prev_ticks = 0u;
     uint64_t time_us_rem = 0u;
     uint64_t runtime_clock_start_ticks = 0u;
@@ -2733,95 +2417,9 @@ int main(void)
     PRINTF("EV dash LCD: %s\r\n", lcd_ok ? "ready" : "init_failed");
 
     PowerData_Init();
-    AnomalyEngine_Init();
-    if (ext_flash_ok &&
-        ExtFlashRecorder_GetUiSettings(&saved_mode,
-                                       &saved_tune,
-                                       &saved_run_live,
-                                       &saved_ai,
-                                       &saved_g_warn_mg,
-                                       &saved_g_fail_mg,
-                                       &saved_temp_lo_c10,
-                                       &saved_temp_hi_c10,
-                                       &saved_gyro_limit_dps,
-                                       &saved_valid) &&
-        saved_valid)
-    {
-        if (saved_mode > (uint8_t)ANOMALY_MODE_TRAINED_MONITOR)
-        {
-            saved_mode = (uint8_t)ANOMALY_MODE_ADAPTIVE_BASELINE;
-        }
-        if (saved_tune > (uint8_t)ANOMALY_TUNE_STRICT)
-        {
-            saved_tune = (uint8_t)ANOMALY_TUNE_NORMAL;
-        }
-        if (saved_g_warn_mg < 500u)
-        {
-            saved_g_warn_mg = 500u;
-        }
-        if (saved_g_warn_mg > 15000u)
-        {
-            saved_g_warn_mg = 15000u;
-        }
-        if (saved_g_fail_mg < 1000u)
-        {
-            saved_g_fail_mg = 1000u;
-        }
-        if (saved_g_fail_mg > 16000u)
-        {
-            saved_g_fail_mg = 16000u;
-        }
-        if (saved_g_fail_mg <= saved_g_warn_mg)
-        {
-            saved_g_fail_mg = saved_g_warn_mg + 500u;
-            if (saved_g_fail_mg > 16000u)
-            {
-                saved_g_fail_mg = 16000u;
-            }
-        }
-        if (saved_temp_lo_c10 < -200)
-        {
-            saved_temp_lo_c10 = -200;
-        }
-        if (saved_temp_hi_c10 > 1000)
-        {
-            saved_temp_hi_c10 = 1000;
-        }
-        if (saved_temp_hi_c10 <= saved_temp_lo_c10)
-        {
-            saved_temp_hi_c10 = saved_temp_lo_c10 + 50;
-        }
-        if (saved_gyro_limit_dps < 100u)
-        {
-            saved_gyro_limit_dps = 100u;
-        }
-        if (saved_gyro_limit_dps > 2000u)
-        {
-            saved_gyro_limit_dps = 2000u;
-        }
-        ai_enabled = saved_ai;
-        s_limit_g_warn_mg = saved_g_warn_mg;
-        s_limit_g_fail_mg = saved_g_fail_mg;
-        s_limit_temp_lo_c10 = saved_temp_lo_c10;
-        s_limit_temp_hi_c10 = saved_temp_hi_c10;
-        s_limit_gyro_dps = saved_gyro_limit_dps;
-        AnomalyEngine_SetMode((anomaly_mode_t)saved_mode);
-        AnomalyEngine_SetTune((anomaly_tune_t)saved_tune);
-        GaugeRender_SetLiveBannerMode(saved_run_live);
-        PRINTF("UI_CFG_LOAD: mode=%u tune=%u run=%u ai=%u gw=%u gf=%u tl=%d th=%d gy=%u\r\n",
-               (unsigned int)saved_mode,
-               (unsigned int)saved_tune,
-               saved_run_live ? 1u : 0u,
-               saved_ai ? 1u : 0u,
-               (unsigned int)s_limit_g_warn_mg,
-               (unsigned int)s_limit_g_fail_mg,
-               (int)(s_limit_temp_lo_c10 / 10),
-               (int)(s_limit_temp_hi_c10 / 10),
-               (unsigned int)s_limit_gyro_dps);
-    }
     PowerData_SetAiAssistEnabled(ai_enabled);
+    AnomalyEngine_Init();
     anom_mode = AnomalyEngine_GetMode();
-    anom_tune = AnomalyEngine_GetTune();
     ShieldGyroInit();
     ShieldRunDatastreamDiagnostics();
     ShieldSensorScanLog();
@@ -2836,13 +2434,7 @@ int main(void)
     GaugeRender_SetRuntimeClock(0u, 0u, 0u, 0u, true);
     GaugeRender_SetHelpVisible(false);
     GaugeRender_SetSettingsVisible(false);
-    GaugeRender_SetLimitsVisible(false);
-    GaugeRender_SetLiveBannerMode(saved_valid ? saved_run_live : true);
-    GaugeRender_SetLimitInfo(s_limit_g_warn_mg,
-                             s_limit_g_fail_mg,
-                             s_limit_temp_lo_c10,
-                             s_limit_temp_hi_c10,
-                             s_limit_gyro_dps);
+    GaugeRender_SetLiveBannerMode(true);
     GaugeRender_SetRecordMode(false);
     memset(&s_anom_out, 0, sizeof(s_anom_out));
     AnomalyEngine_GetOutput(&s_anom_out);
@@ -2861,7 +2453,6 @@ int main(void)
         GaugeRender_DrawFrame(sample, ai_enabled, PowerData_GetReplayProfile());
     }
     prev_record_mode = GaugeRender_IsRecordMode();
-    prev_trained_ready = s_anom_out.trained_ready;
     if (!prev_record_mode && !GaugeRender_IsLiveBannerMode())
     {
         playback_active = ext_flash_ok && ExtFlashRecorder_StartPlayback();
@@ -2885,20 +2476,16 @@ int main(void)
         bool modal_active;
         bool modal_active_now;
         bool pressed = TouchGetPoint(&tx, &ty);
+        bool in_pill;
         bool in_set;
         bool in_help;
         bool timeline_changed = GaugeRender_HandleTouch(tx, ty, pressed);
         bool record_start_request;
-        bool record_stop_request;
 
         modal_active = GaugeRender_IsRecordConfirmActive();
         in_set = pressed && !modal_active && TouchInAiSet(tx, ty);
         in_help = pressed && !modal_active && TouchInAiHelp(tx, ty);
-
-        if (help_visible || settings_visible || limits_visible)
-        {
-            ui_block_touch = false;
-        }
+        in_pill = pressed && !modal_active && TouchInAiPill(tx, ty) && !in_set && !in_help;
 
         if (ui_block_touch)
         {
@@ -2908,67 +2495,25 @@ int main(void)
             }
             in_set = false;
             in_help = false;
+            in_pill = false;
         }
 
-        if (pressed && !s_touch_was_down && !modal_active &&
-            (!ui_block_touch || help_visible || settings_visible || limits_visible))
+        if (pressed && !s_touch_was_down && !modal_active && !ui_block_touch)
         {
             bool redraw_ui = false;
 
             if (help_visible)
             {
-                if (TouchInHelpClose(tx, ty))
+                if (TouchInHelpClose(tx, ty) || in_help)
                 {
                     help_visible = false;
                     GaugeRender_SetHelpVisible(false);
-                    redraw_ui = true;
-                }
-                else if (TouchInHelpNext(tx, ty) || in_help)
-                {
-                    GaugeRender_NextHelpPage();
                     redraw_ui = true;
                 }
                 else if (!TouchInHelpPanel(tx, ty))
                 {
                     help_visible = false;
                     GaugeRender_SetHelpVisible(false);
-                    redraw_ui = true;
-                }
-            }
-            else if (limits_visible)
-            {
-                bool handled_limits = false;
-                uint8_t lim_idx = 0u;
-                bool increase = false;
-
-                if (TouchInLimitsClose(tx, ty))
-                {
-                    limits_visible = false;
-                    GaugeRender_SetLimitsVisible(false);
-                    redraw_ui = true;
-                    handled_limits = true;
-                }
-                else if (TouchInLimitsAdjust(tx, ty, &lim_idx, &increase))
-                {
-                    ApplyLimitAdjustment(lim_idx, increase);
-                    SaveUiSettingsIfReady(ext_flash_ok,
-                                          anom_mode,
-                                          AnomalyEngine_GetTune(),
-                                          GaugeRender_IsLiveBannerMode(),
-                                          ai_enabled,
-                                          s_limit_g_warn_mg,
-                                          s_limit_g_fail_mg,
-                                          s_limit_temp_lo_c10,
-                                          s_limit_temp_hi_c10,
-                                          s_limit_gyro_dps);
-                    redraw_ui = true;
-                    handled_limits = true;
-                }
-
-                if (!handled_limits && (in_set || !TouchInLimitsPanel(tx, ty)))
-                {
-                    limits_visible = false;
-                    GaugeRender_SetLimitsVisible(false);
                     redraw_ui = true;
                 }
             }
@@ -2984,64 +2529,21 @@ int main(void)
                     handled_setting = true;
                 }
 
-                for (uint8_t i = 0u; i < 2u; i++)
+                for (uint8_t i = 0u; i < 3u; i++)
                 {
                     if (!handled_setting && TouchInSettingsModeIndex(tx, ty, i))
                     {
                         anom_mode = (anomaly_mode_t)i;
                         AnomalyEngine_SetMode(anom_mode);
-                        train_armed_idle = (anom_mode == ANOMALY_MODE_TRAINED_MONITOR);
-                        AnomalyEngine_StopTraining();
+                        GaugeRender_SetLiveBannerMode(false);
+                        if (anom_mode == ANOMALY_MODE_TRAINED_MONITOR)
+                        {
+                            AnomalyEngine_StartTraining();
+                        }
                         handled_setting = true;
                         redraw_ui = true;
                         PRINTF("ANOM_MODE,%u\r\n", (unsigned int)anom_mode);
-                        SaveUiSettingsIfReady(ext_flash_ok,
-                                              anom_mode,
-                                              AnomalyEngine_GetTune(),
-                                              GaugeRender_IsLiveBannerMode(),
-                                              ai_enabled,
-                                              s_limit_g_warn_mg,
-                                              s_limit_g_fail_mg,
-                                              s_limit_temp_lo_c10,
-                                              s_limit_temp_hi_c10,
-                                              s_limit_gyro_dps);
                         break;
-                    }
-                }
-
-                if (!handled_setting)
-                {
-                    for (uint8_t i = 0u; i < 2u; i++)
-                    {
-                        if (TouchInSettingsRunIndex(tx, ty, i))
-                        {
-                            bool run_live = (i == 1u);
-                            GaugeRender_SetLiveBannerMode(run_live);
-                            if (run_live)
-                            {
-                                GaugeRender_SetRecordMode(false);
-                                AnomalyEngine_StopTraining();
-                                train_armed_idle = false;
-                            }
-                            else
-                            {
-                                train_armed_idle = (anom_mode == ANOMALY_MODE_TRAINED_MONITOR);
-                            }
-                            handled_setting = true;
-                            redraw_ui = true;
-                            PRINTF("RUN_MODE,%s\r\n", run_live ? "LIVE" : "TRAIN");
-                            SaveUiSettingsIfReady(ext_flash_ok,
-                                                  anom_mode,
-                                                  AnomalyEngine_GetTune(),
-                                                  run_live,
-                                                  ai_enabled,
-                                                  s_limit_g_warn_mg,
-                                                  s_limit_g_fail_mg,
-                                                  s_limit_temp_lo_c10,
-                                                  s_limit_temp_hi_c10,
-                                                  s_limit_gyro_dps);
-                            break;
-                        }
                     }
                 }
 
@@ -3055,17 +2557,6 @@ int main(void)
                             handled_setting = true;
                             redraw_ui = true;
                             PRINTF("ANOM_TUNE,%u\r\n", (unsigned int)i);
-                            anom_tune = AnomalyEngine_GetTune();
-                            SaveUiSettingsIfReady(ext_flash_ok,
-                                                  anom_mode,
-                                                  anom_tune,
-                                                  GaugeRender_IsLiveBannerMode(),
-                                                  ai_enabled,
-                                                  s_limit_g_warn_mg,
-                                                  s_limit_g_fail_mg,
-                                                  s_limit_temp_lo_c10,
-                                                  s_limit_temp_hi_c10,
-                                                  s_limit_gyro_dps);
                             break;
                         }
                     }
@@ -3075,56 +2566,31 @@ int main(void)
                 {
                     if (TouchInSettingsAiIndex(tx, ty, 0u))
                     {
-                        ai_enabled = false;
-                        PowerData_SetAiAssistEnabled(ai_enabled);
+                        anom_mode = ANOMALY_MODE_TRAINED_MONITOR;
+                        AnomalyEngine_SetMode(anom_mode);
+                        GaugeRender_SetLiveBannerMode(false);
+                        GaugeRender_SetRecordMode(true);
+                        playback_active = false;
+                        AnomalyEngine_StartTraining();
                         settings_visible = false;
                         GaugeRender_SetSettingsVisible(false);
                         handled_setting = true;
                         redraw_ui = true;
-                        PRINTF("AI_SET,OFF\r\n");
-                        SaveUiSettingsIfReady(ext_flash_ok,
-                                              anom_mode,
-                                              AnomalyEngine_GetTune(),
-                                              GaugeRender_IsLiveBannerMode(),
-                                              ai_enabled,
-                                              s_limit_g_warn_mg,
-                                              s_limit_g_fail_mg,
-                                              s_limit_temp_lo_c10,
-                                              s_limit_temp_hi_c10,
-                                              s_limit_gyro_dps);
+                        PRINTF("AI_MODE,TRAIN\r\n");
                     }
                     else if (TouchInSettingsAiIndex(tx, ty, 1u))
                     {
-                        ai_enabled = true;
-                        PowerData_SetAiAssistEnabled(ai_enabled);
+                        anom_mode = ANOMALY_MODE_TRAINED_MONITOR;
+                        AnomalyEngine_SetMode(anom_mode);
+                        GaugeRender_SetLiveBannerMode(true);
+                        GaugeRender_SetRecordMode(false);
+                        playback_active = false;
+                        AnomalyEngine_StopTraining();
                         settings_visible = false;
                         GaugeRender_SetSettingsVisible(false);
                         handled_setting = true;
                         redraw_ui = true;
-                        PRINTF("AI_SET,ON\r\n");
-                        SaveUiSettingsIfReady(ext_flash_ok,
-                                              anom_mode,
-                                              AnomalyEngine_GetTune(),
-                                              GaugeRender_IsLiveBannerMode(),
-                                              ai_enabled,
-                                              s_limit_g_warn_mg,
-                                              s_limit_g_fail_mg,
-                                              s_limit_temp_lo_c10,
-                                              s_limit_temp_hi_c10,
-                                              s_limit_gyro_dps);
-                    }
-                }
-
-                if (!handled_setting)
-                {
-                    if (TouchInSettingsLimitsButton(tx, ty))
-                    {
-                        handled_setting = true;
-                        redraw_ui = true;
-                        settings_visible = false;
-                        limits_visible = true;
-                        GaugeRender_SetSettingsVisible(false);
-                        GaugeRender_SetLimitsVisible(true);
+                        PRINTF("AI_MODE,LIVE\r\n");
                     }
                 }
 
@@ -3160,9 +2626,7 @@ int main(void)
             {
                 settings_visible = true;
                 help_visible = false;
-                limits_visible = false;
                 GaugeRender_SetHelpVisible(false);
-                GaugeRender_SetLimitsVisible(false);
                 GaugeRender_SetSettingsVisible(true);
                 redraw_ui = true;
             }
@@ -3170,10 +2634,7 @@ int main(void)
             {
                 help_visible = true;
                 settings_visible = false;
-                limits_visible = false;
                 GaugeRender_SetSettingsVisible(false);
-                GaugeRender_SetLimitsVisible(false);
-                GaugeRender_SetHelpPage(0u);
                 GaugeRender_SetHelpVisible(true);
                 redraw_ui = true;
                 PRINTF("UI_HELP,ON\r\n");
@@ -3185,12 +2646,22 @@ int main(void)
             }
         }
 
+        if (in_pill && !s_touch_was_down)
+        {
+            ai_enabled = !ai_enabled;
+            PowerData_SetAiAssistEnabled(ai_enabled);
+            PRINTF("AI_TOGGLE,%s\r\n", ai_enabled ? "ON" : "OFF");
+            if (lcd_ok)
+            {
+                GaugeRender_DrawFrame(GetFrameSample(), ai_enabled, PowerData_GetReplayProfile());
+            }
+        }
         if (timeline_changed && lcd_ok)
         {
             GaugeRender_DrawFrame(GetFrameSample(), ai_enabled, PowerData_GetReplayProfile());
         }
         if (timeline_changed && !GaugeRender_IsRecordMode() && !GaugeRender_IsRecordConfirmActive() &&
-            !GaugeRender_IsLiveBannerMode() && !train_armed_idle)
+            !GaugeRender_IsLiveBannerMode())
         {
             playback_active = ext_flash_ok && ExtFlashRecorder_StartPlayback();
             runtime_elapsed_ds = 0u;
@@ -3209,10 +2680,8 @@ int main(void)
             bool cleared = ext_flash_ok && ExtFlashRecorder_ClearAll();
             if (cleared)
             {
-                GaugeRender_SetLiveBannerMode(false);
                 GaugeRender_SetRecordMode(true);
                 playback_active = false;
-                train_armed_idle = false;
                 runtime_elapsed_ds = 0u;
                 rec_elapsed_ds = 0u;
                 runtime_displayed_sec = UINT32_MAX;
@@ -3229,7 +2698,6 @@ int main(void)
             {
                 GaugeRender_SetRecordMode(false);
                 playback_active = (!GaugeRender_IsLiveBannerMode()) && ext_flash_ok && ExtFlashRecorder_StartPlayback();
-                train_armed_idle = (anom_mode == ANOMALY_MODE_TRAINED_MONITOR);
                 runtime_elapsed_ds = 0u;
                 runtime_displayed_sec = UINT32_MAX;
                 runtime_clock_start_ticks = TimebaseNowTicks();
@@ -3241,23 +2709,8 @@ int main(void)
                 GaugeRender_DrawFrame(GetFrameSample(), ai_enabled, PowerData_GetReplayProfile());
             }
         }
-        record_stop_request = GaugeRender_ConsumeRecordStopRequest();
-        if (record_stop_request)
-        {
-            GaugeRender_SetRecordMode(false);
-            train_armed_idle = (anom_mode == ANOMALY_MODE_TRAINED_MONITOR) && !GaugeRender_IsLiveBannerMode();
-            runtime_elapsed_ds = 0u;
-            runtime_displayed_sec = UINT32_MAX;
-            runtime_clock_start_ticks = TimebaseNowTicks();
-            GaugeRender_SetRuntimeClock(0u, 0u, 0u, 0u, true);
-            PRINTF("EXT_FLASH_REC: stop_confirmed\r\n");
-            if (lcd_ok)
-            {
-                GaugeRender_DrawFrame(GetFrameSample(), ai_enabled, PowerData_GetReplayProfile());
-            }
-        }
         s_touch_was_down = pressed;
-        modal_active_now = GaugeRender_IsRecordConfirmActive() || help_visible || settings_visible || limits_visible;
+        modal_active_now = GaugeRender_IsRecordConfirmActive() || help_visible || settings_visible;
         record_mode = GaugeRender_IsRecordMode();
         if (GaugeRender_IsLiveBannerMode())
         {
@@ -3269,10 +2722,7 @@ int main(void)
             {
                 if (anom_mode == ANOMALY_MODE_TRAINED_MONITOR)
                 {
-                    if (s_anom_out.trained_ready)
-                    {
-                        AnomalyEngine_StopTraining();
-                    }
+                    AnomalyEngine_StopTraining();
                 }
                 playback_active = (!GaugeRender_IsLiveBannerMode()) && ext_flash_ok && ExtFlashRecorder_StartPlayback();
                 runtime_elapsed_ds = 0u;
@@ -3287,7 +2737,6 @@ int main(void)
             }
             else
             {
-                GaugeRender_SetLiveBannerMode(false);
                 if (anom_mode == ANOMALY_MODE_TRAINED_MONITOR)
                 {
                     AnomalyEngine_StartTraining();
@@ -3374,13 +2823,10 @@ int main(void)
             gyro_tick_accum_us -= GYRO_REFRESH_PERIOD_US;
             if (lcd_ok)
             {
-                if (!train_armed_idle)
+                ShieldGyroUpdate();
+                if (!modal_active_now)
                 {
-                    ShieldGyroUpdate();
-                    if (!modal_active_now)
-                    {
-                        GaugeRender_DrawGyroFast();
-                    }
+                    GaugeRender_DrawGyroFast();
                 }
             }
         }
@@ -3394,10 +2840,7 @@ int main(void)
         while (shield_aux_tick_accum_us >= SHIELD_AUX_POLL_PERIOD_US)
         {
             shield_aux_tick_accum_us -= SHIELD_AUX_POLL_PERIOD_US;
-            if (!train_armed_idle)
-            {
-                ShieldAuxUpdate();
-            }
+            ShieldAuxUpdate();
         }
 
         while (runtime_clock_tick_accum_us >= RUNTIME_CLOCK_PERIOD_US)
@@ -3524,48 +2967,12 @@ int main(void)
                 else
                 {
                     playback_active = false;
-                    if ((anom_mode == ANOMALY_MODE_TRAINED_MONITOR) && s_anom_out.training_active && !s_anom_out.trained_ready)
-                    {
-                        playback_active = ext_flash_ok && ExtFlashRecorder_StartPlayback();
-                        if (playback_active)
-                        {
-                            PRINTF("AI_TRAIN: replay_restart\r\n");
-                        }
-                        else
-                        {
-                            AnomalyEngine_StopTraining();
-                            PRINTF("AI_TRAIN: replay_unavailable\r\n");
-                        }
-                    }
-                    else
-                    {
-                        PRINTF("EXT_FLASH_PLAY: read_failed\r\n");
-                    }
+                    PRINTF("EXT_FLASH_PLAY: read_failed\r\n");
                 }
             }
 
             AnomalyEngine_Update(s_accel_x_mg, s_accel_y_mg, s_accel_z_mg, s_temp_c10);
             AnomalyEngine_GetOutput(&s_anom_out);
-            if (!prev_trained_ready && s_anom_out.trained_ready)
-            {
-                /* Automatically promote to LIVE once model fit is complete on-board. */
-                GaugeRender_SetLiveBannerMode(true);
-                GaugeRender_SetRecordMode(false);
-                playback_active = false;
-                AnomalyEngine_StopTraining();
-                SaveUiSettingsIfReady(ext_flash_ok,
-                                      anom_mode,
-                                      AnomalyEngine_GetTune(),
-                                      true,
-                                      ai_enabled,
-                                      s_limit_g_warn_mg,
-                                      s_limit_g_fail_mg,
-                                      s_limit_temp_lo_c10,
-                                      s_limit_temp_hi_c10,
-                                      s_limit_gyro_dps);
-                PRINTF("AI_TRAIN: complete_live\r\n");
-            }
-            prev_trained_ready = s_anom_out.trained_ready;
             GaugeRender_SetAnomalyInfo((uint8_t)s_anom_out.mode,
                                        (uint8_t)s_anom_out.tune,
                                        s_anom_out.training_active,
@@ -3580,10 +2987,7 @@ int main(void)
         if (temp_tick_accum_us >= TEMP_REFRESH_PERIOD_US)
         {
             temp_tick_accum_us -= TEMP_REFRESH_PERIOD_US;
-            if (!train_armed_idle)
-            {
-                BoardTempUpdate();
-            }
+            BoardTempUpdate();
         }
 
         if (accel_test_tick_accum_us >= ACCEL_TEST_LOG_PERIOD_US)

@@ -481,3 +481,4 @@ Format:
 - 2026-02-22 02:10:30 | `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` | rebuilt firmware with LCD responsiveness hotfix (PASS)
 - 2026-02-22 02:10:45 | `./tools/flash_frdmmcxn947.sh mcuxsdk_ws/build_adaptive_reasoning/edgeai_package_transport_anomaly_demo_cm33_core0.bin` | flashed LCD responsiveness hotfix to FRDM-MCXN947 (PASS, probe `2PZWMSBKUXU22`)
 - 2026-02-22 02:11:05 | update `docs/PROJECT_STATE.md` and `STATUS.md` | documented LCD responsiveness hotfix root cause, fix details, and verification
+- 2026-02-22 02:11:40 | `git add src/par_lcd_s035.c docs/PROJECT_STATE.md docs/COMMAND_LOG.md STATUS.md && git commit -m "Fix LCD/touch responsiveness after buffered fill change" && git push origin main` | committed and pushed LCD/touch responsiveness hotfix (`8f48e3f`)

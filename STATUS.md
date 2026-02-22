@@ -5,6 +5,7 @@ Last updated: 2026-02-22
 - Project build target: `edgeai_package_transport_anomaly_demo` (`frdmmcxn947/cm33_core0`)
 - Current build status: PASS (`mcuxsdk_ws/build_adaptive_reasoning`)
 - Flash status: PASS in this session (probe `2PZWMSBKUXU22`)
+- Latest hotfix: PASS (LCD/touch responsiveness mitigation in `par_lcd_s035_fill_rect`, 2026-02-22)
 
 ## UI Control Scope (Updated)
 - AI enable/disable is settings-only.

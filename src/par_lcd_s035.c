@@ -20,7 +20,7 @@
  */
 #define EDGEAI_LCD_WIDTH  480u
 #define EDGEAI_LCD_HEIGHT 320u
-#define EDGEAI_LCD_FILL_CHUNK_PIXELS 2048u
+#define EDGEAI_LCD_FILL_CHUNK_PIXELS 512u
 
 #define EDGEAI_LCD_RST_GPIO GPIO4
 #define EDGEAI_LCD_RST_PIN  7u
@@ -235,6 +235,8 @@ void par_lcd_s035_fill_rect(int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint
     uint32_t h = (uint32_t)(y1 - y0 + 1);
     uint32_t total = w * h;
     static uint16_t chunk[EDGEAI_LCD_FILL_CHUNK_PIXELS];
+    static uint16_t cached_color = 0u;
+    static bool chunk_valid = false;
     uint32_t chunk_pixels = EDGEAI_LCD_FILL_CHUNK_PIXELS;
 
     if (chunk_pixels == 0u)
@@ -242,9 +244,14 @@ void par_lcd_s035_fill_rect(int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint
         return;
     }
 
-    for (uint32_t i = 0; i < chunk_pixels; i++)
+    if (!chunk_valid || cached_color != rgb565)
     {
-        chunk[i] = rgb565;
+        for (uint32_t i = 0; i < chunk_pixels; i++)
+        {
+            chunk[i] = rgb565;
+        }
+        cached_color = rgb565;
+        chunk_valid = true;
     }
 
     ST7796S_SelectArea(&s_lcdHandle, (uint16_t)x0, (uint16_t)y0, (uint16_t)x1, (uint16_t)y1);

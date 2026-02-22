@@ -25,6 +25,16 @@ Project: `EdgeAI_Package_Transport_Anomaly_demo_NXP_FRDM-MCXN947`
   - failsafe active: `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_failsafe_active.bin`
   - sha256: `ba344ca335e1c67cbc842425b7bf017d9432ad2ae8ca8b61fc7833d94683fc87`
 
+## Update 2026-02-22 (LCD Responsiveness Hotfix)
+- User-reported regression: slower display updates and touch response after buffered fill rollout.
+- Root cause: `par_lcd_s035_fill_rect()` repopulated a large color chunk buffer on every call, including many tiny UI rectangles each frame.
+- Fix in `src/par_lcd_s035.c`:
+  - reduced `EDGEAI_LCD_FILL_CHUNK_PIXELS` from `2048` to `512` (shorter DMA bursts),
+  - added cached-color chunk reuse so fill buffer is repopulated only when color changes.
+- Verification:
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` (PASS)
+  - `./tools/flash_frdmmcxn947.sh mcuxsdk_ws/build_adaptive_reasoning/edgeai_package_transport_anomaly_demo_cm33_core0.bin` (PASS, probe `2PZWMSBKUXU22`)
+
 ## Update 2026-02-22 (AI Toggle Settings-Only)
 - Updated UI/control flow so AI enable/disable is no longer touch-toggleable from the main screen.
 - AI mode is now controlled only from Settings:

@@ -7,9 +7,17 @@ Project: `EdgeAI_Package_Transport_Anomaly_demo_NXP_FRDM-MCXN947`
 - Lifecycle: initialized
 - App target: `edgeai_package_transport_anomaly_demo`
 - Build target: `frdmmcxn947` / `cm33_core0`
-- Golden tag: `GOLDEN-20260222-020527`
+- Golden tag: `GOLDEN-20260222-032039`
 - Lock tag: `FAILSAFE-ACTIVE`
 - Failsafe binary: `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_failsafe_active.bin`
+
+## Update 2026-02-22 (Golden/Failsafe Refresh Before Alert-Pipeline Simplification)
+- Cut fresh local golden and promoted active failsafe from current build output:
+  - golden tag: `GOLDEN-20260222-032039`
+  - golden binary: `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_golden_20260222T032039Z.bin`
+  - failsafe active: `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_failsafe_active.bin`
+  - sha256: `a27524b891f037aa1c4602cd0d5635b49deae15d221cd619b1e35381abaefc8d`
+- Purpose: lock an operator-verified restore point before consolidating alert/status architecture.
 
 ## Update 2026-02-22 (LCD Fill Chunk Buffer + Golden/Failsafe Refresh)
 - Implemented RAM chunk-buffered LCD rectangle fill path in `src/par_lcd_s035.c`:

@@ -11,14 +11,20 @@ Last updated: 2026-02-22
 - Latest architecture update: PASS (canonical alert status path + persisted alert status/reason/score in flash rows, 2026-02-22)
 - Latest predictive warning update: PASS (inverted/tilt, temp-approach, erratic-motion warning reasons, 2026-02-22)
 - Latest capture fidelity update: PASS (100Hz accel buffering with interval peak capture for logs/flash, 2026-02-22)
+- Latest gyro verification update: PASS (confirmed GY pipeline mapping; fixed terminal `GYR` line to report true gyro channels instead of accel channels, 2026-02-22)
+- Latest gyro source fix: PASS (gyro peak/log/record windows now use true gyro dps channels, not accel-derived UI orientation channels, 2026-02-22)
 - Latest buffer extension update: PASS (gyro + magnetometer interval-peak buffering; temp/baro unchanged, 2026-02-22)
 - Latest label update: PASS (`SCORE WARN/FAIL` display renamed to `SHIFT/BREAK`, 2026-02-22)
 - Latest UI/runtime update: PASS (elapsed clock expanded to `HHHH:MM:SS`, scope graph switched to `GX/GY/GZ` with color legend, settings `CLEAR FLASH` confirm added, 2026-02-22)
+- Latest flash-row integrity update: PASS (recorder/log path now refreshes frame sample at emit/write time so `AS/RC/SC` + timestamp rows are current even when UI redraw is paused, 2026-02-22)
 - Latest scope fix: PASS (restored `AX/AY/AZ/T` plots and added `GX/GY/GZ`; gyro labels placed to right of accel/temp legend, 2026-02-22)
 - Latest gyro sphere fix: PASS (artifact line cleanup + corrected direct X/Y axis mapping, 2026-02-22)
 - Latest scope feed fix: PASS (gyro traces now use true gyro feed, not accel overlap; model metadata moved inside settings popup, 2026-02-22)
 - Latest clear-flash fix: PASS (confirm popup now opens reliably from settings and no freeze on clear action, 2026-02-22)
 - Latest confirm-priority fix: PASS (clear/record confirm works in LIVE mode; manual clear also resets record elapsed counter, 2026-02-22)
+- Latest alert-hold update: PASS (warning/fault statuses now persist for a minimum visibility window: WARN=5s, FAIL=8s, 2026-02-22)
+- Latest alert-priority update: PASS (higher severity preempts lower held alerts; stronger warning reasons replace weaker warning holds, 2026-02-22)
+- Latest docs update: PASS (README and AI runtime reference expanded with complete AI/non-AI behavior and operator instructions, 2026-02-22)
 
 ## UI Control Scope (Updated)
 - AI enable/disable is settings-only.
@@ -74,10 +80,10 @@ Last updated: 2026-02-22
   - alert banner now shows `NORMAL TRACKING` without the `WARNING` prefix when that detail is active.
 
 ## Golden Baseline (Active)
-- Golden tag: `GOLDEN-20260222-032039`
+- Golden tag: `GOLDEN-20260222-045031`
 - Active failsafe: `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_failsafe_active.bin`
-- Golden image: `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_golden_20260222T032039Z.bin`
-- sha256: `a27524b891f037aa1c4602cd0d5635b49deae15d221cd619b1e35381abaefc8d`
+- Golden image: `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_golden_20260222T045031Z.bin`
+- sha256: `67b7bc651ba7319196ef462834380ff40c8f30d8202ef1aab42f9715a85b087f`
 
 ## Frozen Features in Golden
 - Accelerometer sphere gauge with fast redraw.

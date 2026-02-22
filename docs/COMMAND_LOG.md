@@ -613,3 +613,81 @@ Format:
 2026-02-22T04:24:15Z | flashed build with confirm-freeze fix and elapsed reset on manual clear
 2026-02-22T04:24:31Z | updated PROJECT_STATE.md and STATUS.md for confirm-touch priority (LIVE mode) and elapsed reset on manual clear
 2026-02-22T04:24:35Z | checked git status before commit for confirm priority/elapsed reset fix
+2026-02-22T04:27:23Z | audited sensor-to-scope pipeline symbols for accel/gyro/temp mapping
+2026-02-22T04:27:43Z | scope gyro traces no longer fallback to accel channels when gyro invalid (use zero baseline)
+2026-02-22T04:27:51Z | playback path now feeds recorded gx/gy/gz into renderer gyro trace/state
+2026-02-22T04:28:00Z | rebuild after de-mingling gyro scope fallback and playback gyro feed fix
+2026-02-22T04:28:15Z | flashed build with de-mingled gyro traces and playback gyro feed fix
+
+- 2026-02-22T00:00:00Z CMD: read package project governance/state/runbook
+
+- 2026-02-22T00:00:00Z CMD: inspect package project and locate local docs
+
+- 2026-02-22T00:00:00Z CMD: read project startup/hardware/build/restore docs
+
+- 2026-02-22T00:00:00Z CMD: grep flash/timestamp/alert recording pipeline symbols
+
+- 2026-02-22T00:00:00Z CMD: inspect ext_flash_recorder interface + core implementation
+
+- 2026-02-22T00:00:00Z CMD: inspect append/read/playback/ui-settings sections in ext_flash_recorder
+
+- 2026-02-22T00:00:00Z CMD: locate write callsites and alert/timestamp field producers
+
+- 2026-02-22T00:00:00Z CMD: inspect alert status/reason generation in power_data_source
+
+- 2026-02-22T00:00:00Z CMD: inspect anomaly status calc + flash append/read path in main app
+
+- 2026-02-22T00:00:00Z CMD: inspect UI alert reason rendering and sample feed mapping
+
+- 2026-02-22T00:00:00Z CMD: trace s_frame_sample lifecycle for recorded alert fields
+
+- 2026-02-22T00:00:00Z CMD: inspect frame sample refresh cadence vs recorder write cadence
+
+- 2026-02-22T00:00:00Z CMD: build after fresh-frame logging/flash-write fix (PASS expected)
+
+- 2026-02-22T00:00:00Z CMD: flash build with fresh-frame logging/flash-write fix
+
+- 2026-02-22T00:00:00Z CMD: inspect STATUS.md for update format
+
+- 2026-02-22T00:00:00Z CMD: inspect top of PROJECT_STATE for new update insertion
+
+- 2026-02-22T00:00:00Z CMD: patch recorder/log sample refresh + update PROJECT_STATE/STATUS for flash-row integrity
+
+- 2026-02-22T00:00:00Z CMD: capture line references for flash write/read/timestamp/report
+- 2026-02-22T00:00:00Z CMD: inspect gyro sensor read mapping + scope push + GaugeRender_SetGyro
+- 2026-02-22T00:00:00Z CMD: inspect terminal GYR line mapping in gauge_render
+- 2026-02-22T00:00:00Z CMD: build after fixing terminal GYR line to true gyro channels
+- 2026-02-22T00:00:00Z CMD: flash after fixing GYR line mapping
+- 2026-02-22T00:00:00Z CMD: update docs/PROJECT_STATE.md + STATUS.md for GY verification and terminal mapping fix
+- 2026-02-22T00:00:00Z CMD: deep trace gyro Y render/graph mapping path
+- 2026-02-22T00:00:00Z CMD: inspect gyro widget dynamic implementation
+- 2026-02-22T00:00:00Z CMD: inspect live peak buffer source assignments for gyro channels
+- 2026-02-22T00:00:00Z CMD: build after fixing gyro peak/log/record source to true gyro dps channels
+- 2026-02-22T00:00:00Z CMD: flash after gyro peak/log/record source correction
+- 2026-02-22T00:00:00Z CMD: update docs/PROJECT_STATE.md + STATUS.md for GY root-cause fix
+- 2026-02-22T00:00:00Z CMD: inspect alert hold behavior in UI/runtime paths
+- 2026-02-22T00:00:00Z CMD: inspect ApplyAnomalyToFrame for status hold insertion point
+- 2026-02-22T00:00:00Z CMD: inspect top of file for timebase forward declaration placement
+- 2026-02-22T00:00:00Z CMD: inspect function prototype block
+- 2026-02-22T00:00:00Z CMD: build attempt after alert-hold change failed due missing TimebaseNowTicks forward declaration
+- 2026-02-22T00:00:00Z CMD: rebuild after adding TimebaseNowTicks forward declaration (PASS)
+- 2026-02-22T00:00:00Z CMD: flash after adding time-based alert hold
+- 2026-02-22T00:00:00Z CMD: update docs/PROJECT_STATE.md + STATUS.md for alert visibility hold
+- 2026-02-22T00:00:00Z CMD: locate alert-hold constants/docs for retune to WARN=5s FAIL=8s
+- 2026-02-22T00:00:00Z CMD: build after alert hold retune to WARN=5s FAIL=8s
+- 2026-02-22T00:00:00Z CMD: flash after retuning alert hold to WARN=5s FAIL=8s
+- 2026-02-22T00:00:00Z CMD: update docs/PROJECT_STATE.md + STATUS.md for alert hold retune
+- 2026-02-22T00:00:00Z CMD: inspect current alert hold logic before severity-priority patch
+- 2026-02-22T00:00:00Z CMD: build after severity-priority alert hold patch
+- 2026-02-22T00:00:00Z CMD: flash after severity-priority alert hold patch
+- 2026-02-22T00:00:00Z CMD: update docs/PROJECT_STATE.md + STATUS.md for severity-priority alert hold behavior
+- 2026-02-22T00:00:00Z CMD: inspect repo/tools/docs/remotes before docs+golden+push workflow
+- 2026-02-22T00:00:00Z CMD: read README/SYSTEM_DESIGN/restore docs for release update
+- 2026-02-22T00:00:00Z CMD: inspect STATUS.md before comprehensive documentation update
+- 2026-02-22T00:00:00Z CMD: rewrite README.md with full AI-layer architecture, operator workflow, and integration instructions
+- 2026-02-22T00:00:00Z CMD: add docs/AI_RUNTIME_REFERENCE.md detailing all AI + non-AI runtime functions
+- 2026-02-22T00:00:00Z CMD: update docs/SYSTEM_DESIGN.md with current alert-priority hold behavior and AI reference link
+- 2026-02-22T00:00:00Z CMD: cut golden/failsafe artifact from build_adaptive_reasoning and capture release metadata
+- 2026-02-22T00:00:00Z CMD: locate existing golden metadata references for synchronized update
+- 2026-02-22T00:00:00Z CMD: update restore metadata files (START_HERE/RESTORE_POINTS/failsafe.md/README_GOLDEN/STATUS/PROJECT_STATE) to GOLDEN-20260222-045031 sha256=67b7bc651ba7319196ef462834380ff40c8f30d8202ef1aab42f9715a85b087f
+- 2026-02-22T00:00:00Z CMD: final pre-commit review (status + diffstat) for docs release + golden cut

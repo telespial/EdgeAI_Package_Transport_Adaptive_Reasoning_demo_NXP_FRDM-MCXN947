@@ -7,9 +7,85 @@ Project: `EdgeAI_Package_Transport_Anomaly_demo_NXP_FRDM-MCXN947`
 - Lifecycle: initialized
 - App target: `edgeai_package_transport_anomaly_demo`
 - Build target: `frdmmcxn947` / `cm33_core0`
-- Golden tag: `GOLDEN-20260222-032039`
+- Golden tag: `GOLDEN-20260222-045031`
 - Lock tag: `FAILSAFE-ACTIVE`
 - Failsafe binary: `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_failsafe_active.bin`
+
+## Update 2026-02-22 (Documentation Expansion: AI + System Functions)
+- Updated user-facing and engineering docs to fully describe the current runtime behavior:
+  - rewritten `README.md` with full architecture, operation flow, and integration instructions,
+  - added `docs/AI_RUNTIME_REFERENCE.md` with complete AI/non-AI function inventory,
+  - updated `docs/SYSTEM_DESIGN.md` with current alert hold/priority behavior and reference link.
+- Scope of documentation now explicitly covers:
+  - intelligence-layer logic and reason-code behavior,
+  - host firmware responsibilities and control boundaries,
+  - operator controls, modes, persistence, and logging evidence model.
+
+## Update 2026-02-22 (Golden/Failsafe Release Cut: GOLDEN-20260222-045031)
+- Cut a new timestamped golden artifact and promoted active failsafe from current validated build output:
+  - golden tag: `GOLDEN-20260222-045031`
+  - golden binary: `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_golden_20260222T045031Z.bin`
+  - failsafe active: `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_failsafe_active.bin`
+  - sha256: `67b7bc651ba7319196ef462834380ff40c8f30d8202ef1aab42f9715a85b087f`
+- Synchronized restore metadata in:
+  - `docs/START_HERE.md`
+  - `docs/RESTORE_POINTS.md`
+  - `docs/failsafe.md`
+  - `failsafe/README_GOLDEN.txt`
+  - `STATUS.md`
+
+## Update 2026-02-22 (Alert Visibility Hold: Warning/Fault Persistence)
+- Added explicit time-based alert hold in frame anomaly application path so transient recoveries do not immediately clear operator warnings.
+- Hold behavior:
+  - `WARNING` alerts are held for `5s` minimum.
+  - `FAULT` alerts are held for `8s` minimum.
+  - Held state preserves both status and reason code text while active.
+- Severity-priority behavior:
+  - higher severity always preempts lower severity (`FAULT` > `WARNING` > `NORMAL`) even if lower-severity hold time remains.
+  - when both are `WARNING`, higher-priority warning reasons replace weaker held reasons (limit warnings > predictive warnings > score/watch).
+- Implementation notes:
+  - hold timer is timebase-driven (`TimebaseNowTicks`) rather than frame-count-driven, so behavior remains stable across UI refresh cadence changes.
+- Verification:
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` (PASS)
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh` (PASS, probe `2PZWMSBKUXU22`)
+
+## Update 2026-02-22 (GY Root-Cause Fix: Gyro Buffer Source)
+- Root cause found for incorrect/weak `GY` behavior in logs/recorded stream:
+  - 100 Hz gyro peak windows (`log` and `capture`) were fed from accel-derived UI orientation fields (`s_ui_gyro_*`) instead of true gyro rate channels.
+- Fix:
+  - added dedicated live gyro rate channels (`s_live_gyro_x_dps`, `s_live_gyro_y_dps`, `s_live_gyro_z_dps`) sourced directly from IMU gyro registers.
+  - rewired gyro peak-window update/consume paths to use those true gyro channels.
+  - zeroed live gyro channels when gyro sensor is unavailable to avoid stale carryover.
+- Result:
+  - `GX/GY/GZ` in buffered logging and flash recording now reflect real gyro rates, independent of accel/sphere orientation mapping.
+- Verification:
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` (PASS)
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh` (PASS, probe `2PZWMSBKUXU22`)
+
+## Update 2026-02-22 (GY Verification + Terminal Mapping Fix)
+- Verified gyro data path wiring in firmware:
+  - sensor read mapping is `OUTX/OUTY/OUTZ` -> `gx/gy/gz` from LSM6-family IMU registers.
+  - graph traces `GX/GY/GZ` are sourced from `GaugeRender_SetGyro(gx, gy, gz, valid)`.
+- Found and fixed display bug causing operator confusion:
+  - terminal `GYR X/Y/Z` text was incorrectly showing accel channels (`gAccel*`) instead of gyro channels (`gGyro*`).
+  - updated terminal line to show `gGyroXdps/gGyroYdps/gGyroZdps` (or zero when gyro invalid).
+- Verification:
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` (PASS)
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh` (PASS, probe `2PZWMSBKUXU22`)
+
+## Update 2026-02-22 (Flash Row Integrity: Fresh Alert/Score Snapshot Per Write)
+- Verified external-flash recorder payload includes full row data:
+  - timestamp: `ts_ds`
+  - alert fields: `alert_status`, `alert_reason_code`, `anomaly_score_pct`
+  - sensor channels: accel/gyro/temp/mag/baro/sht/stts
+- Fixed stale-frame risk for persisted alert fields:
+  - recorder write path now refreshes frame sample immediately before each `ExtFlashRecorder_AppendSampleEx(...)` call.
+  - UART `LOG,...AS/RC/SC` line now also uses a freshly computed frame sample each emit cycle.
+- Result:
+  - alert status, reason code, and score written to flash are synchronized with the current anomaly snapshot at write time (not dependent on last UI redraw timing).
+- Verification:
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` (PASS)
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/flash_frdmmcxn947.sh` (PASS, probe `2PZWMSBKUXU22`)
 
 ## Update 2026-02-22 (Elapsed Time Width + Gyro Scope + Settings Clear Flash)
 - Expanded elapsed-time hour display width:

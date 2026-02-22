@@ -537,9 +537,9 @@ static void PushScopeSample(void)
     uint8_t ax = ScaleSignedTo8(acc_x, 2000);
     uint8_t ay = ScaleSignedTo8(acc_y, 2000);
     uint8_t az = ScaleSignedTo8(acc_z, 2000);
-    uint8_t gx = ScaleSignedTo8(gGyroValid ? gGyroXdps : gAccelXmg, 2000);
-    uint8_t gy = ScaleSignedTo8(gGyroValid ? gGyroYdps : gAccelYmg, 2000);
-    uint8_t gz = ScaleSignedTo8(gGyroValid ? gGyroZdps : gAccelZmg, 2000);
+    uint8_t gx = gGyroValid ? ScaleSignedTo8(gGyroXdps, 2000) : ScaleSignedTo8(0, 2000);
+    uint8_t gy = gGyroValid ? ScaleSignedTo8(gGyroYdps, 2000) : ScaleSignedTo8(0, 2000);
+    uint8_t gz = gGyroValid ? ScaleSignedTo8(gGyroZdps, 2000) : ScaleSignedTo8(0, 2000);
     uint8_t tp = ScaleTo8(t, 100u);
     uint8_t bp = ScaleTo8((uint32_t)ClampI32((int32_t)gBaroDhpa - 9600, 0, 1200), 1200u);
     uint8_t rh = ScaleTo8((uint32_t)ClampI32(gShtRhDpct, 0, 1000), 1000u);
@@ -1868,7 +1868,11 @@ static void DrawTerminalDynamic(const gauge_style_preset_t *style, const power_s
     FormatTempCF(line, sizeof(line), DisplayTempC10(sample));
     DrawTerminalLine(TERM_Y + 58, line, style->palette.text_primary);
 
-    snprintf(line, sizeof(line), "GYR X%+4d Y%+4d Z%+4d", (int)gAccelXmg, (int)gAccelYmg, (int)gAccelZmg);
+    snprintf(line, sizeof(line),
+             "GYR X%+4d Y%+4d Z%+4d",
+             (int)(gGyroValid ? gGyroXdps : 0),
+             (int)(gGyroValid ? gGyroYdps : 0),
+             (int)(gGyroValid ? gGyroZdps : 0));
     DrawTerminalLine(TERM_Y + 74, line, RGB565(170, 240, 255));
 
     if (gLinAccelValid)

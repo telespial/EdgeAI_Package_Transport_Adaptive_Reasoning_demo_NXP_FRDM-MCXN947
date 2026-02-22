@@ -1,6 +1,6 @@
 # System Design
 
-Last updated: 2026-02-17
+Last updated: 2026-02-22
 Project: `EdgeAI_Package_Transport_Anomaly_demo_NXP_FRDM-MCXN947`
 
 ## 1) Firmware Runtime Processes
@@ -38,6 +38,10 @@ Project: `EdgeAI_Package_Transport_Anomaly_demo_NXP_FRDM-MCXN947`
   - alert banner status/color
   - terminal anomaly tags (`AX/AY/AZ/T`)
   - risk-channel percentages in the sample frame
+- Runtime adds severity-prioritized alert hold behavior:
+  - warning hold: 5s
+  - fault hold: 8s
+  - higher severity always overrides lower held severity.
 
 ## 2) Sensor Architecture
 
@@ -115,3 +119,7 @@ Project: `EdgeAI_Package_Transport_Anomaly_demo_NXP_FRDM-MCXN947`
 - Golden and active failsafe artifacts are cut from the current validated build output.
 - Files are stored in `failsafe/` with timestamped golden and pinned active failsafe.
 - `docs/RESTORE_POINTS.md`, `docs/failsafe.md`, `failsafe/README_GOLDEN.txt`, `STATUS.md`, and `docs/COMMAND_LOG.md` are updated together for each restore-point cut.
+
+## 6) Function Reference
+
+- Full runtime function inventory (AI and non-AI): `docs/AI_RUNTIME_REFERENCE.md`.

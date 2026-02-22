@@ -140,6 +140,9 @@ static uint8_t s_shield_gyro_read_fail_streak = 0u;
 static int16_t s_ui_gyro_x = 0;
 static int16_t s_ui_gyro_y = 0;
 static int16_t s_ui_gyro_z = 0;
+static int16_t s_live_gyro_x_dps = 0;
+static int16_t s_live_gyro_y_dps = 0;
+static int16_t s_live_gyro_z_dps = 0;
 static bool s_shield_mag_ready = false;
 static bool s_shield_baro_ready = false;
 static bool s_shield_sht_ready = false;
@@ -187,6 +190,7 @@ static bool AccelI2CInit(void);
 static void ShieldGyroInit(void);
 static uint32_t CoreClockHz(void);
 static bool ShieldImuSupportsShub(uint8_t who);
+static uint64_t TimebaseNowTicks(void);
 
 typedef struct
 {
@@ -283,30 +287,30 @@ static void UpdateSignalPeakWindows(void)
 
     if (!s_gyro_log_peak_valid)
     {
-        s_gyro_log_peak_x_mg = s_ui_gyro_x;
-        s_gyro_log_peak_y_mg = s_ui_gyro_y;
-        s_gyro_log_peak_z_mg = s_ui_gyro_z;
+        s_gyro_log_peak_x_mg = s_live_gyro_x_dps;
+        s_gyro_log_peak_y_mg = s_live_gyro_y_dps;
+        s_gyro_log_peak_z_mg = s_live_gyro_z_dps;
         s_gyro_log_peak_valid = true;
     }
     else
     {
-        s_gyro_log_peak_x_mg = SelectSignedPeakAbs(s_gyro_log_peak_x_mg, s_ui_gyro_x);
-        s_gyro_log_peak_y_mg = SelectSignedPeakAbs(s_gyro_log_peak_y_mg, s_ui_gyro_y);
-        s_gyro_log_peak_z_mg = SelectSignedPeakAbs(s_gyro_log_peak_z_mg, s_ui_gyro_z);
+        s_gyro_log_peak_x_mg = SelectSignedPeakAbs(s_gyro_log_peak_x_mg, s_live_gyro_x_dps);
+        s_gyro_log_peak_y_mg = SelectSignedPeakAbs(s_gyro_log_peak_y_mg, s_live_gyro_y_dps);
+        s_gyro_log_peak_z_mg = SelectSignedPeakAbs(s_gyro_log_peak_z_mg, s_live_gyro_z_dps);
     }
 
     if (!s_gyro_capture_peak_valid)
     {
-        s_gyro_capture_peak_x_mg = s_ui_gyro_x;
-        s_gyro_capture_peak_y_mg = s_ui_gyro_y;
-        s_gyro_capture_peak_z_mg = s_ui_gyro_z;
+        s_gyro_capture_peak_x_mg = s_live_gyro_x_dps;
+        s_gyro_capture_peak_y_mg = s_live_gyro_y_dps;
+        s_gyro_capture_peak_z_mg = s_live_gyro_z_dps;
         s_gyro_capture_peak_valid = true;
     }
     else
     {
-        s_gyro_capture_peak_x_mg = SelectSignedPeakAbs(s_gyro_capture_peak_x_mg, s_ui_gyro_x);
-        s_gyro_capture_peak_y_mg = SelectSignedPeakAbs(s_gyro_capture_peak_y_mg, s_ui_gyro_y);
-        s_gyro_capture_peak_z_mg = SelectSignedPeakAbs(s_gyro_capture_peak_z_mg, s_ui_gyro_z);
+        s_gyro_capture_peak_x_mg = SelectSignedPeakAbs(s_gyro_capture_peak_x_mg, s_live_gyro_x_dps);
+        s_gyro_capture_peak_y_mg = SelectSignedPeakAbs(s_gyro_capture_peak_y_mg, s_live_gyro_y_dps);
+        s_gyro_capture_peak_z_mg = SelectSignedPeakAbs(s_gyro_capture_peak_z_mg, s_live_gyro_z_dps);
     }
 
     if (!s_mag_log_peak_valid)
@@ -374,9 +378,9 @@ static void ConsumeLogPeaks(int16_t *ax_mg,
     }
     else
     {
-        *gx = s_ui_gyro_x;
-        *gy = s_ui_gyro_y;
-        *gz = s_ui_gyro_z;
+        *gx = s_live_gyro_x_dps;
+        *gy = s_live_gyro_y_dps;
+        *gz = s_live_gyro_z_dps;
     }
 
     if (s_mag_log_peak_valid)
@@ -432,9 +436,9 @@ static void ConsumeCapturePeaks(int16_t *ax_mg,
     }
     else
     {
-        *gx = s_ui_gyro_x;
-        *gy = s_ui_gyro_y;
-        *gz = s_ui_gyro_z;
+        *gx = s_live_gyro_x_dps;
+        *gy = s_live_gyro_y_dps;
+        *gz = s_live_gyro_z_dps;
     }
 
     if (s_mag_capture_peak_valid)
@@ -497,13 +501,44 @@ static uint8_t ChannelLevelPct(anomaly_level_t lvl)
     return 5u;
 }
 
+static uint8_t AlertReasonWarningPriority(uint8_t reason)
+{
+    switch (reason)
+    {
+        case ALERT_REASON_ACCEL_WARN:
+        case ALERT_REASON_TEMP_WARN:
+        case ALERT_REASON_GYRO_WARN:
+            return 90u;
+        case ALERT_REASON_ERRATIC_MOTION:
+            return 80u;
+        case ALERT_REASON_INVERTED_WARN:
+            return 75u;
+        case ALERT_REASON_TILT_WARN:
+            return 70u;
+        case ALERT_REASON_TEMP_APPROACH_LOW:
+        case ALERT_REASON_TEMP_APPROACH_HIGH:
+            return 60u;
+        case ALERT_REASON_SCORE_WARN:
+            return 50u;
+        case ALERT_REASON_ANOMALY_WATCH:
+            return 40u;
+        default:
+            return 0u;
+    }
+}
+
 static void ApplyAnomalyToFrame(power_sample_t *dst)
 {
     static bool s_motion_prev_valid = false;
     static int16_t s_prev_ax_mg = 0;
     static int16_t s_prev_ay_mg = 0;
     static int16_t s_prev_az_mg = 0;
+    static uint8_t s_alert_hold_status = AI_STATUS_NORMAL;
+    static uint8_t s_alert_hold_reason = ALERT_REASON_NORMAL;
+    static uint64_t s_alert_hold_until_ticks = 0ull;
     const eil_profile_t *profile = EilProfile_Get();
+    const uint64_t hold_warn_ticks = (uint64_t)s_timebase_hz * 5ull;
+    const uint64_t hold_fault_ticks = (uint64_t)s_timebase_hz * 8ull;
     uint8_t ax = ChannelLevelPct(s_anom_out.channel_level[ANOMALY_CH_AX]);
     uint8_t ay = ChannelLevelPct(s_anom_out.channel_level[ANOMALY_CH_AY]);
     uint8_t az = ChannelLevelPct(s_anom_out.channel_level[ANOMALY_CH_AZ]);
@@ -534,6 +569,7 @@ static void ApplyAnomalyToFrame(power_sample_t *dst)
     bool predicted_temp_approach_high;
     bool predicted_erratic_motion;
     uint16_t gyro_predict_warn_dps;
+    uint64_t now_ticks = TimebaseNowTicks();
 
     if (dst == NULL)
     {
@@ -714,6 +750,55 @@ static void ApplyAnomalyToFrame(power_sample_t *dst)
     {
         dst->ai_status = AI_STATUS_NORMAL;
         dst->alert_reason_code = ALERT_REASON_NORMAL;
+    }
+
+    /* Keep warning/fault visible, while always prioritizing higher-severity alerts. */
+    if (dst->ai_status == AI_STATUS_FAULT)
+    {
+        s_alert_hold_status = dst->ai_status;
+        s_alert_hold_reason = dst->alert_reason_code;
+        s_alert_hold_until_ticks = now_ticks + hold_fault_ticks;
+    }
+    else if (dst->ai_status == AI_STATUS_WARNING)
+    {
+        bool hold_active = (s_alert_hold_status != AI_STATUS_NORMAL) && (now_ticks < s_alert_hold_until_ticks);
+        if (!hold_active || (s_alert_hold_status == AI_STATUS_NORMAL))
+        {
+            s_alert_hold_status = dst->ai_status;
+            s_alert_hold_reason = dst->alert_reason_code;
+            s_alert_hold_until_ticks = now_ticks + hold_warn_ticks;
+        }
+        else if (s_alert_hold_status == AI_STATUS_FAULT)
+        {
+            dst->ai_status = s_alert_hold_status;
+            dst->alert_reason_code = s_alert_hold_reason;
+        }
+        else
+        {
+            uint8_t live_pri = AlertReasonWarningPriority(dst->alert_reason_code);
+            uint8_t hold_pri = AlertReasonWarningPriority(s_alert_hold_reason);
+            if (live_pri >= hold_pri)
+            {
+                s_alert_hold_status = dst->ai_status;
+                s_alert_hold_reason = dst->alert_reason_code;
+                s_alert_hold_until_ticks = now_ticks + hold_warn_ticks;
+            }
+            else
+            {
+                dst->ai_status = s_alert_hold_status;
+                dst->alert_reason_code = s_alert_hold_reason;
+            }
+        }
+    }
+    else if ((s_alert_hold_status != AI_STATUS_NORMAL) && (now_ticks < s_alert_hold_until_ticks))
+    {
+        dst->ai_status = s_alert_hold_status;
+        dst->alert_reason_code = s_alert_hold_reason;
+    }
+    else
+    {
+        s_alert_hold_status = AI_STATUS_NORMAL;
+        s_alert_hold_reason = ALERT_REASON_NORMAL;
     }
 
     dst->ai_fault_flags = 0u;
@@ -2297,6 +2382,9 @@ static void ShieldGyroUpdate(void)
             GaugeRender_SetAccel(0, 0, 1000, false);
             GaugeRender_SetLinearAccel(0, 0, 1000, false);
             GaugeRender_SetGyro(0, 0, 0, false);
+            s_live_gyro_x_dps = 0;
+            s_live_gyro_y_dps = 0;
+            s_live_gyro_z_dps = 0;
             return;
         }
     }
@@ -2306,6 +2394,9 @@ static void ShieldGyroUpdate(void)
         GaugeRender_SetAccel(0, 0, 1000, false);
         GaugeRender_SetLinearAccel(0, 0, 1000, false);
         GaugeRender_SetGyro(0, 0, 0, false);
+        s_live_gyro_x_dps = 0;
+        s_live_gyro_y_dps = 0;
+        s_live_gyro_z_dps = 0;
         return;
     }
 
@@ -2345,6 +2436,9 @@ static void ShieldGyroUpdate(void)
     gx_dps_signed = (int16_t)((gx_raw * 70) / 1000);
     gy_dps_signed = (int16_t)((gy_raw * 70) / 1000);
     gz_dps_signed = (int16_t)((gz_raw * 70) / 1000);
+    s_live_gyro_x_dps = gx_dps_signed;
+    s_live_gyro_y_dps = gy_dps_signed;
+    s_live_gyro_z_dps = gz_dps_signed;
     gx_dps = (uint16_t)(((gx_raw < 0 ? -gx_raw : gx_raw) * 70) / 1000);
     gy_dps = (uint16_t)(((gy_raw < 0 ? -gy_raw : gy_raw) * 70) / 1000);
     gz_dps = (uint16_t)(((gz_raw < 0 ? -gz_raw : gz_raw) * 70) / 1000);
@@ -3943,6 +4037,7 @@ int main(void)
         {
             uint32_t log_period_us = 100000u;
             uint32_t log_hz = (uint32_t)ClampLogRateHz(s_log_rate_hz);
+            const power_sample_t *log_sample = GetFrameSample();
             int16_t log_ax_mg;
             int16_t log_ay_mg;
             int16_t log_az_mg;
@@ -3976,9 +4071,9 @@ int main(void)
                        (int)(s_baro_dhpa / 10),
                        (int)(s_baro_dhpa < 0 ? -s_baro_dhpa : s_baro_dhpa) % 10,
                        (unsigned int)s_anom_out.overall_level,
-                       (unsigned int)s_frame_sample.ai_status,
-                       (unsigned int)s_frame_sample.alert_reason_code,
-                       (unsigned int)s_frame_sample.anomaly_score_pct);
+                       (unsigned int)((log_sample != NULL) ? log_sample->ai_status : s_frame_sample.ai_status),
+                       (unsigned int)((log_sample != NULL) ? log_sample->alert_reason_code : s_frame_sample.alert_reason_code),
+                       (unsigned int)((log_sample != NULL) ? log_sample->anomaly_score_pct : s_frame_sample.anomaly_score_pct));
             }
         }
 
@@ -3993,6 +4088,7 @@ int main(void)
             recplay_tick_accum_us -= RECPLAY_TICK_PERIOD_US;
             if (ext_flash_ok && record_mode && !GaugeRender_IsLiveBannerMode())
             {
+                const power_sample_t *record_sample = GetFrameSample();
                 int16_t rec_ax_mg;
                 int16_t rec_ay_mg;
                 int16_t rec_az_mg;
@@ -4030,9 +4126,9 @@ int main(void)
                                                      s_sht_temp_c10,
                                                      s_sht_rh_dpct,
                                                      s_stts_temp_c10,
-                                                     s_frame_sample.anomaly_score_pct,
-                                                     s_frame_sample.ai_status,
-                                                     s_frame_sample.alert_reason_code,
+                                                     (record_sample != NULL) ? record_sample->anomaly_score_pct : s_frame_sample.anomaly_score_pct,
+                                                     (record_sample != NULL) ? record_sample->ai_status : s_frame_sample.ai_status,
+                                                     (record_sample != NULL) ? record_sample->alert_reason_code : s_frame_sample.alert_reason_code,
                                                      rec_elapsed_ds))
                 {
                     PRINTF("EXT_FLASH_REC: write_failed\r\n");
@@ -4056,7 +4152,7 @@ int main(void)
                     s_accel_z_mg = playback_sample.az_mg;
                     GaugeRender_SetLinearAccel(s_accel_x_mg, s_accel_y_mg, s_accel_z_mg, true);
                     GaugeRender_SetAccel(s_accel_y_mg, s_accel_x_mg, s_accel_z_mg, true);
-                    GaugeRender_SetGyro(0, 0, 0, false);
+                    GaugeRender_SetGyro(playback_sample.gx_mdps, playback_sample.gy_mdps, playback_sample.gz_mdps, true);
                     s_mag_x_mgauss = playback_sample.mag_x_mgauss;
                     s_mag_y_mgauss = playback_sample.mag_y_mgauss;
                     s_mag_z_mgauss = playback_sample.mag_z_mgauss;

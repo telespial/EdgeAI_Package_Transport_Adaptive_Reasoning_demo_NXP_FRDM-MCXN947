@@ -75,6 +75,35 @@ Project: `EdgeAI_Package_Transport_Anomaly_demo_NXP_FRDM-MCXN947`
   - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` (PASS)
   - `./tools/flash_frdmmcxn947.sh mcuxsdk_ws/build_adaptive_reasoning/edgeai_package_transport_anomaly_demo_cm33_core0.bin` (PASS, probe `2PZWMSBKUXU22`)
 
+## Update 2026-02-22 (Settings Header Visibility Fix + Extension Version)
+- User feedback: model name still not visible in settings.
+- Root cause: settings header used raw lowercase/underscore text, which can render poorly with current small UI font.
+- Fixes:
+  - settings header now uses labeled, uppercase-safe strings:
+    - `MODEL: <MODEL_NAME>`
+    - `EIL EXT: <EXT_VERSION>`
+    - `MODEL V: <MODEL_VERSION>`
+  - added sanitization in renderer to normalize model/version strings for reliable glyph rendering.
+  - extended generated/imported profile metadata to include:
+    - `EIL_MODEL_VERSION`
+    - `EIL_EXTENSION_VERSION`
+  - added getters:
+    - `EilProfile_GetModelVersion()`
+    - `EilProfile_GetExtensionVersion()`
+  - startup now passes all three profile fields into UI via:
+    - `GaugeRender_SetProfileInfo(...)`
+- Files changed:
+  - `tools/import_eil_profile.py`
+  - `src/eil_profile_generated.h`
+  - `src/eil_profile.h`
+  - `src/eil_profile.c`
+  - `src/gauge_render.h`
+  - `src/gauge_render.c`
+  - `src/edgeai_package_transport_anomaly_demo.c`
+- Verification:
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` (PASS)
+  - `./tools/flash_frdmmcxn947.sh mcuxsdk_ws/build_adaptive_reasoning/edgeai_package_transport_anomaly_demo_cm33_core0.bin` (PASS, probe `2PZWMSBKUXU22`)
+
 ## Update 2026-02-22 (AI Toggle Settings-Only)
 - Updated UI/control flow so AI enable/disable is no longer touch-toggleable from the main screen.
 - AI mode is now controlled only from Settings:

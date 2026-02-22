@@ -19,3 +19,13 @@ const char *EilProfile_GetModelName(void)
 {
     return EIL_MODEL_NAME;
 }
+
+const char *EilProfile_GetModelVersion(void)
+{
+    return EIL_MODEL_VERSION;
+}
+
+const char *EilProfile_GetExtensionVersion(void)
+{
+    return EIL_EXTENSION_VERSION;
+}

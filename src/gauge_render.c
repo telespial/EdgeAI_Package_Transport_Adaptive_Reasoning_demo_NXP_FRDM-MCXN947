@@ -114,7 +114,38 @@ static uint16_t gLimitGFailMg = 15000u;
 static int16_t gLimitTempLowC10 = 0;
 static int16_t gLimitTempHighC10 = 700;
 static uint16_t gLimitGyroDps = 500u;
-static char gModelName[48] = "unknown";
+static char gModelName[48] = "UNKNOWN";
+static char gModelVersion[16] = "0.0.0";
+static char gExtensionVersion[16] = "0.1.0";
+
+static void CopyUiTextUpper(char *dst, size_t dst_size, const char *src)
+{
+    if ((dst == NULL) || (dst_size == 0u))
+    {
+        return;
+    }
+    if ((src == NULL) || (src[0] == '\0'))
+    {
+        snprintf(dst, dst_size, "%s", "UNKNOWN");
+        return;
+    }
+
+    size_t i = 0u;
+    for (; (src[i] != '\0') && (i < (dst_size - 1u)); i++)
+    {
+        char c = src[i];
+        if ((c >= 'a') && (c <= 'z'))
+        {
+            c = (char)(c - ('a' - 'A'));
+        }
+        else if (c == '_')
+        {
+            c = '-';
+        }
+        dst[i] = c;
+    }
+    dst[i] = '\0';
+}
 
 #define SCOPE_TRACE_POINTS 100u
 #define SCOPE_FAST_STEP_US 100000u
@@ -1258,7 +1289,12 @@ static void DrawSettingsPopup(void)
     DrawLine(x0, y0, x0, y1, 2, edge);
     DrawLine(x1, y0, x1, y1, 2, edge);
     DrawTextUi(x0 + 10, y0 + 8, 2, "SETTINGS", body);
-    DrawTextUi(x0 + 10, y0 + 28, 1, gModelName, dim);
+    DrawTextUi(x0 + 10, y0 + 28, 1, "MODEL:", body);
+    DrawTextUi(x0 + 58, y0 + 28, 1, gModelName, body);
+    DrawTextUi(x0 + 10, y0 + 40, 1, "EIL EXT:", dim);
+    DrawTextUi(x0 + 58, y0 + 40, 1, gExtensionVersion, dim);
+    DrawTextUi(x0 + 110, y0 + 40, 1, "MODEL V:", dim);
+    DrawTextUi(x0 + 166, y0 + 40, 1, gModelVersion, dim);
     DrawPopupCloseButton(x1, y0);
     DrawTextUi(label_col_right - edgeai_text5x7_width(1, "MODE"), mode_label_y, 1, "MODE", body);
     DrawTextUi(label_col_right - edgeai_text5x7_width(1, "RUN"), run_label_y, 1, "RUN", body);
@@ -1354,14 +1390,11 @@ static void DrawSettingsPopup(void)
     }
 }
 
-void GaugeRender_SetModelName(const char *model_name)
+void GaugeRender_SetProfileInfo(const char *model_name, const char *model_version, const char *extension_version)
 {
-    if ((model_name == NULL) || (model_name[0] == '\0'))
-    {
-        snprintf(gModelName, sizeof(gModelName), "%s", "unknown");
-        return;
-    }
-    snprintf(gModelName, sizeof(gModelName), "%s", model_name);
+    CopyUiTextUpper(gModelName, sizeof(gModelName), model_name);
+    CopyUiTextUpper(gModelVersion, sizeof(gModelVersion), model_version);
+    CopyUiTextUpper(gExtensionVersion, sizeof(gExtensionVersion), extension_version);
 }
 
 static void DrawLimitsPopup(void)

@@ -5,6 +5,8 @@ from pathlib import Path
 
 
 DEFAULT_MODEL_NAME = "package_monitor_v1"
+DEFAULT_MODEL_VERSION = "0.0.0"
+DEFAULT_EXTENSION_VERSION = "0.1.0"
 DEFAULT_WARN = 0.05
 DEFAULT_FAIL = 0.15
 
@@ -30,6 +32,7 @@ def load_model(path: Path) -> dict:
 
 def extract_profile(model: dict) -> dict:
     name = model.get("name") or DEFAULT_MODEL_NAME
+    version = model.get("version") or DEFAULT_MODEL_VERSION
     alerts = model.get("alertThresholds") or {}
     warn = float(alerts.get("warn", DEFAULT_WARN))
     fail = float(alerts.get("fail", DEFAULT_FAIL))
@@ -52,6 +55,8 @@ def extract_profile(model: dict) -> dict:
 
     return {
         "name": name,
+        "version": str(version),
+        "extension_version": DEFAULT_EXTENSION_VERSION,
         "warn": warn,
         "fail": fail,
         "weights": weights,
@@ -68,6 +73,8 @@ def render_header(profile: dict) -> str:
  */
 
 #define EIL_MODEL_NAME "{profile["name"]}"
+#define EIL_MODEL_VERSION "{profile["version"]}"
+#define EIL_EXTENSION_VERSION "{profile["extension_version"]}"
 
 #define EIL_ALERT_WARN {format_f32(profile["warn"])}
 #define EIL_ALERT_FAIL {format_f32(profile["fail"])}

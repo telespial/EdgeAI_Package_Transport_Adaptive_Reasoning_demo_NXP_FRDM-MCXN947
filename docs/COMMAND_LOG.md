@@ -606,3 +606,10 @@ Format:
 2026-02-22T04:21:11Z | flashed build with clear-flash confirm deadlock fix
 2026-02-22T04:21:28Z | updated PROJECT_STATE.md and STATUS.md for clear-flash confirm deadlock fix
 2026-02-22T04:21:32Z | checked git status before committing clear-flash confirm fix
+2026-02-22T04:23:14Z | inspected main touch loop and GaugeRender_HandleTouch confirm logic for freeze root cause
+2026-02-22T04:23:43Z | fixed confirm freeze by prioritizing record/clear confirm touch handling before popup/live timeline blocking
+2026-02-22T04:23:50Z | added rec_elapsed_ds reset on manual clear-flash confirm path
+2026-02-22T04:23:59Z | rebuild after clear-confirm touch priority fix and elapsed reset update
+2026-02-22T04:24:15Z | flashed build with confirm-freeze fix and elapsed reset on manual clear
+2026-02-22T04:24:31Z | updated PROJECT_STATE.md and STATUS.md for confirm-touch priority (LIVE mode) and elapsed reset on manual clear
+2026-02-22T04:24:35Z | checked git status before commit for confirm priority/elapsed reset fix

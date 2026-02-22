@@ -3736,6 +3736,7 @@ int main(void)
             playback_active = false;
             GaugeRender_SetPlayhead(99u, false);
             runtime_elapsed_ds = 0u;
+            rec_elapsed_ds = 0u;
             runtime_displayed_sec = UINT32_MAX;
             runtime_clock_start_ticks = TimebaseNowTicks();
             GaugeRender_SetRuntimeClock(0u, 0u, 0u, 0u, true);

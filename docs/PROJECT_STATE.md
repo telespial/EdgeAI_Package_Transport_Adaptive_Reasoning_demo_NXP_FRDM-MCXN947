@@ -70,6 +70,17 @@ Project: `EdgeAI_Package_Transport_Anomaly_demo_NXP_FRDM-MCXN947`
   - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` (PASS)
   - `./tools/flash_frdmmcxn947.sh mcuxsdk_ws/build_adaptive_reasoning/edgeai_package_transport_anomaly_demo_cm33_core0.bin` (PASS, probe `2PZWMSBKUXU22`)
 
+## Update 2026-02-22 (Confirm Touch Priority + Elapsed Reset on Manual Clear)
+- Fixed remaining clear-confirm freeze path in `LIVE` mode:
+  - record/clear confirm touch handling is now processed before live-mode timeline blocking,
+  - confirms (`YES/NO`) are accepted regardless of run mode.
+- Elapsed-time reset enhancement:
+  - manual clear (`CLEAR FLASH` confirm YES) now also resets record elapsed counter (`rec_elapsed_ds`),
+  - runtime elapsed clock reset remains in place.
+- Verification:
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` (PASS)
+  - `./tools/flash_frdmmcxn947.sh mcuxsdk_ws/build_adaptive_reasoning/edgeai_package_transport_anomaly_demo_cm33_core0.bin` (PASS, probe `2PZWMSBKUXU22`)
+
 ## Update 2026-02-22 (Alert Pipeline Simplification + Flash Alert Logging)
 - Simplified runtime status architecture to a single canonical alert pipeline:
   - UI no longer falls back to a separate non-AI rule-status path for banner/terminal status.

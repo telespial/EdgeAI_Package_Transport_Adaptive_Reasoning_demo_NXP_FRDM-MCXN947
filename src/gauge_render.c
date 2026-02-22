@@ -2672,34 +2672,6 @@ bool GaugeRender_HandleTouch(int32_t x, int32_t y, bool pressed)
     bool changed = false;
     bool live_banner_mode = gLiveBannerMode;
 
-    /* Help/settings popups own touch interaction; block timeline state changes behind them. */
-    if (gHelpVisible || gSettingsVisible || gLimitsVisible)
-    {
-        if (!pressed)
-        {
-            gTimelineTouchLatch = false;
-        }
-        return false;
-    }
-
-    if (live_banner_mode)
-    {
-        if (!pressed)
-        {
-            gTimelineTouchLatch = false;
-        }
-        return false;
-    }
-
-    if (!pressed || (!in_left && !in_right))
-    {
-        gTimelineTouchLatch = false;
-        if (!pressed)
-        {
-            return false;
-        }
-    }
-
     if (gRecordConfirmActive)
     {
         if (!pressed)
@@ -2736,6 +2708,34 @@ bool GaugeRender_HandleTouch(int32_t x, int32_t y, bool pressed)
             }
         }
         return changed;
+    }
+
+    /* Help/settings popups own touch interaction; block timeline state changes behind them. */
+    if (gHelpVisible || gSettingsVisible || gLimitsVisible)
+    {
+        if (!pressed)
+        {
+            gTimelineTouchLatch = false;
+        }
+        return false;
+    }
+
+    if (live_banner_mode)
+    {
+        if (!pressed)
+        {
+            gTimelineTouchLatch = false;
+        }
+        return false;
+    }
+
+    if (!pressed || (!in_left && !in_right))
+    {
+        gTimelineTouchLatch = false;
+        if (!pressed)
+        {
+            return false;
+        }
     }
 
     if (!pressed || (!in_left && !in_right))

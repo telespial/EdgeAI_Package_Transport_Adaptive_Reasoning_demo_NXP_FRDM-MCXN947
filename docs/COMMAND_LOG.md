@@ -820,3 +820,4 @@ EOF && git add README.md docs/PROJECT_STATE.md docs/COMMAND_LOG.md && git commit
 - 2026-02-22 07:48:52 | update .gitignore + git rm --cached AGENTS.md | hide AGENTS instructions from GitHub while keeping local file
 - 2026-02-22 07:49:05 | update docs/PROJECT_STATE.md | recorded AGENTS.md hide/untrack repo-hygiene change
 - 2026-02-22 07:49:10 | git add failed due ignored AGENTS.md path | retrying with tracked updates only
+- 2026-02-22 07:49:17 | post-push verification (AGENTS local presence + git status) | confirmed AGENTS no longer tracked on GitHub

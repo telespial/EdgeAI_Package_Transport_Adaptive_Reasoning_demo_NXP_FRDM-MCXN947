@@ -573,3 +573,10 @@ Format:
 2026-02-22T04:05:47Z | updated STATUS.md with latest elapsed-clock/gyro-scope/clear-flash feature status
 2026-02-22T04:05:53Z | checked git status before commit/push
 2026-02-22T04:06:07Z | committed/pushed feature update commit 326a6a6 (gyro scope, 4-digit elapsed clock, settings clear-flash confirm)
+2026-02-22T04:06:44Z | inspected current scope draw and legend blocks after user regression report
+2026-02-22T04:07:10Z | restored accel+temp scope traces and legend, added gyro traces/legend to the right with matching colors
+2026-02-22T04:07:19Z | rebuild after restoring accel/temp scope and adding gyro traces simultaneously
+2026-02-22T04:07:33Z | flashed build with restored accel/temp scope plus added gyro traces/legend
+2026-02-22T04:07:45Z | updated PROJECT_STATE.md with scope regression fix (restore accel/temp + add gyro)
+2026-02-22T04:07:54Z | updated STATUS.md with scope regression fix status
+2026-02-22T04:07:57Z | checked git status before committing scope regression fix

@@ -29,6 +29,17 @@ Project: `EdgeAI_Package_Transport_Anomaly_demo_NXP_FRDM-MCXN947`
   - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` (PASS)
   - `./tools/flash_frdmmcxn947.sh mcuxsdk_ws/build_adaptive_reasoning/edgeai_package_transport_anomaly_demo_cm33_core0.bin` (PASS, probe `2PZWMSBKUXU22`)
 
+## Update 2026-02-22 (Scope Regression Fix: Restore ACCEL/TEMP + Add GYRO)
+- Fixed scope regression where accel/temp traces were unintentionally replaced by gyro-only traces.
+- Scope now renders all requested channels together:
+  - accel: `AX`, `AY`, `AZ`
+  - temperature: `T`
+  - gyro: `GX`, `GY`, `GZ`
+- Legend now shows gyro labels to the right of accel/temp labels, with matching trace colors.
+- Verification:
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` (PASS)
+  - `./tools/flash_frdmmcxn947.sh mcuxsdk_ws/build_adaptive_reasoning/edgeai_package_transport_anomaly_demo_cm33_core0.bin` (PASS, probe `2PZWMSBKUXU22`)
+
 ## Update 2026-02-22 (Alert Pipeline Simplification + Flash Alert Logging)
 - Simplified runtime status architecture to a single canonical alert pipeline:
   - UI no longer falls back to a separate non-AI rule-status path for banner/terminal status.

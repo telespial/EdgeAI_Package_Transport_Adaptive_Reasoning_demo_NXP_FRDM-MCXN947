@@ -10,6 +10,7 @@ Last updated: 2026-02-22
 - Latest settings/logging update: PASS (model/version moved near settings footer + configurable `LOG HZ` selector/persistence, 2026-02-22)
 - Latest architecture update: PASS (canonical alert status path + persisted alert status/reason/score in flash rows, 2026-02-22)
 - Latest predictive warning update: PASS (inverted/tilt, temp-approach, erratic-motion warning reasons, 2026-02-22)
+- Latest capture fidelity update: PASS (100Hz accel buffering with interval peak capture for logs/flash, 2026-02-22)
 
 ## UI Control Scope (Updated)
 - AI enable/disable is settings-only.
@@ -35,6 +36,7 @@ Last updated: 2026-02-22
 - Alert detail text is reason-code based (limit/score/watch causes), not score-band-only text.
 - Predictive warning reasons added for package handling supervision:
   - `INVERTED`, `TILTED`, `TEMP LOW SOON`, `TEMP HIGH SOON`, `ERRATIC MOTION`
+- Accel capture now samples at 100 Hz and records interval-max peaks for `AX/AY/AZ` at the configured log/capture output cadence.
 
 ## EIL Model Integration (In Progress)
 - Added EIL profile adapter (`src/eil_profile.h/.c`) with generated constants (`src/eil_profile_generated.h`).

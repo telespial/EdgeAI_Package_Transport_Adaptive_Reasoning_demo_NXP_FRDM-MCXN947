@@ -52,6 +52,20 @@ Project: `EdgeAI_Package_Transport_Anomaly_demo_NXP_FRDM-MCXN947`
   - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` (PASS)
   - `./tools/flash_frdmmcxn947.sh mcuxsdk_ws/build_adaptive_reasoning/edgeai_package_transport_anomaly_demo_cm33_core0.bin` (PASS, probe `2PZWMSBKUXU22`)
 
+## Update 2026-02-22 (100Hz Accel Buffering + Interval Peak Capture)
+- Added dedicated 100 Hz accel sampling loop (`ACCEL_BUFFER_SAMPLE_PERIOD_US = 10000`) decoupled from UI render cadence.
+- Implemented dual peak windows for accel channels:
+  - log window peak (`AX/AY/AZ`) consumed on each `LOG HZ` emit interval,
+  - record window peak (`AX/AY/AZ`) consumed on each flash capture interval.
+- Peak algorithm:
+  - signed value with maximum absolute magnitude per axis is retained for each interval window.
+  - windows reset on consume, then refill from subsequent 100 Hz samples.
+- Result:
+  - short impact spikes between 10/20/50 Hz logging and 10 Hz recording intervals are preserved in emitted/logged samples.
+- Verification:
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` (PASS)
+  - `./tools/flash_frdmmcxn947.sh mcuxsdk_ws/build_adaptive_reasoning/edgeai_package_transport_anomaly_demo_cm33_core0.bin` (PASS, probe `2PZWMSBKUXU22`)
+
 ## Update 2026-02-22 (Golden/Failsafe Refresh Before Alert-Pipeline Simplification)
 - Cut fresh local golden and promoted active failsafe from current build output:
   - golden tag: `GOLDEN-20260222-032039`

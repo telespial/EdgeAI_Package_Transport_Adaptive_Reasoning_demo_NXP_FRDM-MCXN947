@@ -89,6 +89,7 @@
 #define POWER_TICK_PERIOD_US 1000000u
 #define DISPLAY_REFRESH_PERIOD_US 100000u
 #define RECPLAY_TICK_PERIOD_US 100000u
+#define ACCEL_BUFFER_SAMPLE_PERIOD_US 10000u
 #define GYRO_REFRESH_PERIOD_US 100000u
 #define ACCEL_LIVE_PERIOD_US 100000u
 #define RUNTIME_CLOCK_PERIOD_US 100000u
@@ -207,6 +208,101 @@ static const diag_probe_t kDiagProbes[] = {
     {0x5Du, 0x0Fu, "STTS22H?"},
     {0x3Cu, 0x4Fu, "LIS2MDL_ALT8"},
 };
+
+static bool s_accel_log_peak_valid = false;
+static int16_t s_accel_log_peak_x_mg = 0;
+static int16_t s_accel_log_peak_y_mg = 0;
+static int16_t s_accel_log_peak_z_mg = 0;
+static bool s_accel_capture_peak_valid = false;
+static int16_t s_accel_capture_peak_x_mg = 0;
+static int16_t s_accel_capture_peak_y_mg = 0;
+static int16_t s_accel_capture_peak_z_mg = 0;
+
+static int16_t SelectSignedPeakAbs(int16_t current_peak, int16_t sample)
+{
+    int32_t p = (current_peak < 0) ? -current_peak : current_peak;
+    int32_t s = (sample < 0) ? -sample : sample;
+    return (s > p) ? sample : current_peak;
+}
+
+static void ResetAccelPeakWindows(void)
+{
+    s_accel_log_peak_valid = false;
+    s_accel_capture_peak_valid = false;
+}
+
+static void UpdateAccelPeakWindows(void)
+{
+    if (!s_accel_log_peak_valid)
+    {
+        s_accel_log_peak_x_mg = s_accel_x_mg;
+        s_accel_log_peak_y_mg = s_accel_y_mg;
+        s_accel_log_peak_z_mg = s_accel_z_mg;
+        s_accel_log_peak_valid = true;
+    }
+    else
+    {
+        s_accel_log_peak_x_mg = SelectSignedPeakAbs(s_accel_log_peak_x_mg, s_accel_x_mg);
+        s_accel_log_peak_y_mg = SelectSignedPeakAbs(s_accel_log_peak_y_mg, s_accel_y_mg);
+        s_accel_log_peak_z_mg = SelectSignedPeakAbs(s_accel_log_peak_z_mg, s_accel_z_mg);
+    }
+
+    if (!s_accel_capture_peak_valid)
+    {
+        s_accel_capture_peak_x_mg = s_accel_x_mg;
+        s_accel_capture_peak_y_mg = s_accel_y_mg;
+        s_accel_capture_peak_z_mg = s_accel_z_mg;
+        s_accel_capture_peak_valid = true;
+    }
+    else
+    {
+        s_accel_capture_peak_x_mg = SelectSignedPeakAbs(s_accel_capture_peak_x_mg, s_accel_x_mg);
+        s_accel_capture_peak_y_mg = SelectSignedPeakAbs(s_accel_capture_peak_y_mg, s_accel_y_mg);
+        s_accel_capture_peak_z_mg = SelectSignedPeakAbs(s_accel_capture_peak_z_mg, s_accel_z_mg);
+    }
+}
+
+static void ConsumeAccelLogPeaks(int16_t *ax_mg, int16_t *ay_mg, int16_t *az_mg)
+{
+    if ((ax_mg == NULL) || (ay_mg == NULL) || (az_mg == NULL))
+    {
+        return;
+    }
+    if (s_accel_log_peak_valid)
+    {
+        *ax_mg = s_accel_log_peak_x_mg;
+        *ay_mg = s_accel_log_peak_y_mg;
+        *az_mg = s_accel_log_peak_z_mg;
+    }
+    else
+    {
+        *ax_mg = s_accel_x_mg;
+        *ay_mg = s_accel_y_mg;
+        *az_mg = s_accel_z_mg;
+    }
+    s_accel_log_peak_valid = false;
+}
+
+static void ConsumeAccelCapturePeaks(int16_t *ax_mg, int16_t *ay_mg, int16_t *az_mg)
+{
+    if ((ax_mg == NULL) || (ay_mg == NULL) || (az_mg == NULL))
+    {
+        return;
+    }
+    if (s_accel_capture_peak_valid)
+    {
+        *ax_mg = s_accel_capture_peak_x_mg;
+        *ay_mg = s_accel_capture_peak_y_mg;
+        *az_mg = s_accel_capture_peak_z_mg;
+    }
+    else
+    {
+        *ax_mg = s_accel_x_mg;
+        *ay_mg = s_accel_y_mg;
+        *az_mg = s_accel_z_mg;
+    }
+    s_accel_capture_peak_valid = false;
+}
 
 static void ClockFromDeciseconds(uint32_t ds_total, uint8_t *hh, uint8_t *mm, uint8_t *ss, uint8_t *ds)
 {
@@ -2849,6 +2945,7 @@ int main(void)
     uint32_t data_tick_accum_us = 0u;
     uint32_t recplay_tick_accum_us = 0u;
     uint32_t render_tick_accum_us = 0u;
+    uint32_t accel_sample_tick_accum_us = 0u;
     uint32_t gyro_tick_accum_us = 0u;
     uint32_t accel_live_tick_accum_us = 0u;
     uint32_t runtime_clock_tick_accum_us = 0u;
@@ -3406,6 +3503,7 @@ int main(void)
                 train_armed_idle = false;
                 runtime_elapsed_ds = 0u;
                 rec_elapsed_ds = 0u;
+                ResetAccelPeakWindows();
                 runtime_displayed_sec = UINT32_MAX;
                 runtime_clock_start_ticks = TimebaseNowTicks();
                 GaugeRender_SetRuntimeClock(0u, 0u, 0u, 0u, true);
@@ -3422,6 +3520,7 @@ int main(void)
                 playback_active = (!GaugeRender_IsLiveBannerMode()) && ext_flash_ok && ExtFlashRecorder_StartPlayback();
                 train_armed_idle = (anom_mode == ANOMALY_MODE_TRAINED_MONITOR);
                 runtime_elapsed_ds = 0u;
+                ResetAccelPeakWindows();
                 runtime_displayed_sec = UINT32_MAX;
                 runtime_clock_start_ticks = TimebaseNowTicks();
                 GaugeRender_SetRuntimeClock(0u, 0u, 0u, 0u, true);
@@ -3486,6 +3585,7 @@ int main(void)
                 playback_active = false;
                 runtime_elapsed_ds = 0u;
                 rec_elapsed_ds = 0u;
+                ResetAccelPeakWindows();
                 runtime_displayed_sec = UINT32_MAX;
                 runtime_clock_start_ticks = TimebaseNowTicks();
                 GaugeRender_SetRuntimeClock(0u, 0u, 0u, 0u, true);
@@ -3528,6 +3628,7 @@ int main(void)
             data_tick_accum_us += elapsed_loop_us;
             recplay_tick_accum_us += elapsed_loop_us;
             render_tick_accum_us += elapsed_loop_us;
+            accel_sample_tick_accum_us += elapsed_loop_us;
             gyro_tick_accum_us += elapsed_loop_us;
             accel_live_tick_accum_us += elapsed_loop_us;
             temp_tick_accum_us += elapsed_loop_us;
@@ -3547,6 +3648,10 @@ int main(void)
             {
                 render_tick_accum_us = DISPLAY_REFRESH_PERIOD_US * 2u;
             }
+            if (accel_sample_tick_accum_us > (ACCEL_BUFFER_SAMPLE_PERIOD_US * 4u))
+            {
+                accel_sample_tick_accum_us = ACCEL_BUFFER_SAMPLE_PERIOD_US * 4u;
+            }
             if (temp_tick_accum_us > (TEMP_REFRESH_PERIOD_US * 2u))
             {
                 temp_tick_accum_us = TEMP_REFRESH_PERIOD_US * 2u;
@@ -3565,6 +3670,16 @@ int main(void)
             }
         }
 
+        while (accel_sample_tick_accum_us >= ACCEL_BUFFER_SAMPLE_PERIOD_US)
+        {
+            accel_sample_tick_accum_us -= ACCEL_BUFFER_SAMPLE_PERIOD_US;
+            if (!train_armed_idle && !playback_active)
+            {
+                ShieldGyroUpdate();
+                UpdateAccelPeakWindows();
+            }
+        }
+
         while (gyro_tick_accum_us >= GYRO_REFRESH_PERIOD_US)
         {
             gyro_tick_accum_us -= GYRO_REFRESH_PERIOD_US;
@@ -3572,7 +3687,6 @@ int main(void)
             {
                 if (!train_armed_idle)
                 {
-                    ShieldGyroUpdate();
                     if (!modal_active_now)
                     {
                         GaugeRender_DrawGyroFast();
@@ -3628,6 +3742,9 @@ int main(void)
         {
             uint32_t log_period_us = 100000u;
             uint32_t log_hz = (uint32_t)ClampLogRateHz(s_log_rate_hz);
+            int16_t log_ax_mg;
+            int16_t log_ay_mg;
+            int16_t log_az_mg;
             if (log_hz > 0u)
             {
                 log_period_us = 1000000u / log_hz;
@@ -3635,11 +3752,12 @@ int main(void)
             while (log_tick_accum_us >= log_period_us)
             {
                 log_tick_accum_us -= log_period_us;
+                ConsumeAccelLogPeaks(&log_ax_mg, &log_ay_mg, &log_az_mg);
                 PRINTF("LOG,%uHZ,AX=%d,AY=%d,AZ=%d,GX=%d,GY=%d,GZ=%d,T=%d.%dC,P=%d.%dHPA,AL=%u,AS=%u,RC=%u,SC=%u\r\n",
                        (unsigned int)log_hz,
-                       (int)s_accel_x_mg,
-                       (int)s_accel_y_mg,
-                       (int)s_accel_z_mg,
+                       (int)log_ax_mg,
+                       (int)log_ay_mg,
+                       (int)log_az_mg,
                        (int)s_ui_gyro_x,
                        (int)s_ui_gyro_y,
                        (int)s_ui_gyro_z,
@@ -3665,6 +3783,9 @@ int main(void)
             recplay_tick_accum_us -= RECPLAY_TICK_PERIOD_US;
             if (ext_flash_ok && record_mode && !GaugeRender_IsLiveBannerMode())
             {
+                int16_t rec_ax_mg;
+                int16_t rec_ay_mg;
+                int16_t rec_az_mg;
                 uint32_t rec_sec;
                 if (s_timebase_ready && (s_timebase_hz != 0u))
                 {
@@ -3677,10 +3798,11 @@ int main(void)
                     rec_elapsed_ds++;
                 }
                 rec_sec = rec_elapsed_ds / 10u;
+                ConsumeAccelCapturePeaks(&rec_ax_mg, &rec_ay_mg, &rec_az_mg);
 
-                if (!ExtFlashRecorder_AppendSampleEx(s_accel_x_mg,
-                                                     s_accel_y_mg,
-                                                     s_accel_z_mg,
+                if (!ExtFlashRecorder_AppendSampleEx(rec_ax_mg,
+                                                     rec_ay_mg,
+                                                     rec_az_mg,
                                                      s_ui_gyro_x,
                                                      s_ui_gyro_y,
                                                      s_ui_gyro_z,

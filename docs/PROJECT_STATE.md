@@ -11,6 +11,13 @@ Project: `EdgeAI_Package_Transport_Anomaly_demo_NXP_FRDM-MCXN947`
 - Lock tag: `FAILSAFE-ACTIVE`
 - Failsafe binary: `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_failsafe_active.bin`
 
+## Update 2026-02-22 (Repo Hygiene: Hide Local Agent Instructions)
+- Removed `AGENTS.md` from git tracking (`git rm --cached AGENTS.md`) while preserving local file content on disk.
+- Added ignore rules in `.gitignore`:
+  - `AGENTS.md`
+  - `agents.md`
+- Result: local agent-instruction files are no longer published to GitHub for this project repo.
+
 ## Update 2026-02-22 (README GitHub Hardware Parts Expansion)
 - Expanded `README.md` with explicit GitHub-facing hardware parts list including board, display, ST shield devices, and key supporting components used in code paths.
 - Added clear component inventory entries for:

@@ -815,3 +815,8 @@ EOF && git add README.md docs/PROJECT_STATE.md docs/COMMAND_LOG.md && git commit
 - 2026-02-22 07:39:39 | patch README.md + docs/PROJECT_STATE.md | added shield/components inventory for GitHub README and recorded state update
 - 2026-02-22 07:39:39 | git commit docs update | committed README shield/components expansion
 - 2026-02-22 07:39:45 | git push origin main | pushed README hardware parts update to GitHub
+- 2026-02-22 07:46:32 | cross-repo status/remotes/docs inventory | inspected firmware repo state during VS extension release coordination
+- 2026-02-22 07:48:41 | inspect AGENTS file tracking and ignore rules in package monitor repo | prepare hide-from-GitHub change
+- 2026-02-22 07:48:52 | update .gitignore + git rm --cached AGENTS.md | hide AGENTS instructions from GitHub while keeping local file
+- 2026-02-22 07:49:05 | update docs/PROJECT_STATE.md | recorded AGENTS.md hide/untrack repo-hygiene change
+- 2026-02-22 07:49:10 | git add failed due ignored AGENTS.md path | retrying with tracked updates only

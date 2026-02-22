@@ -60,6 +60,16 @@ Project: `EdgeAI_Package_Transport_Anomaly_demo_NXP_FRDM-MCXN947`
   - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` (PASS)
   - `./tools/flash_frdmmcxn947.sh mcuxsdk_ws/build_adaptive_reasoning/edgeai_package_transport_anomaly_demo_cm33_core0.bin` (PASS, probe `2PZWMSBKUXU22`)
 
+## Update 2026-02-22 (Clear-Flash Confirm Deadlock Fix)
+- Fixed settings `CLEAR FLASH` flow where confirm did not appear and UI could freeze:
+  - clear-flash action now closes settings before opening confirm modal,
+  - confirm request force-closes any help/settings/limits popup state before activation.
+- Result:
+  - `CLEAR FLASH` now shows `YES/NO` confirm reliably and remains touch-responsive.
+- Verification:
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` (PASS)
+  - `./tools/flash_frdmmcxn947.sh mcuxsdk_ws/build_adaptive_reasoning/edgeai_package_transport_anomaly_demo_cm33_core0.bin` (PASS, probe `2PZWMSBKUXU22`)
+
 ## Update 2026-02-22 (Alert Pipeline Simplification + Flash Alert Logging)
 - Simplified runtime status architecture to a single canonical alert pipeline:
   - UI no longer falls back to a separate non-AI rule-status path for banner/terminal status.

@@ -3593,6 +3593,8 @@ int main(void)
                     {
                         handled_setting = true;
                         redraw_ui = true;
+                        settings_visible = false;
+                        GaugeRender_SetSettingsVisible(false);
                         GaugeRender_RequestClearFlashConfirm();
                     }
                 }

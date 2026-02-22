@@ -600,3 +600,9 @@ Format:
 2026-02-22T04:18:03Z | flashed build with real gyro scope feed, settings model text reposition, and gyro sphere center-line removal
 2026-02-22T04:18:20Z | updated PROJECT_STATE.md and STATUS.md for true-gyro scope feed, sphere-line artifact removal, and settings model text placement fix
 2026-02-22T04:18:25Z | checked git status before committing latest user-requested fixes
+2026-02-22T04:20:38Z | fixed settings clear-flash flow to close settings before opening confirm modal
+2026-02-22T04:20:46Z | hardened clear-flash confirm request to force-close other popups before modal activation
+2026-02-22T04:20:57Z | rebuild after clear-flash confirm modal deadlock fix
+2026-02-22T04:21:11Z | flashed build with clear-flash confirm deadlock fix
+2026-02-22T04:21:28Z | updated PROJECT_STATE.md and STATUS.md for clear-flash confirm deadlock fix
+2026-02-22T04:21:32Z | checked git status before committing clear-flash confirm fix

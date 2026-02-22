@@ -2810,6 +2810,9 @@ bool GaugeRender_ConsumeRecordStopRequest(void)
 
 void GaugeRender_RequestClearFlashConfirm(void)
 {
+    gHelpVisible = false;
+    gSettingsVisible = false;
+    gLimitsVisible = false;
     gRecordConfirmActive = true;
     gRecordConfirmAction = 3u;
 }

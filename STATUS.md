@@ -17,6 +17,7 @@ Last updated: 2026-02-22
 - Latest scope fix: PASS (restored `AX/AY/AZ/T` plots and added `GX/GY/GZ`; gyro labels placed to right of accel/temp legend, 2026-02-22)
 - Latest gyro sphere fix: PASS (artifact line cleanup + corrected direct X/Y axis mapping, 2026-02-22)
 - Latest scope feed fix: PASS (gyro traces now use true gyro feed, not accel overlap; model metadata moved inside settings popup, 2026-02-22)
+- Latest clear-flash fix: PASS (confirm popup now opens reliably from settings and no freeze on clear action, 2026-02-22)
 
 ## UI Control Scope (Updated)
 - AI enable/disable is settings-only.

@@ -66,6 +66,22 @@ Project: `EdgeAI_Package_Transport_Anomaly_demo_NXP_FRDM-MCXN947`
   - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` (PASS)
   - `./tools/flash_frdmmcxn947.sh mcuxsdk_ws/build_adaptive_reasoning/edgeai_package_transport_anomaly_demo_cm33_core0.bin` (PASS, probe `2PZWMSBKUXU22`)
 
+## Update 2026-02-22 (Gyro + Magnetometer Interval Peak Buffering)
+- Extended interval-peak capture windows to include:
+  - gyro channels (`GX/GY/GZ`)
+  - magnetometer channels (`MX/MY/MZ`)
+- Buffering behavior:
+  - 100 Hz sampling loop updates accel/gyro/mag peak windows.
+  - log path consumes log-window peaks at configured `LOG HZ` cadence.
+  - flash record path consumes capture-window peaks at record cadence.
+- Updated UART telemetry line to emit buffered magnetometer values:
+  - now includes `MX`, `MY`, `MZ`.
+- Confirmed scope limitation retained by design:
+  - temperature and barometer are not interval-peak buffered (kept as direct sampled values).
+- Verification:
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` (PASS)
+  - `./tools/flash_frdmmcxn947.sh mcuxsdk_ws/build_adaptive_reasoning/edgeai_package_transport_anomaly_demo_cm33_core0.bin` (PASS, probe `2PZWMSBKUXU22`)
+
 ## Update 2026-02-22 (Golden/Failsafe Refresh Before Alert-Pipeline Simplification)
 - Cut fresh local golden and promoted active failsafe from current build output:
   - golden tag: `GOLDEN-20260222-032039`

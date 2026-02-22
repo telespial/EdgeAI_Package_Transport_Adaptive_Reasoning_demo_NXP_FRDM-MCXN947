@@ -217,6 +217,22 @@ static bool s_accel_capture_peak_valid = false;
 static int16_t s_accel_capture_peak_x_mg = 0;
 static int16_t s_accel_capture_peak_y_mg = 0;
 static int16_t s_accel_capture_peak_z_mg = 0;
+static bool s_gyro_log_peak_valid = false;
+static int16_t s_gyro_log_peak_x_mg = 0;
+static int16_t s_gyro_log_peak_y_mg = 0;
+static int16_t s_gyro_log_peak_z_mg = 0;
+static bool s_gyro_capture_peak_valid = false;
+static int16_t s_gyro_capture_peak_x_mg = 0;
+static int16_t s_gyro_capture_peak_y_mg = 0;
+static int16_t s_gyro_capture_peak_z_mg = 0;
+static bool s_mag_log_peak_valid = false;
+static int16_t s_mag_log_peak_x_mgauss = 0;
+static int16_t s_mag_log_peak_y_mgauss = 0;
+static int16_t s_mag_log_peak_z_mgauss = 0;
+static bool s_mag_capture_peak_valid = false;
+static int16_t s_mag_capture_peak_x_mgauss = 0;
+static int16_t s_mag_capture_peak_y_mgauss = 0;
+static int16_t s_mag_capture_peak_z_mgauss = 0;
 
 static int16_t SelectSignedPeakAbs(int16_t current_peak, int16_t sample)
 {
@@ -225,13 +241,17 @@ static int16_t SelectSignedPeakAbs(int16_t current_peak, int16_t sample)
     return (s > p) ? sample : current_peak;
 }
 
-static void ResetAccelPeakWindows(void)
+static void ResetSignalPeakWindows(void)
 {
     s_accel_log_peak_valid = false;
     s_accel_capture_peak_valid = false;
+    s_gyro_log_peak_valid = false;
+    s_gyro_capture_peak_valid = false;
+    s_mag_log_peak_valid = false;
+    s_mag_capture_peak_valid = false;
 }
 
-static void UpdateAccelPeakWindows(void)
+static void UpdateSignalPeakWindows(void)
 {
     if (!s_accel_log_peak_valid)
     {
@@ -260,11 +280,76 @@ static void UpdateAccelPeakWindows(void)
         s_accel_capture_peak_y_mg = SelectSignedPeakAbs(s_accel_capture_peak_y_mg, s_accel_y_mg);
         s_accel_capture_peak_z_mg = SelectSignedPeakAbs(s_accel_capture_peak_z_mg, s_accel_z_mg);
     }
+
+    if (!s_gyro_log_peak_valid)
+    {
+        s_gyro_log_peak_x_mg = s_ui_gyro_x;
+        s_gyro_log_peak_y_mg = s_ui_gyro_y;
+        s_gyro_log_peak_z_mg = s_ui_gyro_z;
+        s_gyro_log_peak_valid = true;
+    }
+    else
+    {
+        s_gyro_log_peak_x_mg = SelectSignedPeakAbs(s_gyro_log_peak_x_mg, s_ui_gyro_x);
+        s_gyro_log_peak_y_mg = SelectSignedPeakAbs(s_gyro_log_peak_y_mg, s_ui_gyro_y);
+        s_gyro_log_peak_z_mg = SelectSignedPeakAbs(s_gyro_log_peak_z_mg, s_ui_gyro_z);
+    }
+
+    if (!s_gyro_capture_peak_valid)
+    {
+        s_gyro_capture_peak_x_mg = s_ui_gyro_x;
+        s_gyro_capture_peak_y_mg = s_ui_gyro_y;
+        s_gyro_capture_peak_z_mg = s_ui_gyro_z;
+        s_gyro_capture_peak_valid = true;
+    }
+    else
+    {
+        s_gyro_capture_peak_x_mg = SelectSignedPeakAbs(s_gyro_capture_peak_x_mg, s_ui_gyro_x);
+        s_gyro_capture_peak_y_mg = SelectSignedPeakAbs(s_gyro_capture_peak_y_mg, s_ui_gyro_y);
+        s_gyro_capture_peak_z_mg = SelectSignedPeakAbs(s_gyro_capture_peak_z_mg, s_ui_gyro_z);
+    }
+
+    if (!s_mag_log_peak_valid)
+    {
+        s_mag_log_peak_x_mgauss = s_mag_x_mgauss;
+        s_mag_log_peak_y_mgauss = s_mag_y_mgauss;
+        s_mag_log_peak_z_mgauss = s_mag_z_mgauss;
+        s_mag_log_peak_valid = true;
+    }
+    else
+    {
+        s_mag_log_peak_x_mgauss = SelectSignedPeakAbs(s_mag_log_peak_x_mgauss, s_mag_x_mgauss);
+        s_mag_log_peak_y_mgauss = SelectSignedPeakAbs(s_mag_log_peak_y_mgauss, s_mag_y_mgauss);
+        s_mag_log_peak_z_mgauss = SelectSignedPeakAbs(s_mag_log_peak_z_mgauss, s_mag_z_mgauss);
+    }
+
+    if (!s_mag_capture_peak_valid)
+    {
+        s_mag_capture_peak_x_mgauss = s_mag_x_mgauss;
+        s_mag_capture_peak_y_mgauss = s_mag_y_mgauss;
+        s_mag_capture_peak_z_mgauss = s_mag_z_mgauss;
+        s_mag_capture_peak_valid = true;
+    }
+    else
+    {
+        s_mag_capture_peak_x_mgauss = SelectSignedPeakAbs(s_mag_capture_peak_x_mgauss, s_mag_x_mgauss);
+        s_mag_capture_peak_y_mgauss = SelectSignedPeakAbs(s_mag_capture_peak_y_mgauss, s_mag_y_mgauss);
+        s_mag_capture_peak_z_mgauss = SelectSignedPeakAbs(s_mag_capture_peak_z_mgauss, s_mag_z_mgauss);
+    }
 }
 
-static void ConsumeAccelLogPeaks(int16_t *ax_mg, int16_t *ay_mg, int16_t *az_mg)
+static void ConsumeLogPeaks(int16_t *ax_mg,
+                            int16_t *ay_mg,
+                            int16_t *az_mg,
+                            int16_t *gx,
+                            int16_t *gy,
+                            int16_t *gz,
+                            int16_t *mx,
+                            int16_t *my,
+                            int16_t *mz)
 {
-    if ((ax_mg == NULL) || (ay_mg == NULL) || (az_mg == NULL))
+    if ((ax_mg == NULL) || (ay_mg == NULL) || (az_mg == NULL) || (gx == NULL) || (gy == NULL) || (gz == NULL) ||
+        (mx == NULL) || (my == NULL) || (mz == NULL))
     {
         return;
     }
@@ -280,12 +365,49 @@ static void ConsumeAccelLogPeaks(int16_t *ax_mg, int16_t *ay_mg, int16_t *az_mg)
         *ay_mg = s_accel_y_mg;
         *az_mg = s_accel_z_mg;
     }
+
+    if (s_gyro_log_peak_valid)
+    {
+        *gx = s_gyro_log_peak_x_mg;
+        *gy = s_gyro_log_peak_y_mg;
+        *gz = s_gyro_log_peak_z_mg;
+    }
+    else
+    {
+        *gx = s_ui_gyro_x;
+        *gy = s_ui_gyro_y;
+        *gz = s_ui_gyro_z;
+    }
+
+    if (s_mag_log_peak_valid)
+    {
+        *mx = s_mag_log_peak_x_mgauss;
+        *my = s_mag_log_peak_y_mgauss;
+        *mz = s_mag_log_peak_z_mgauss;
+    }
+    else
+    {
+        *mx = s_mag_x_mgauss;
+        *my = s_mag_y_mgauss;
+        *mz = s_mag_z_mgauss;
+    }
     s_accel_log_peak_valid = false;
+    s_gyro_log_peak_valid = false;
+    s_mag_log_peak_valid = false;
 }
 
-static void ConsumeAccelCapturePeaks(int16_t *ax_mg, int16_t *ay_mg, int16_t *az_mg)
+static void ConsumeCapturePeaks(int16_t *ax_mg,
+                                int16_t *ay_mg,
+                                int16_t *az_mg,
+                                int16_t *gx,
+                                int16_t *gy,
+                                int16_t *gz,
+                                int16_t *mx,
+                                int16_t *my,
+                                int16_t *mz)
 {
-    if ((ax_mg == NULL) || (ay_mg == NULL) || (az_mg == NULL))
+    if ((ax_mg == NULL) || (ay_mg == NULL) || (az_mg == NULL) || (gx == NULL) || (gy == NULL) || (gz == NULL) ||
+        (mx == NULL) || (my == NULL) || (mz == NULL))
     {
         return;
     }
@@ -301,7 +423,35 @@ static void ConsumeAccelCapturePeaks(int16_t *ax_mg, int16_t *ay_mg, int16_t *az
         *ay_mg = s_accel_y_mg;
         *az_mg = s_accel_z_mg;
     }
+
+    if (s_gyro_capture_peak_valid)
+    {
+        *gx = s_gyro_capture_peak_x_mg;
+        *gy = s_gyro_capture_peak_y_mg;
+        *gz = s_gyro_capture_peak_z_mg;
+    }
+    else
+    {
+        *gx = s_ui_gyro_x;
+        *gy = s_ui_gyro_y;
+        *gz = s_ui_gyro_z;
+    }
+
+    if (s_mag_capture_peak_valid)
+    {
+        *mx = s_mag_capture_peak_x_mgauss;
+        *my = s_mag_capture_peak_y_mgauss;
+        *mz = s_mag_capture_peak_z_mgauss;
+    }
+    else
+    {
+        *mx = s_mag_x_mgauss;
+        *my = s_mag_y_mgauss;
+        *mz = s_mag_z_mgauss;
+    }
     s_accel_capture_peak_valid = false;
+    s_gyro_capture_peak_valid = false;
+    s_mag_capture_peak_valid = false;
 }
 
 static void ClockFromDeciseconds(uint32_t ds_total, uint8_t *hh, uint8_t *mm, uint8_t *ss, uint8_t *ds)
@@ -3503,7 +3653,7 @@ int main(void)
                 train_armed_idle = false;
                 runtime_elapsed_ds = 0u;
                 rec_elapsed_ds = 0u;
-                ResetAccelPeakWindows();
+                ResetSignalPeakWindows();
                 runtime_displayed_sec = UINT32_MAX;
                 runtime_clock_start_ticks = TimebaseNowTicks();
                 GaugeRender_SetRuntimeClock(0u, 0u, 0u, 0u, true);
@@ -3520,7 +3670,7 @@ int main(void)
                 playback_active = (!GaugeRender_IsLiveBannerMode()) && ext_flash_ok && ExtFlashRecorder_StartPlayback();
                 train_armed_idle = (anom_mode == ANOMALY_MODE_TRAINED_MONITOR);
                 runtime_elapsed_ds = 0u;
-                ResetAccelPeakWindows();
+                ResetSignalPeakWindows();
                 runtime_displayed_sec = UINT32_MAX;
                 runtime_clock_start_ticks = TimebaseNowTicks();
                 GaugeRender_SetRuntimeClock(0u, 0u, 0u, 0u, true);
@@ -3585,7 +3735,7 @@ int main(void)
                 playback_active = false;
                 runtime_elapsed_ds = 0u;
                 rec_elapsed_ds = 0u;
-                ResetAccelPeakWindows();
+                ResetSignalPeakWindows();
                 runtime_displayed_sec = UINT32_MAX;
                 runtime_clock_start_ticks = TimebaseNowTicks();
                 GaugeRender_SetRuntimeClock(0u, 0u, 0u, 0u, true);
@@ -3676,7 +3826,7 @@ int main(void)
             if (!train_armed_idle && !playback_active)
             {
                 ShieldGyroUpdate();
-                UpdateAccelPeakWindows();
+                UpdateSignalPeakWindows();
             }
         }
 
@@ -3745,6 +3895,12 @@ int main(void)
             int16_t log_ax_mg;
             int16_t log_ay_mg;
             int16_t log_az_mg;
+            int16_t log_gx;
+            int16_t log_gy;
+            int16_t log_gz;
+            int16_t log_mx;
+            int16_t log_my;
+            int16_t log_mz;
             if (log_hz > 0u)
             {
                 log_period_us = 1000000u / log_hz;
@@ -3752,15 +3908,18 @@ int main(void)
             while (log_tick_accum_us >= log_period_us)
             {
                 log_tick_accum_us -= log_period_us;
-                ConsumeAccelLogPeaks(&log_ax_mg, &log_ay_mg, &log_az_mg);
-                PRINTF("LOG,%uHZ,AX=%d,AY=%d,AZ=%d,GX=%d,GY=%d,GZ=%d,T=%d.%dC,P=%d.%dHPA,AL=%u,AS=%u,RC=%u,SC=%u\r\n",
+                ConsumeLogPeaks(&log_ax_mg, &log_ay_mg, &log_az_mg, &log_gx, &log_gy, &log_gz, &log_mx, &log_my, &log_mz);
+                PRINTF("LOG,%uHZ,AX=%d,AY=%d,AZ=%d,GX=%d,GY=%d,GZ=%d,MX=%d,MY=%d,MZ=%d,T=%d.%dC,P=%d.%dHPA,AL=%u,AS=%u,RC=%u,SC=%u\r\n",
                        (unsigned int)log_hz,
                        (int)log_ax_mg,
                        (int)log_ay_mg,
                        (int)log_az_mg,
-                       (int)s_ui_gyro_x,
-                       (int)s_ui_gyro_y,
-                       (int)s_ui_gyro_z,
+                       (int)log_gx,
+                       (int)log_gy,
+                       (int)log_gz,
+                       (int)log_mx,
+                       (int)log_my,
+                       (int)log_mz,
                        (int)(s_temp_c10 / 10),
                        (int)(s_temp_c10 < 0 ? -s_temp_c10 : s_temp_c10) % 10,
                        (int)(s_baro_dhpa / 10),
@@ -3786,6 +3945,12 @@ int main(void)
                 int16_t rec_ax_mg;
                 int16_t rec_ay_mg;
                 int16_t rec_az_mg;
+                int16_t rec_gx;
+                int16_t rec_gy;
+                int16_t rec_gz;
+                int16_t rec_mx;
+                int16_t rec_my;
+                int16_t rec_mz;
                 uint32_t rec_sec;
                 if (s_timebase_ready && (s_timebase_hz != 0u))
                 {
@@ -3798,18 +3963,18 @@ int main(void)
                     rec_elapsed_ds++;
                 }
                 rec_sec = rec_elapsed_ds / 10u;
-                ConsumeAccelCapturePeaks(&rec_ax_mg, &rec_ay_mg, &rec_az_mg);
+                ConsumeCapturePeaks(&rec_ax_mg, &rec_ay_mg, &rec_az_mg, &rec_gx, &rec_gy, &rec_gz, &rec_mx, &rec_my, &rec_mz);
 
                 if (!ExtFlashRecorder_AppendSampleEx(rec_ax_mg,
                                                      rec_ay_mg,
                                                      rec_az_mg,
-                                                     s_ui_gyro_x,
-                                                     s_ui_gyro_y,
-                                                     s_ui_gyro_z,
+                                                     rec_gx,
+                                                     rec_gy,
+                                                     rec_gz,
                                                      s_temp_c10,
-                                                     s_mag_x_mgauss,
-                                                     s_mag_y_mgauss,
-                                                     s_mag_z_mgauss,
+                                                     rec_mx,
+                                                     rec_my,
+                                                     rec_mz,
                                                      s_baro_dhpa,
                                                      s_sht_temp_c10,
                                                      s_sht_rh_dpct,

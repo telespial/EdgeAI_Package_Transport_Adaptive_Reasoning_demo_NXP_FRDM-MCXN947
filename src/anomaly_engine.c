@@ -38,6 +38,7 @@ typedef struct
 {
     anomaly_mode_t mode;
     anomaly_tune_t tune;
+    bool adaptive_freeze;
     bool training_active;
     bool trained_ready;
     uint16_t train_samples;
@@ -329,6 +330,7 @@ void AnomalyEngine_Init(void)
 void AnomalyEngine_SetMode(anomaly_mode_t mode)
 {
     sAnom.mode = mode;
+    sAnom.adaptive_freeze = false;
     sAnom.training_active = false;
     sAnom.trained_ready = false;
     sAnom.train_samples = 0u;
@@ -394,6 +396,16 @@ void AnomalyEngine_StopTraining(void)
     sAnom.training_active = false;
 }
 
+void AnomalyEngine_SetAdaptiveFreeze(bool freeze)
+{
+    sAnom.adaptive_freeze = freeze;
+}
+
+bool AnomalyEngine_GetAdaptiveFreeze(void)
+{
+    return sAnom.adaptive_freeze;
+}
+
 void AnomalyEngine_Update(int16_t ax_mg, int16_t ay_mg, int16_t az_mg, int16_t temp_c10)
 {
     int32_t sample[ANOMALY_CH_COUNT];
@@ -429,7 +441,10 @@ void AnomalyEngine_Update(int16_t ax_mg, int16_t ay_mg, int16_t az_mg, int16_t t
         else
         {
             level = EvalSigma(c, sample[i], false);
-            PushHistory(c, sample[i]);
+            if (!sAnom.adaptive_freeze)
+            {
+                PushHistory(c, sample[i]);
+            }
         }
 
         sAnom.out.channel_level[i] = level;

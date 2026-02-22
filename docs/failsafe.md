@@ -4,11 +4,11 @@ Last updated: 2026-02-22
 
 Current active failsafe image:
 - `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_failsafe_active.bin`
-- sha256: `67b7bc651ba7319196ef462834380ff40c8f30d8202ef1aab42f9715a85b087f`
+- sha256: `2304af425c539cc63ddd56a6e0166c1697f43d1f1c0b744bf32be32ff8b78bd3`
 
 Golden source image:
-- `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_golden_20260222T045031Z.bin`
-- sha256: `67b7bc651ba7319196ef462834380ff40c8f30d8202ef1aab42f9715a85b087f`
+- `failsafe/edgeai_package_transport_anomaly_demo_cm33_core0_golden_20260222T152829Z.bin`
+- sha256: `2304af425c539cc63ddd56a6e0166c1697f43d1f1c0b744bf32be32ff8b78bd3`
 
 Validation basis:
 - Built from this project folder (`mcuxsdk_ws/build_adaptive_reasoning`).

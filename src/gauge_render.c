@@ -865,11 +865,18 @@ static void DrawGyroWidgetFrame(const gauge_style_preset_t *style)
 
 static void DrawGyroWidgetDynamic(const gauge_style_preset_t *style)
 {
+    static bool s_last_att_valid = false;
+    static int16_t s_last_ax_mg = 0;
+    static int16_t s_last_ay_mg = 0;
+    static int16_t s_last_az_mg = 1000;
     int32_t cx = GYRO_WIDGET_CX;
     int32_t cy = GYRO_WIDGET_CY;
     int32_t r = GYRO_WIDGET_R;
-    int16_t nx = ClampI16(gAccelXmg, -1000, 1000);
-    int16_t ny = ClampI16(gAccelYmg, -1000, 1000);
+    int16_t ax_use;
+    int16_t ay_use;
+    int16_t az_use;
+    int16_t nx;
+    int16_t ny;
     int32_t pitch_px;
     int32_t roll_px;
     int32_t span;
@@ -896,7 +903,27 @@ static void DrawGyroWidgetDynamic(const gauge_style_preset_t *style)
     uint16_t ball_color;
     (void)style;
 
-    upside_down = gLinAccelValid ? (gLinAccelZmg < -250) : (gAccelZmg < -250);
+    if (gAccelValid)
+    {
+        s_last_ax_mg = gAccelXmg;
+        s_last_ay_mg = gAccelYmg;
+        s_last_az_mg = gAccelZmg;
+        s_last_att_valid = true;
+    }
+    else if (!s_last_att_valid)
+    {
+        s_last_ax_mg = 0;
+        s_last_ay_mg = 0;
+        s_last_az_mg = 1000;
+        s_last_att_valid = true;
+    }
+    ax_use = s_last_ax_mg;
+    ay_use = s_last_ay_mg;
+    az_use = s_last_az_mg;
+    nx = ClampI16(ax_use, -1000, 1000);
+    ny = ClampI16(ay_use, -1000, 1000);
+
+    upside_down = (az_use < -250);
     if (upside_down)
     {
         axis_color = RGB565(168, 90, 30);
@@ -924,11 +951,6 @@ static void DrawGyroWidgetDynamic(const gauge_style_preset_t *style)
     DrawRing(cx, cy, r - 22, 1, RGB565(30, 58, 82), RGB565(8, 11, 15));
     DrawLine(cx - r + 14, cy, cx + r - 14, cy, 1, axis_color);
     DrawLine(cx, cy - r + 14, cx, cy + r - 14, 1, axis_color);
-
-    if (!gAccelValid)
-    {
-        return;
-    }
 
     pitch_px = (-ny * (r - 16)) / 1000;
     roll_px = (nx * (r - 18)) / 1000;
@@ -1238,6 +1260,27 @@ static void DrawPopupCloseButton(int32_t panel_x1, int32_t panel_y0)
     DrawLine(bx0 + 4, by1 - 4, bx1 - 4, by0 + 4, 1, xcol);
 }
 
+static void DrawAdjustArrowIcon(int32_t x0, int32_t y0, int32_t w, int32_t h, bool up, uint16_t color)
+{
+    int32_t cx = x0 + (w / 2);
+    int32_t cy = y0 + (h / 2);
+    int32_t span = (w < h ? w : h) / 3;
+    if (span < 4)
+    {
+        span = 4;
+    }
+    if (up)
+    {
+        DrawLine(cx - span, cy + 2, cx, cy - span, 1, color);
+        DrawLine(cx + span, cy + 2, cx, cy - span, 1, color);
+    }
+    else
+    {
+        DrawLine(cx - span, cy - 2, cx, cy + span, 1, color);
+        DrawLine(cx + span, cy - 2, cx, cy + span, 1, color);
+    }
+}
+
 static void DrawPopupModalBase(void)
 {
     /* Dirty-region modal redraw: only repaint active popup region to reduce touch latency/flicker. */
@@ -1420,11 +1463,7 @@ static void DrawSettingsPopup(void)
         snprintf(log_rate_line, sizeof(log_rate_line), "%uHZ", (unsigned int)gLogRateHz);
 
         DrawPillRect(dec_x0, by0, dec_x1, by1, button_idle, edge);
-        DrawTextUi(dec_x0 + ((GAUGE_RENDER_SET_LOG_DEC_W - edgeai_text5x7_width(1, "-")) / 2),
-                   by0 + ((GAUGE_RENDER_SET_LOG_H - 7) / 2),
-                   1,
-                   "-",
-                   body);
+        DrawAdjustArrowIcon(dec_x0, by0, GAUGE_RENDER_SET_LOG_DEC_W, GAUGE_RENDER_SET_LOG_H, false, body);
         DrawPillRect(val_x0, by0, val_x1, by1, button_selected, edge);
         DrawTextUi(val_x0 + ((GAUGE_RENDER_SET_LOG_VAL_W - edgeai_text5x7_width(1, log_rate_line)) / 2),
                    by0 + ((GAUGE_RENDER_SET_LOG_H - 7) / 2),
@@ -1432,11 +1471,7 @@ static void DrawSettingsPopup(void)
                    log_rate_line,
                    text_selected);
         DrawPillRect(inc_x0, by0, inc_x1, by1, button_idle, edge);
-        DrawTextUi(inc_x0 + ((GAUGE_RENDER_SET_LOG_INC_W - edgeai_text5x7_width(1, "+")) / 2),
-                   by0 + ((GAUGE_RENDER_SET_LOG_H - 7) / 2),
-                   1,
-                   "+",
-                   body);
+        DrawAdjustArrowIcon(inc_x0, by0, GAUGE_RENDER_SET_LOG_INC_W, GAUGE_RENDER_SET_LOG_H, true, body);
     }
 
     DrawTextUi(x0 + 10, y0 + 252, 1, "MODEL:", dim);
@@ -1564,7 +1599,7 @@ static void DrawHelpPopup(void)
     DrawLine(x0, y0, x0, y1, 2, edge);
     DrawLine(x1, y0, x1, y1, 2, edge);
     DrawTextUi(x0 + 10, y0 + 8, 2, "HELP", body);
-    DrawTextUi(x0 + 318, y0 + 12, 1, (gHelpPage == 0u) ? "PAGE 1/2" : "PAGE 2/2", dim);
+    DrawTextUi(x0 + 318, y0 + 12, 1, (gHelpPage == 0u) ? "PAGE 1 OF 2" : "PAGE 2 OF 2", dim);
     DrawPopupCloseButton(x1, y0);
     DrawPillRect(GAUGE_RENDER_HELP_NEXT_X0,
                  GAUGE_RENDER_HELP_NEXT_Y0,
@@ -1576,45 +1611,45 @@ static void DrawHelpPopup(void)
     if (gHelpPage == 0u)
     {
         DrawTextUi(x0 + 12, y0 + 42, 1, "QUICK START", RGB565(210, 234, 255));
-        DrawTextUi(x0 + 12, y0 + 56, 1, "* = SETTINGS, ? = NEXT HELP PAGE", body);
-        DrawTextUi(x0 + 12, y0 + 70, 1, "SET MODE: ADAPT (LEARN) OR TRAINED (FIXED)", body);
-        DrawTextUi(x0 + 12, y0 + 84, 1, "SET RUN: TRAIN OR LIVE", body);
-        DrawTextUi(x0 + 12, y0 + 98, 1, "OPEN LIMITS TO SET G/TEMP/GYRO THRESHOLDS", body);
+        DrawTextUi(x0 + 12, y0 + 56, 1, "STAR OPENS SETTINGS  HELP KEY OPENS NEXT PAGE", body);
+        DrawTextUi(x0 + 12, y0 + 70, 1, "MODE ADAPT LEARNS  MODE TRAINED USES STORED BASELINE", body);
+        DrawTextUi(x0 + 12, y0 + 84, 1, "RUN MODE TRAIN OR LIVE", body);
+        DrawTextUi(x0 + 12, y0 + 98, 1, "OPEN LIMITS TO SET G TEMP AND GYRO THRESHOLDS", body);
 
         DrawTextUi(x0 + 12, y0 + 118, 1, "MAIN SCREEN CONTROL", RGB565(210, 234, 255));
-        DrawTextUi(x0 + 12, y0 + 132, 1, "TOP-LEFT: PLAY/STOP", body);
-        DrawTextUi(x0 + 12, y0 + 146, 1, "TOP-RIGHT: RECORD TRAINING DATA", body);
-        DrawTextUi(x0 + 12, y0 + 160, 1, "RECORD/STOP REQUIRES CONFIRM DIALOG", body);
+        DrawTextUi(x0 + 12, y0 + 132, 1, "TOP LEFT PLAY STOP", body);
+        DrawTextUi(x0 + 12, y0 + 146, 1, "TOP RIGHT RECORD TRAINING DATA", body);
+        DrawTextUi(x0 + 12, y0 + 160, 1, "RECORD AND STOP REQUIRE CONFIRM DIALOG", body);
 
         DrawTextUi(x0 + 12, y0 + 180, 1, "ALERT MEANING", RGB565(210, 234, 255));
-        DrawTextUi(x0 + 12, y0 + 194, 1, "GREEN = NORMAL, YELLOW = WARNING, RED = FAIL", body);
+        DrawTextUi(x0 + 12, y0 + 194, 1, "GREEN NORMAL  YELLOW WARNING  RED FAIL", body);
         DrawTextUi(x0 + 12, y0 + 208, 1, "TRAINING OR RECORDING STATES OVERRIDE ALERT TEXT", body);
 
         DrawTextUi(x0 + 12, y0 + 228, 1, "PERSISTENCE", RGB565(210, 234, 255));
         DrawTextUi(x0 + 12, y0 + 242, 1, "MODE, RUN, AI, SENS, LIMITS SAVE ON CHANGE", body);
-        DrawTextUi(x0 + 12, y0 + 256, 1, "SETTINGS ARE RESTORED AUTOMATICALLY AFTER REBOOT", body);
+        DrawTextUi(x0 + 12, y0 + 256, 1, "SETTINGS RESTORE AUTOMATICALLY AFTER REBOOT", body);
         DrawTextUi(x0 + 12, y0 + 264, 1, "TAP X OR OUTSIDE TO CLOSE", dim);
     }
     else
     {
         DrawTextUi(x0 + 12, y0 + 42, 1, "DEEP DIVE", RGB565(210, 234, 255));
-        DrawTextUi(x0 + 12, y0 + 56, 1, "ADAPT MODE: BASELINE UPDATES FROM LIVE SIGNALS.", body);
-        DrawTextUi(x0 + 12, y0 + 70, 1, "TRAINED MODE: FREEZES LEARNING, USES STORED MODEL.", body);
-        DrawTextUi(x0 + 12, y0 + 84, 1, "RUN=TRAIN ENABLES RECORD/PLAY WORKFLOW FOR DATA.", body);
-        DrawTextUi(x0 + 12, y0 + 98, 1, "RUN=LIVE USES REAL-TIME SENSOR STREAM ONLY.", body);
+        DrawTextUi(x0 + 12, y0 + 56, 1, "ADAPT MODE BASELINE UPDATES FROM LIVE SIGNALS", body);
+        DrawTextUi(x0 + 12, y0 + 70, 1, "TRAINED MODE FREEZES LEARNING USES STORED MODEL", body);
+        DrawTextUi(x0 + 12, y0 + 84, 1, "RUN TRAIN ENABLES RECORD AND PLAY WORKFLOW", body);
+        DrawTextUi(x0 + 12, y0 + 98, 1, "RUN LIVE USES REAL TIME SENSOR STREAM ONLY", body);
 
         DrawTextUi(x0 + 12, y0 + 118, 1, "THRESHOLDS", RGB565(210, 234, 255));
-        DrawTextUi(x0 + 12, y0 + 132, 1, "G WARN/FAIL: PACKAGE SHOCK LEVELS IN G.", body);
-        DrawTextUi(x0 + 12, y0 + 146, 1, "TEMP LOW/HIGH: OPERATING WINDOW BOUNDS.", body);
-        DrawTextUi(x0 + 12, y0 + 160, 1, "GYRO LIMIT: ROTATION RATE LIMIT IN DEG/S.", body);
+        DrawTextUi(x0 + 12, y0 + 132, 1, "G WARN G FAIL SET PACKAGE SHOCK LEVELS", body);
+        DrawTextUi(x0 + 12, y0 + 146, 1, "TEMP LOW TEMP HIGH SET OPERATING WINDOW", body);
+        DrawTextUi(x0 + 12, y0 + 160, 1, "GYRO LIMIT SETS ROTATION RATE LIMIT", body);
 
         DrawTextUi(x0 + 12, y0 + 180, 1, "INTEGRATION NOTES", RGB565(210, 234, 255));
-        DrawTextUi(x0 + 12, y0 + 194, 1, "HOST FIRMWARE KEEPS PRIMARY CONTROL LOGIC.", body);
-        DrawTextUi(x0 + 12, y0 + 208, 1, "AI LAYER ADDS WATCHDOG/PREDICTIVE SIGNALS.", body);
-        DrawTextUi(x0 + 12, y0 + 222, 1, "USE ALERT/REASON OUTPUTS TO GATE ACTIONS.", body);
+        DrawTextUi(x0 + 12, y0 + 194, 1, "HOST FIRMWARE KEEPS PRIMARY CONTROL LOGIC", body);
+        DrawTextUi(x0 + 12, y0 + 208, 1, "AI LAYER ADDS WATCHDOG AND PREDICTIVE SIGNALS", body);
+        DrawTextUi(x0 + 12, y0 + 222, 1, "USE ALERT AND REASON OUTPUTS TO GATE ACTIONS", body);
 
         DrawTextUi(x0 + 12, y0 + 242, 1, "UI TIP", RGB565(210, 234, 255));
-        DrawTextUi(x0 + 12, y0 + 256, 1, "TAP ? AGAIN TO RETURN TO PAGE 1.", body);
+        DrawTextUi(x0 + 12, y0 + 256, 1, "TAP HELP KEY AGAIN TO RETURN TO PAGE 1", body);
         DrawTextUi(x0 + 12, y0 + 264, 1, "TAP X OR OUTSIDE TO CLOSE", dim);
     }
 }

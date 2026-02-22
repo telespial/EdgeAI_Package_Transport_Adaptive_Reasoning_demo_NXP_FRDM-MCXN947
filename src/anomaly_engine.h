@@ -53,6 +53,8 @@ void AnomalyEngine_SetTune(anomaly_tune_t tune);
 anomaly_tune_t AnomalyEngine_GetTune(void);
 void AnomalyEngine_StartTraining(void);
 void AnomalyEngine_StopTraining(void);
+void AnomalyEngine_SetAdaptiveFreeze(bool freeze);
+bool AnomalyEngine_GetAdaptiveFreeze(void);
 void AnomalyEngine_Update(int16_t ax_mg, int16_t ay_mg, int16_t az_mg, int16_t temp_c10);
 void AnomalyEngine_GetOutput(anomaly_output_t *out);
 

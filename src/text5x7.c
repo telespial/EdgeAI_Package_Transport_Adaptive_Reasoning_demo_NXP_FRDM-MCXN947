@@ -31,12 +31,14 @@ static const uint8_t GLYPH_F[7] = {0x1F, 0x10, 0x10, 0x1E, 0x10, 0x10, 0x10};
 static const uint8_t GLYPH_G[7] = {0x0E, 0x11, 0x10, 0x13, 0x11, 0x11, 0x0E};
 static const uint8_t GLYPH_H[7] = {0x11, 0x11, 0x11, 0x1F, 0x11, 0x11, 0x11};
 static const uint8_t GLYPH_I[7] = {0x0E, 0x04, 0x04, 0x04, 0x04, 0x04, 0x0E};
+static const uint8_t GLYPH_J[7] = {0x01, 0x01, 0x01, 0x01, 0x11, 0x11, 0x0E};
 static const uint8_t GLYPH_L[7] = {0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x1F};
 static const uint8_t GLYPH_M[7] = {0x11, 0x1B, 0x15, 0x11, 0x11, 0x11, 0x11};
 static const uint8_t GLYPH_K[7] = {0x11, 0x12, 0x14, 0x18, 0x14, 0x12, 0x11};
 static const uint8_t GLYPH_N[7] = {0x11, 0x19, 0x15, 0x13, 0x11, 0x11, 0x11};
 static const uint8_t GLYPH_O[7] = {0x0E, 0x11, 0x11, 0x11, 0x11, 0x11, 0x0E};
 static const uint8_t GLYPH_P[7] = {0x1E, 0x11, 0x11, 0x1E, 0x10, 0x10, 0x10};
+static const uint8_t GLYPH_Q[7] = {0x0E, 0x11, 0x11, 0x11, 0x15, 0x12, 0x0D};
 static const uint8_t GLYPH_R[7] = {0x1E, 0x11, 0x11, 0x1E, 0x14, 0x12, 0x11};
 static const uint8_t GLYPH_S[7] = {0x0F, 0x10, 0x10, 0x0E, 0x01, 0x01, 0x1E};
 static const uint8_t GLYPH_T[7] = {0x1F, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04};
@@ -52,6 +54,11 @@ static const uint8_t GLYPH_PERCENT[7] = {0x19, 0x19, 0x02, 0x04, 0x08, 0x13, 0x1
 
 static const uint8_t *edgeai_glyph5x7(char c)
 {
+    if ((c >= 'a') && (c <= 'z'))
+    {
+        c = (char)(c - ('a' - 'A'));
+    }
+
     switch (c)
     {
         case '0': return GLYPH_0;
@@ -74,12 +81,14 @@ static const uint8_t *edgeai_glyph5x7(char c)
         case 'G': return GLYPH_G;
         case 'H': return GLYPH_H;
         case 'I': return GLYPH_I;
+        case 'J': return GLYPH_J;
         case 'K': return GLYPH_K;
         case 'L': return GLYPH_L;
         case 'M': return GLYPH_M;
         case 'N': return GLYPH_N;
         case 'O': return GLYPH_O;
         case 'P': return GLYPH_P;
+        case 'Q': return GLYPH_Q;
         case 'R': return GLYPH_R;
         case 'S': return GLYPH_S;
         case 'T': return GLYPH_T;
@@ -89,12 +98,6 @@ static const uint8_t *edgeai_glyph5x7(char c)
         case 'X': return GLYPH_X;
         case 'Y': return GLYPH_Y;
         case 'Z': return GLYPH_Z;
-        case 'c': return GLYPH_C;
-        case 'k': return GLYPH_K;
-        case 'm': return GLYPH_M;
-        case 'v': return GLYPH_V;
-        case 'w': return GLYPH_W;
-
         case ':': return GLYPH_COLON;
         case '.': return GLYPH_DOT;
         case '?': return GLYPH_QMARK;

@@ -127,6 +127,9 @@ static bool s_touch_i2c_inited = false;
 static bool s_accel_i2c_inited = false;
 static bool s_accel_ready = false;
 static fxls8974_dev_t s_accel_dev;
+static int16_t s_accel_raw_x_mg = 0;
+static int16_t s_accel_raw_y_mg = 0;
+static int16_t s_accel_raw_z_mg = 1000;
 static int16_t s_accel_x_mg = 0;
 static int16_t s_accel_y_mg = 0;
 static int16_t s_accel_z_mg = 1000;
@@ -237,12 +240,134 @@ static bool s_mag_capture_peak_valid = false;
 static int16_t s_mag_capture_peak_x_mgauss = 0;
 static int16_t s_mag_capture_peak_y_mgauss = 0;
 static int16_t s_mag_capture_peak_z_mgauss = 0;
+static bool s_alert_capture_valid = false;
+static uint8_t s_alert_capture_status = AI_STATUS_NORMAL;
+static uint8_t s_alert_capture_reason = ALERT_REASON_NORMAL;
+static uint16_t s_alert_capture_score = 0u;
 
 static int16_t SelectSignedPeakAbs(int16_t current_peak, int16_t sample)
 {
     int32_t p = (current_peak < 0) ? -current_peak : current_peak;
     int32_t s = (sample < 0) ? -sample : sample;
     return (s > p) ? sample : current_peak;
+}
+
+static uint8_t AlertSeverity(uint8_t status)
+{
+    if (status == AI_STATUS_FAULT)
+    {
+        return 2u;
+    }
+    if (status == AI_STATUS_WARNING)
+    {
+        return 1u;
+    }
+    return 0u;
+}
+
+static void UpdateAlertCaptureWindow(const power_sample_t *sample)
+{
+    uint8_t live_severity;
+    uint8_t hold_severity;
+    if (sample == NULL)
+    {
+        return;
+    }
+    if (!s_alert_capture_valid)
+    {
+        s_alert_capture_status = sample->ai_status;
+        s_alert_capture_reason = sample->alert_reason_code;
+        s_alert_capture_score = sample->anomaly_score_pct;
+        s_alert_capture_valid = true;
+        return;
+    }
+
+    live_severity = AlertSeverity(sample->ai_status);
+    hold_severity = AlertSeverity(s_alert_capture_status);
+    if ((live_severity > hold_severity) ||
+        ((live_severity == hold_severity) && (sample->anomaly_score_pct >= s_alert_capture_score)))
+    {
+        s_alert_capture_status = sample->ai_status;
+        s_alert_capture_reason = sample->alert_reason_code;
+        s_alert_capture_score = sample->anomaly_score_pct;
+    }
+}
+
+static void ConsumeAlertCaptureWindow(uint16_t fallback_score,
+                                      uint8_t fallback_status,
+                                      uint8_t fallback_reason,
+                                      uint16_t *score_out,
+                                      uint8_t *status_out,
+                                      uint8_t *reason_out)
+{
+    if ((score_out == NULL) || (status_out == NULL) || (reason_out == NULL))
+    {
+        return;
+    }
+    if (s_alert_capture_valid)
+    {
+        *score_out = s_alert_capture_score;
+        *status_out = s_alert_capture_status;
+        *reason_out = s_alert_capture_reason;
+    }
+    else
+    {
+        *score_out = fallback_score;
+        *status_out = fallback_status;
+        *reason_out = fallback_reason;
+    }
+    s_alert_capture_valid = false;
+    s_alert_capture_status = AI_STATUS_NORMAL;
+    s_alert_capture_reason = ALERT_REASON_NORMAL;
+    s_alert_capture_score = 0u;
+}
+
+static uint16_t PeakAbs3I16(int16_t x, int16_t y, int16_t z)
+{
+    int32_t ax = (x < 0) ? -x : x;
+    int32_t ay = (y < 0) ? -y : y;
+    int32_t az = (z < 0) ? -z : z;
+    int32_t p = ax;
+    if (ay > p)
+    {
+        p = ay;
+    }
+    if (az > p)
+    {
+        p = az;
+    }
+    if (p < 0)
+    {
+        p = 0;
+    }
+    if (p > 32767)
+    {
+        p = 32767;
+    }
+    return (uint16_t)p;
+}
+
+static uint16_t GetAccelAlertPeakMg(void)
+{
+    uint16_t peak_mg = PeakAbs3I16(s_accel_raw_x_mg, s_accel_raw_y_mg, s_accel_raw_z_mg);
+    if (s_accel_capture_peak_valid)
+    {
+        uint16_t capture_peak =
+            PeakAbs3I16(s_accel_capture_peak_x_mg, s_accel_capture_peak_y_mg, s_accel_capture_peak_z_mg);
+        if (capture_peak > peak_mg)
+        {
+            peak_mg = capture_peak;
+        }
+    }
+    if (s_accel_log_peak_valid)
+    {
+        uint16_t log_peak = PeakAbs3I16(s_accel_log_peak_x_mg, s_accel_log_peak_y_mg, s_accel_log_peak_z_mg);
+        if (log_peak > peak_mg)
+        {
+            peak_mg = log_peak;
+        }
+    }
+    return peak_mg;
 }
 
 static void ResetSignalPeakWindows(void)
@@ -253,36 +378,40 @@ static void ResetSignalPeakWindows(void)
     s_gyro_capture_peak_valid = false;
     s_mag_log_peak_valid = false;
     s_mag_capture_peak_valid = false;
+    s_alert_capture_valid = false;
+    s_alert_capture_status = AI_STATUS_NORMAL;
+    s_alert_capture_reason = ALERT_REASON_NORMAL;
+    s_alert_capture_score = 0u;
 }
 
 static void UpdateSignalPeakWindows(void)
 {
     if (!s_accel_log_peak_valid)
     {
-        s_accel_log_peak_x_mg = s_accel_x_mg;
-        s_accel_log_peak_y_mg = s_accel_y_mg;
-        s_accel_log_peak_z_mg = s_accel_z_mg;
+        s_accel_log_peak_x_mg = s_accel_raw_x_mg;
+        s_accel_log_peak_y_mg = s_accel_raw_y_mg;
+        s_accel_log_peak_z_mg = s_accel_raw_z_mg;
         s_accel_log_peak_valid = true;
     }
     else
     {
-        s_accel_log_peak_x_mg = SelectSignedPeakAbs(s_accel_log_peak_x_mg, s_accel_x_mg);
-        s_accel_log_peak_y_mg = SelectSignedPeakAbs(s_accel_log_peak_y_mg, s_accel_y_mg);
-        s_accel_log_peak_z_mg = SelectSignedPeakAbs(s_accel_log_peak_z_mg, s_accel_z_mg);
+        s_accel_log_peak_x_mg = SelectSignedPeakAbs(s_accel_log_peak_x_mg, s_accel_raw_x_mg);
+        s_accel_log_peak_y_mg = SelectSignedPeakAbs(s_accel_log_peak_y_mg, s_accel_raw_y_mg);
+        s_accel_log_peak_z_mg = SelectSignedPeakAbs(s_accel_log_peak_z_mg, s_accel_raw_z_mg);
     }
 
     if (!s_accel_capture_peak_valid)
     {
-        s_accel_capture_peak_x_mg = s_accel_x_mg;
-        s_accel_capture_peak_y_mg = s_accel_y_mg;
-        s_accel_capture_peak_z_mg = s_accel_z_mg;
+        s_accel_capture_peak_x_mg = s_accel_raw_x_mg;
+        s_accel_capture_peak_y_mg = s_accel_raw_y_mg;
+        s_accel_capture_peak_z_mg = s_accel_raw_z_mg;
         s_accel_capture_peak_valid = true;
     }
     else
     {
-        s_accel_capture_peak_x_mg = SelectSignedPeakAbs(s_accel_capture_peak_x_mg, s_accel_x_mg);
-        s_accel_capture_peak_y_mg = SelectSignedPeakAbs(s_accel_capture_peak_y_mg, s_accel_y_mg);
-        s_accel_capture_peak_z_mg = SelectSignedPeakAbs(s_accel_capture_peak_z_mg, s_accel_z_mg);
+        s_accel_capture_peak_x_mg = SelectSignedPeakAbs(s_accel_capture_peak_x_mg, s_accel_raw_x_mg);
+        s_accel_capture_peak_y_mg = SelectSignedPeakAbs(s_accel_capture_peak_y_mg, s_accel_raw_y_mg);
+        s_accel_capture_peak_z_mg = SelectSignedPeakAbs(s_accel_capture_peak_z_mg, s_accel_raw_z_mg);
     }
 
     if (!s_gyro_log_peak_valid)
@@ -488,15 +617,15 @@ static uint8_t ChannelLevelPct(anomaly_level_t lvl)
 {
     if (lvl >= ANOMALY_LEVEL_MAJOR)
     {
-        return 100u;
+        return 85u;
     }
     if (lvl >= ANOMALY_LEVEL_MINOR)
     {
-        return 80u;
+        return 45u;
     }
     if (lvl >= ANOMALY_LEVEL_WATCH)
     {
-        return 40u;
+        return 12u;
     }
     return 5u;
 }
@@ -533,12 +662,25 @@ static void ApplyAnomalyToFrame(power_sample_t *dst)
     static int16_t s_prev_ax_mg = 0;
     static int16_t s_prev_ay_mg = 0;
     static int16_t s_prev_az_mg = 0;
+    static uint8_t s_warn_candidate_reason = ALERT_REASON_NORMAL;
+    static uint64_t s_warn_candidate_since_ticks = 0ull;
+    static uint8_t s_fault_candidate_reason = ALERT_REASON_NORMAL;
+    static uint64_t s_fault_candidate_since_ticks = 0ull;
     static uint8_t s_alert_hold_status = AI_STATUS_NORMAL;
     static uint8_t s_alert_hold_reason = ALERT_REASON_NORMAL;
     static uint64_t s_alert_hold_until_ticks = 0ull;
+    static uint64_t s_adapt_freeze_until_ticks = 0ull;
+    static uint64_t s_impact_latch_until_ticks = 0ull;
     const eil_profile_t *profile = EilProfile_Get();
     const uint64_t hold_warn_ticks = (uint64_t)s_timebase_hz * 5ull;
     const uint64_t hold_fault_ticks = (uint64_t)s_timebase_hz * 8ull;
+    const uint64_t fault_persist_ticks = (uint64_t)s_timebase_hz / 6ull;      /* ~167 ms */
+    const uint64_t warn_limit_persist_ticks = (uint64_t)s_timebase_hz / 4ull; /* ~250 ms */
+    const uint64_t warn_predict_persist_ticks = (uint64_t)s_timebase_hz * 7ull / 10ull; /* ~700 ms */
+    const uint64_t warn_score_persist_ticks = (uint64_t)s_timebase_hz; /* 1.0 s */
+    const uint64_t warn_impact_persist_ticks = 0ull; /* immediate impact warning once detected */
+    const uint64_t impact_latch_ticks = (uint64_t)s_timebase_hz * 8ull / 10ull; /* 800 ms */
+    const uint64_t adapt_freeze_recover_ticks = (uint64_t)s_timebase_hz * 8ull; /* 8 s stable normal */
     uint8_t ax = ChannelLevelPct(s_anom_out.channel_level[ANOMALY_CH_AX]);
     uint8_t ay = ChannelLevelPct(s_anom_out.channel_level[ANOMALY_CH_AY]);
     uint8_t az = ChannelLevelPct(s_anom_out.channel_level[ANOMALY_CH_AZ]);
@@ -568,7 +710,19 @@ static void ApplyAnomalyToFrame(power_sample_t *dst)
     bool predicted_temp_approach_low;
     bool predicted_temp_approach_high;
     bool predicted_erratic_motion;
+    bool watch_motion_evidence;
     uint16_t gyro_predict_warn_dps;
+    uint8_t candidate_status = AI_STATUS_NORMAL;
+    uint8_t candidate_reason = ALERT_REASON_NORMAL;
+    float score_ratio;
+    float score_warn_enter = 0.18f;
+    float score_warn_exit = 0.15f;
+    float score_fail_enter = 0.35f;
+    float score_fail_exit = 0.28f;
+    uint64_t warning_persist_ticks = warn_limit_persist_ticks;
+    bool warning_matured = false;
+    bool fault_matured = false;
+    bool freeze_adapt = false;
     uint64_t now_ticks = TimebaseNowTicks();
 
     if (dst == NULL)
@@ -642,15 +796,7 @@ static void ApplyAnomalyToFrame(power_sample_t *dst)
     abx = (s_accel_x_mg < 0) ? -s_accel_x_mg : s_accel_x_mg;
     aby = (s_accel_y_mg < 0) ? -s_accel_y_mg : s_accel_y_mg;
     abz = (s_accel_z_mg < 0) ? -s_accel_z_mg : s_accel_z_mg;
-    accel_peak_mg = (uint16_t)abx;
-    if ((uint16_t)aby > accel_peak_mg)
-    {
-        accel_peak_mg = (uint16_t)aby;
-    }
-    if ((uint16_t)abz > accel_peak_mg)
-    {
-        accel_peak_mg = (uint16_t)abz;
-    }
+    accel_peak_mg = GetAccelAlertPeakMg();
 
     accel_warn_hit = (accel_peak_mg >= s_limit_g_warn_mg);
     accel_fail_hit = (accel_peak_mg >= s_limit_g_fail_mg);
@@ -677,79 +823,182 @@ static void ApplyAnomalyToFrame(power_sample_t *dst)
     }
 
     predicted_inverted_warn = (s_accel_z_mg <= -700) && (abx <= 600) && (aby <= 600);
-    predicted_tilt_warn = !predicted_inverted_warn && ((abx >= 600) || (aby >= 600)) && !accel_warn_hit;
+    predicted_tilt_warn = !predicted_inverted_warn &&
+                          ((abx >= 1000) || (aby >= 1000)) &&
+                          (abz >= 350) &&
+                          (jerk_peak <= 500) &&
+                          (s_gyro_peak_dps <= 300) &&
+                          !accel_warn_hit;
     predicted_temp_approach_low = !temp_limit_hit && !temp_fail_hit && (s_temp_c10 <= (s_limit_temp_lo_c10 + 30));
     predicted_temp_approach_high = !temp_limit_hit && !temp_fail_hit && (s_temp_c10 >= (s_limit_temp_hi_c10 - 30));
     gyro_predict_warn_dps = (uint16_t)((s_limit_gyro_dps * 7u) / 10u);
     predicted_erratic_motion = !accel_warn_hit &&
                                ((jerk_peak >= 2200) ||
+                                (accel_peak_mg >= 2800) ||
                                 ((s_gyro_peak_dps >= gyro_predict_warn_dps) && (jerk_peak >= 1400)));
+    watch_motion_evidence = (accel_peak_mg >= 1700u) || (jerk_peak >= 500) || (s_gyro_peak_dps >= 140u);
+    if (predicted_erratic_motion)
+    {
+        s_impact_latch_until_ticks = now_ticks + impact_latch_ticks;
+    }
+    else if (now_ticks < s_impact_latch_until_ticks)
+    {
+        predicted_erratic_motion = true;
+    }
+    score_ratio = weighted_pct / 100.0f;
+    if (profile != NULL)
+    {
+        if ((profile->alert_warn > 0.01f) && (profile->alert_warn < 1.0f))
+        {
+            score_warn_enter = profile->alert_warn;
+        }
+        if ((profile->alert_fail > score_warn_enter) && (profile->alert_fail < 1.0f))
+        {
+            score_fail_enter = profile->alert_fail;
+        }
+    }
+    score_warn_exit = score_warn_enter * 0.85f;
+    score_fail_exit = score_fail_enter * 0.80f;
+    if (score_warn_exit > (score_fail_enter * 0.8f))
+    {
+        score_warn_exit = score_fail_enter * 0.8f;
+    }
 
     if (accel_fail_hit || temp_fail_hit)
     {
-        dst->ai_status = AI_STATUS_FAULT;
-        dst->alert_reason_code = accel_fail_hit ? ALERT_REASON_ACCEL_FAIL : ALERT_REASON_TEMP_FAIL;
+        candidate_status = AI_STATUS_FAULT;
+        candidate_reason = accel_fail_hit ? ALERT_REASON_ACCEL_FAIL : ALERT_REASON_TEMP_FAIL;
     }
     else if (accel_warn_hit || temp_limit_hit || gyro_limit_hit)
     {
-        dst->ai_status = AI_STATUS_WARNING;
+        candidate_status = AI_STATUS_WARNING;
         if (accel_warn_hit)
         {
-            dst->alert_reason_code = ALERT_REASON_ACCEL_WARN;
+            candidate_reason = ALERT_REASON_ACCEL_WARN;
         }
         else if (temp_limit_hit)
         {
-            dst->alert_reason_code = ALERT_REASON_TEMP_WARN;
+            candidate_reason = ALERT_REASON_TEMP_WARN;
         }
         else
         {
-            dst->alert_reason_code = ALERT_REASON_GYRO_WARN;
+            candidate_reason = ALERT_REASON_GYRO_WARN;
         }
     }
     else if (predicted_inverted_warn)
     {
-        dst->ai_status = AI_STATUS_WARNING;
-        dst->alert_reason_code = ALERT_REASON_INVERTED_WARN;
+        candidate_status = AI_STATUS_WARNING;
+        candidate_reason = ALERT_REASON_INVERTED_WARN;
     }
     else if (predicted_tilt_warn)
     {
-        dst->ai_status = AI_STATUS_WARNING;
-        dst->alert_reason_code = ALERT_REASON_TILT_WARN;
+        candidate_status = AI_STATUS_WARNING;
+        candidate_reason = ALERT_REASON_TILT_WARN;
     }
     else if (predicted_temp_approach_low)
     {
-        dst->ai_status = AI_STATUS_WARNING;
-        dst->alert_reason_code = ALERT_REASON_TEMP_APPROACH_LOW;
+        candidate_status = AI_STATUS_WARNING;
+        candidate_reason = ALERT_REASON_TEMP_APPROACH_LOW;
     }
     else if (predicted_temp_approach_high)
     {
-        dst->ai_status = AI_STATUS_WARNING;
-        dst->alert_reason_code = ALERT_REASON_TEMP_APPROACH_HIGH;
+        candidate_status = AI_STATUS_WARNING;
+        candidate_reason = ALERT_REASON_TEMP_APPROACH_HIGH;
     }
     else if (predicted_erratic_motion)
     {
-        dst->ai_status = AI_STATUS_WARNING;
-        dst->alert_reason_code = ALERT_REASON_ERRATIC_MOTION;
+        candidate_status = AI_STATUS_WARNING;
+        candidate_reason = ALERT_REASON_ERRATIC_MOTION;
     }
-    else if ((profile != NULL) && ((weighted_pct / 100.0f) >= profile->alert_fail))
+    else if (score_ratio >= score_fail_enter)
     {
-        dst->ai_status = AI_STATUS_FAULT;
-        dst->alert_reason_code = ALERT_REASON_SCORE_FAIL;
+        candidate_status = AI_STATUS_FAULT;
+        candidate_reason = ALERT_REASON_SCORE_FAIL;
     }
-    else if ((profile != NULL) && ((weighted_pct / 100.0f) >= profile->alert_warn))
+    else if ((score_ratio >= score_warn_enter) ||
+             ((s_alert_hold_reason == ALERT_REASON_SCORE_WARN) && (score_ratio >= score_warn_exit)) ||
+             ((s_alert_hold_reason == ALERT_REASON_SCORE_FAIL) && (score_ratio >= score_fail_exit)))
     {
-        dst->ai_status = AI_STATUS_WARNING;
-        dst->alert_reason_code = ALERT_REASON_SCORE_WARN;
+        candidate_status = AI_STATUS_WARNING;
+        candidate_reason = ALERT_REASON_SCORE_WARN;
     }
-    else if (s_anom_out.overall_level >= ANOMALY_LEVEL_WATCH)
+    else if ((s_anom_out.overall_level >= ANOMALY_LEVEL_WATCH) && watch_motion_evidence)
     {
-        dst->ai_status = AI_STATUS_WARNING;
-        dst->alert_reason_code = ALERT_REASON_ANOMALY_WATCH;
+        candidate_status = AI_STATUS_WARNING;
+        candidate_reason = ALERT_REASON_ANOMALY_WATCH;
+    }
+
+    dst->ai_status = candidate_status;
+    dst->alert_reason_code = candidate_reason;
+
+    /* Persistence gate: require sustained evidence before elevating to warning/fault. */
+    if (candidate_status == AI_STATUS_FAULT)
+    {
+        if (s_fault_candidate_reason != candidate_reason)
+        {
+            s_fault_candidate_reason = candidate_reason;
+            s_fault_candidate_since_ticks = now_ticks;
+        }
+        fault_matured = (now_ticks - s_fault_candidate_since_ticks) >= fault_persist_ticks;
+        if (!fault_matured)
+        {
+            dst->ai_status = AI_STATUS_NORMAL;
+            dst->alert_reason_code = ALERT_REASON_NORMAL;
+        }
     }
     else
     {
-        dst->ai_status = AI_STATUS_NORMAL;
-        dst->alert_reason_code = ALERT_REASON_NORMAL;
+        s_fault_candidate_reason = ALERT_REASON_NORMAL;
+        s_fault_candidate_since_ticks = now_ticks;
+    }
+
+    if (candidate_status == AI_STATUS_WARNING)
+    {
+        switch (candidate_reason)
+        {
+            case ALERT_REASON_ACCEL_WARN:
+            case ALERT_REASON_TEMP_WARN:
+            case ALERT_REASON_GYRO_WARN:
+                warning_persist_ticks = warn_limit_persist_ticks;
+                break;
+            case ALERT_REASON_SCORE_WARN:
+            case ALERT_REASON_ANOMALY_WATCH:
+            case ALERT_REASON_TILT_WARN:
+            case ALERT_REASON_INVERTED_WARN:
+            case ALERT_REASON_TEMP_APPROACH_LOW:
+            case ALERT_REASON_TEMP_APPROACH_HIGH:
+                warning_persist_ticks = warn_predict_persist_ticks;
+                break;
+            case ALERT_REASON_ERRATIC_MOTION:
+                warning_persist_ticks = warn_impact_persist_ticks;
+                break;
+            default:
+                warning_persist_ticks = warn_score_persist_ticks;
+                break;
+        }
+        if (s_warn_candidate_reason != candidate_reason)
+        {
+            s_warn_candidate_reason = candidate_reason;
+            s_warn_candidate_since_ticks = now_ticks;
+        }
+        if ((candidate_reason == ALERT_REASON_ERRATIC_MOTION) && (now_ticks < s_impact_latch_until_ticks))
+        {
+            warning_matured = true;
+        }
+        else
+        {
+            warning_matured = (now_ticks - s_warn_candidate_since_ticks) >= warning_persist_ticks;
+        }
+        if (!warning_matured)
+        {
+            dst->ai_status = AI_STATUS_NORMAL;
+            dst->alert_reason_code = ALERT_REASON_NORMAL;
+        }
+    }
+    else
+    {
+        s_warn_candidate_reason = ALERT_REASON_NORMAL;
+        s_warn_candidate_since_ticks = now_ticks;
     }
 
     /* Keep warning/fault visible, while always prioritizing higher-severity alerts. */
@@ -777,7 +1026,7 @@ static void ApplyAnomalyToFrame(power_sample_t *dst)
         {
             uint8_t live_pri = AlertReasonWarningPriority(dst->alert_reason_code);
             uint8_t hold_pri = AlertReasonWarningPriority(s_alert_hold_reason);
-            if (live_pri >= hold_pri)
+            if ((live_pri > hold_pri) || ((live_pri == hold_pri) && (dst->alert_reason_code != s_alert_hold_reason)))
             {
                 s_alert_hold_status = dst->ai_status;
                 s_alert_hold_reason = dst->alert_reason_code;
@@ -800,6 +1049,18 @@ static void ApplyAnomalyToFrame(power_sample_t *dst)
         s_alert_hold_status = AI_STATUS_NORMAL;
         s_alert_hold_reason = ALERT_REASON_NORMAL;
     }
+
+    /* Freeze adaptive baseline during active alerts, then hold freeze for stable-normal recovery. */
+    if (dst->ai_status != AI_STATUS_NORMAL)
+    {
+        s_adapt_freeze_until_ticks = now_ticks + adapt_freeze_recover_ticks;
+        freeze_adapt = true;
+    }
+    else
+    {
+        freeze_adapt = (now_ticks < s_adapt_freeze_until_ticks);
+    }
+    AnomalyEngine_SetAdaptiveFreeze(freeze_adapt);
 
     dst->ai_fault_flags = 0u;
     s_prev_ax_mg = s_accel_x_mg;
@@ -2271,6 +2532,9 @@ static void __attribute__((unused)) AccelUpdate(void)
     x_mg = ((int32_t)raw.x * 125) / 64;
     y_mg = ((int32_t)raw.y * 125) / 64;
     z_mg = ((int32_t)raw.z * 125) / 64;
+    s_accel_raw_x_mg = (int16_t)x_mg;
+    s_accel_raw_y_mg = (int16_t)y_mg;
+    s_accel_raw_z_mg = (int16_t)z_mg;
 
     /* Simple low-pass to keep the gyro view stable. */
     filt_x = (int16_t)((s_accel_x_mg * 3 + x_mg) / 4);
@@ -2379,6 +2643,9 @@ static void ShieldGyroUpdate(void)
         ShieldGyroInit();
         if (!s_shield_gyro_ready)
         {
+            s_accel_raw_x_mg = 0;
+            s_accel_raw_y_mg = 0;
+            s_accel_raw_z_mg = 1000;
             GaugeRender_SetAccel(0, 0, 1000, false);
             GaugeRender_SetLinearAccel(0, 0, 1000, false);
             GaugeRender_SetGyro(0, 0, 0, false);
@@ -2391,6 +2658,9 @@ static void ShieldGyroUpdate(void)
 
     if (!s_shield_gyro_ready)
     {
+        s_accel_raw_x_mg = 0;
+        s_accel_raw_y_mg = 0;
+        s_accel_raw_z_mg = 1000;
         GaugeRender_SetAccel(0, 0, 1000, false);
         GaugeRender_SetLinearAccel(0, 0, 1000, false);
         GaugeRender_SetGyro(0, 0, 0, false);
@@ -2461,6 +2731,9 @@ static void ShieldGyroUpdate(void)
     ax_mg = ((int32_t)ax_raw * accel_mg_per_lsb_x1000) / 1000;
     ay_mg = ((int32_t)ay_raw * accel_mg_per_lsb_x1000) / 1000;
     az_mg = ((int32_t)az_raw * accel_mg_per_lsb_x1000) / 1000;
+    s_accel_raw_x_mg = (int16_t)ax_mg;
+    s_accel_raw_y_mg = (int16_t)ay_mg;
+    s_accel_raw_z_mg = (int16_t)az_mg;
 
     /* Stable absolute tilt mapping from accel only (no gyro boost, no axis swap). */
     filt_ax = (int16_t)((s_accel_x_mg * 3 + ax_mg) / 4);
@@ -2474,7 +2747,7 @@ static void ShieldGyroUpdate(void)
     s_ui_gyro_x = filt_ay;
     s_ui_gyro_y = filt_ax;
     s_ui_gyro_z = filt_az;
-    GaugeRender_SetLinearAccel(s_accel_x_mg, s_accel_y_mg, s_accel_z_mg, true);
+    GaugeRender_SetLinearAccel(s_accel_raw_x_mg, s_accel_raw_y_mg, s_accel_raw_z_mg, true);
     GaugeRender_SetAccel(s_ui_gyro_x, s_ui_gyro_y, s_ui_gyro_z, true);
     GaugeRender_SetGyro(gx_dps_signed, gy_dps_signed, gz_dps_signed, true);
 }
@@ -2763,6 +3036,7 @@ static const power_sample_t *GetFrameSample(void)
     s_frame_sample = *src;
     s_frame_sample.temp_c = s_temp_c;
     ApplyAnomalyToFrame(&s_frame_sample);
+    UpdateAlertCaptureWindow(&s_frame_sample);
     return &s_frame_sample;
 }
 
@@ -3404,6 +3678,8 @@ int main(void)
     {
         int32_t tx = 0;
         int32_t ty = 0;
+        uint32_t recplay_hz = (uint32_t)ClampLogRateHz(s_log_rate_hz);
+        uint32_t recplay_period_us = RECPLAY_TICK_PERIOD_US;
         bool modal_active;
         bool modal_active_now;
         bool pressed = TouchGetPoint(&tx, &ty);
@@ -3413,6 +3689,14 @@ int main(void)
         bool record_start_request;
         bool record_stop_request;
         bool clear_flash_request;
+        if (recplay_hz > 0u)
+        {
+            recplay_period_us = 1000000u / recplay_hz;
+            if (recplay_period_us == 0u)
+            {
+                recplay_period_us = RECPLAY_TICK_PERIOD_US;
+            }
+        }
 
         modal_active = GaugeRender_IsRecordConfirmActive();
         in_set = pressed && !modal_active && TouchInAiSet(tx, ty);
@@ -3934,9 +4218,9 @@ int main(void)
             {
                 data_tick_accum_us = POWER_TICK_PERIOD_US * 2u;
             }
-            if (recplay_tick_accum_us > (RECPLAY_TICK_PERIOD_US * 2u))
+            if (recplay_tick_accum_us > (recplay_period_us * 2u))
             {
-                recplay_tick_accum_us = RECPLAY_TICK_PERIOD_US * 2u;
+                recplay_tick_accum_us = recplay_period_us * 2u;
             }
             if (render_tick_accum_us > (DISPLAY_REFRESH_PERIOD_US * 2u))
             {
@@ -4083,9 +4367,9 @@ int main(void)
             PowerData_Tick();
         }
 
-        if (recplay_tick_accum_us >= RECPLAY_TICK_PERIOD_US)
+        while (recplay_tick_accum_us >= recplay_period_us)
         {
-            recplay_tick_accum_us -= RECPLAY_TICK_PERIOD_US;
+            recplay_tick_accum_us -= recplay_period_us;
             if (ext_flash_ok && record_mode && !GaugeRender_IsLiveBannerMode())
             {
                 const power_sample_t *record_sample = GetFrameSample();
@@ -4099,6 +4383,9 @@ int main(void)
                 int16_t rec_my;
                 int16_t rec_mz;
                 uint32_t rec_sec;
+                uint16_t rec_score;
+                uint8_t rec_status;
+                uint8_t rec_reason;
                 if (s_timebase_ready && (s_timebase_hz != 0u))
                 {
                     uint64_t now_ticks = TimebaseNowTicks();
@@ -4111,6 +4398,10 @@ int main(void)
                 }
                 rec_sec = rec_elapsed_ds / 10u;
                 ConsumeCapturePeaks(&rec_ax_mg, &rec_ay_mg, &rec_az_mg, &rec_gx, &rec_gy, &rec_gz, &rec_mx, &rec_my, &rec_mz);
+                rec_score = (record_sample != NULL) ? record_sample->anomaly_score_pct : s_frame_sample.anomaly_score_pct;
+                rec_status = (record_sample != NULL) ? record_sample->ai_status : s_frame_sample.ai_status;
+                rec_reason = (record_sample != NULL) ? record_sample->alert_reason_code : s_frame_sample.alert_reason_code;
+                ConsumeAlertCaptureWindow(rec_score, rec_status, rec_reason, &rec_score, &rec_status, &rec_reason);
 
                 if (!ExtFlashRecorder_AppendSampleEx(rec_ax_mg,
                                                      rec_ay_mg,
@@ -4126,9 +4417,9 @@ int main(void)
                                                      s_sht_temp_c10,
                                                      s_sht_rh_dpct,
                                                      s_stts_temp_c10,
-                                                     (record_sample != NULL) ? record_sample->anomaly_score_pct : s_frame_sample.anomaly_score_pct,
-                                                     (record_sample != NULL) ? record_sample->ai_status : s_frame_sample.ai_status,
-                                                     (record_sample != NULL) ? record_sample->alert_reason_code : s_frame_sample.alert_reason_code,
+                                                     rec_score,
+                                                     rec_status,
+                                                     rec_reason,
                                                      rec_elapsed_ds))
                 {
                     PRINTF("EXT_FLASH_REC: write_failed\r\n");
@@ -4150,7 +4441,10 @@ int main(void)
                     s_accel_x_mg = playback_sample.ax_mg;
                     s_accel_y_mg = playback_sample.ay_mg;
                     s_accel_z_mg = playback_sample.az_mg;
-                    GaugeRender_SetLinearAccel(s_accel_x_mg, s_accel_y_mg, s_accel_z_mg, true);
+                    s_accel_raw_x_mg = playback_sample.ax_mg;
+                    s_accel_raw_y_mg = playback_sample.ay_mg;
+                    s_accel_raw_z_mg = playback_sample.az_mg;
+                    GaugeRender_SetLinearAccel(s_accel_raw_x_mg, s_accel_raw_y_mg, s_accel_raw_z_mg, true);
                     GaugeRender_SetAccel(s_accel_y_mg, s_accel_x_mg, s_accel_z_mg, true);
                     GaugeRender_SetGyro(playback_sample.gx_mdps, playback_sample.gy_mdps, playback_sample.gz_mdps, true);
                     s_mag_x_mgauss = playback_sample.mag_x_mgauss;

@@ -6,6 +6,7 @@ Last updated: 2026-02-22
 - Current build status: PASS (`mcuxsdk_ws/build_adaptive_reasoning`)
 - Flash status: PASS in this session (probe `2PZWMSBKUXU22`)
 - Latest hotfix: PASS (LCD/touch responsiveness mitigation in `par_lcd_s035_fill_rect`, 2026-02-22)
+- Latest profile import: PASS (`package_shipping_monitor` imported and model name shown in settings page 1)
 
 ## UI Control Scope (Updated)
 - AI enable/disable is settings-only.

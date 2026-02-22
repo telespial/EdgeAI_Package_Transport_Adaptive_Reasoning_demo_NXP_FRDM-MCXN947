@@ -81,6 +81,7 @@ void GaugeRender_SetSht(int16_t temp_c10, int16_t rh_dpct, bool valid);
 void GaugeRender_SetStts(int16_t temp_c10, bool valid);
 void GaugeRender_SetBoardTempC(uint8_t temp_c, bool valid);
 void GaugeRender_SetBoardTempC10(int16_t temp_c10, bool valid);
+void GaugeRender_SetModelName(const char *model_name);
 void GaugeRender_SetRuntimeClock(uint8_t hh, uint8_t mm, uint8_t ss, uint8_t ds, bool valid);
 void GaugeRender_SetLimitInfo(uint16_t g_warn_mg,
                               uint16_t g_fail_mg,

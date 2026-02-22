@@ -493,3 +493,8 @@ Format:
 - 2026-02-22 02:17:50 | `./tools/flash_frdmmcxn947.sh mcuxsdk_ws/build_adaptive_reasoning/edgeai_package_transport_anomaly_demo_cm33_core0.bin` | flashed LCD rectangle fill recovery build to FRDM-MCXN947 (PASS, probe `2PZWMSBKUXU22`)
 - 2026-02-22 02:18:10 | update `docs/PROJECT_STATE.md` | documented LCD ghosting/touch regression root cause and recovery fix
 - 2026-02-22 02:18:30 | `git add src/par_lcd_s035.c docs/PROJECT_STATE.md docs/COMMAND_LOG.md && git commit -m "Recover LCD fill path to eliminate ghosting/touch issues" && git push origin main` | committed and pushed LCD fill-path recovery (`73b9188`)
+- 2026-02-22 02:56:20 | `python3 tools/import_eil_profile.py --model .../embedded-intelligence-layer/.tmp_export_validation/package_shipping_monitor_export_2026-02-22T02-52-35-052Z/model.config.json --out src/eil_profile_generated.h` | imported package shipping model profile into firmware constants
+- 2026-02-22 02:57:10 | patch `src/eil_profile.h`, `src/eil_profile.c`, `src/gauge_render.h`, `src/gauge_render.c`, `src/edgeai_package_transport_anomaly_demo.c` | added model-name API flow and rendered active model name in settings popup first page
+- 2026-02-22 02:57:40 | `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` | rebuilt firmware after profile import + settings model-name UI integration (PASS)
+- 2026-02-22 02:57:55 | `./tools/flash_frdmmcxn947.sh mcuxsdk_ws/build_adaptive_reasoning/edgeai_package_transport_anomaly_demo_cm33_core0.bin` | flashed profile-import/settings-model-name build to FRDM-MCXN947 (PASS, probe `2PZWMSBKUXU22`)
+- 2026-02-22 02:58:20 | update `docs/PROJECT_STATE.md` and `STATUS.md` | documented package_shipping_monitor import and settings-page model-name display integration

@@ -61,6 +61,20 @@ Project: `EdgeAI_Package_Transport_Anomaly_demo_NXP_FRDM-MCXN947`
   - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` (PASS)
   - `./tools/flash_frdmmcxn947.sh mcuxsdk_ws/build_adaptive_reasoning/edgeai_package_transport_anomaly_demo_cm33_core0.bin` (PASS, probe `2PZWMSBKUXU22`)
 
+## Update 2026-02-22 (Import `package_shipping_monitor` + Settings Model Name)
+- Imported latest exported EIL profile package into firmware:
+  - source: `.../embedded-intelligence-layer/.tmp_export_validation/package_shipping_monitor_export_2026-02-22T02-52-35-052Z/model.config.json`
+  - command: `python3 tools/import_eil_profile.py --model <...>/model.config.json --out src/eil_profile_generated.h`
+  - active imported model name: `package_shipping_monitor`
+- Added model-name propagation from profile to UI:
+  - new API: `EilProfile_GetModelName()` in `src/eil_profile.h` / `src/eil_profile.c`
+  - new API: `GaugeRender_SetModelName(const char *model_name)` in `src/gauge_render.h` / `src/gauge_render.c`
+  - called from startup in `src/edgeai_package_transport_anomaly_demo.c` after LCD init
+- Settings popup now shows active model name on first page (under `SETTINGS` title).
+- Verification:
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` (PASS)
+  - `./tools/flash_frdmmcxn947.sh mcuxsdk_ws/build_adaptive_reasoning/edgeai_package_transport_anomaly_demo_cm33_core0.bin` (PASS, probe `2PZWMSBKUXU22`)
+
 ## Update 2026-02-22 (AI Toggle Settings-Only)
 - Updated UI/control flow so AI enable/disable is no longer touch-toggleable from the main screen.
 - AI mode is now controlled only from Settings:

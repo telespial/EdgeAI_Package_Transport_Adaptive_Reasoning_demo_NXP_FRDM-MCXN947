@@ -114,6 +114,7 @@ static uint16_t gLimitGFailMg = 15000u;
 static int16_t gLimitTempLowC10 = 0;
 static int16_t gLimitTempHighC10 = 700;
 static uint16_t gLimitGyroDps = 500u;
+static char gModelName[48] = "unknown";
 
 #define SCOPE_TRACE_POINTS 100u
 #define SCOPE_FAST_STEP_US 100000u
@@ -1257,6 +1258,7 @@ static void DrawSettingsPopup(void)
     DrawLine(x0, y0, x0, y1, 2, edge);
     DrawLine(x1, y0, x1, y1, 2, edge);
     DrawTextUi(x0 + 10, y0 + 8, 2, "SETTINGS", body);
+    DrawTextUi(x0 + 10, y0 + 28, 1, gModelName, dim);
     DrawPopupCloseButton(x1, y0);
     DrawTextUi(label_col_right - edgeai_text5x7_width(1, "MODE"), mode_label_y, 1, "MODE", body);
     DrawTextUi(label_col_right - edgeai_text5x7_width(1, "RUN"), run_label_y, 1, "RUN", body);
@@ -1350,6 +1352,16 @@ static void DrawSettingsPopup(void)
                    t,
                    body);
     }
+}
+
+void GaugeRender_SetModelName(const char *model_name)
+{
+    if ((model_name == NULL) || (model_name[0] == '\0'))
+    {
+        snprintf(gModelName, sizeof(gModelName), "%s", "unknown");
+        return;
+    }
+    snprintf(gModelName, sizeof(gModelName), "%s", model_name);
 }
 
 static void DrawLimitsPopup(void)

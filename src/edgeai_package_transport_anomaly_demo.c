@@ -2731,6 +2731,7 @@ int main(void)
 
     lcd_ok = GaugeRender_Init();
     PRINTF("EV dash LCD: %s\r\n", lcd_ok ? "ready" : "init_failed");
+    GaugeRender_SetModelName(EilProfile_GetModelName());
 
     PowerData_Init();
     AnomalyEngine_Init();

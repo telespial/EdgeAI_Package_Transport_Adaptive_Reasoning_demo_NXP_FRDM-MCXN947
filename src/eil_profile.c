@@ -14,3 +14,8 @@ const eil_profile_t *EilProfile_Get(void)
 {
     return &s_profile;
 }
+
+const char *EilProfile_GetModelName(void)
+{
+    return EIL_MODEL_NAME;
+}

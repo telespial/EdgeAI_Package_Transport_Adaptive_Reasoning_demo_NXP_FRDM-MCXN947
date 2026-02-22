@@ -12,5 +12,6 @@ typedef struct
 } eil_profile_t;
 
 const eil_profile_t *EilProfile_Get(void);
+const char *EilProfile_GetModelName(void);
 
 #endif /* EDGEAI_EIL_PROFILE_H */

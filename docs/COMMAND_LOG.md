@@ -691,3 +691,5 @@ Format:
 - 2026-02-22T00:00:00Z CMD: locate existing golden metadata references for synchronized update
 - 2026-02-22T00:00:00Z CMD: update restore metadata files (START_HERE/RESTORE_POINTS/failsafe.md/README_GOLDEN/STATUS/PROJECT_STATE) to GOLDEN-20260222-045031 sha256=67b7bc651ba7319196ef462834380ff40c8f30d8202ef1aab42f9715a85b087f
 - 2026-02-22T00:00:00Z CMD: final pre-commit review (status + diffstat) for docs release + golden cut
+- 2026-02-22T00:00:00Z CMD: git add + commit release/docs/golden update bundle
+- 2026-02-22T00:00:00Z CMD: verify post-commit working tree before push/tag operations

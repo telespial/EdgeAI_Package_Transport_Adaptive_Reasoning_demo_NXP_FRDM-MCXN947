@@ -35,6 +35,20 @@ Project: `EdgeAI_Package_Transport_Anomaly_demo_NXP_FRDM-MCXN947`
   - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` (PASS)
   - `./tools/flash_frdmmcxn947.sh mcuxsdk_ws/build_adaptive_reasoning/edgeai_package_transport_anomaly_demo_cm33_core0.bin` (PASS, probe `2PZWMSBKUXU22`)
 
+## Update 2026-02-22 (Timeline Layout + Scope Density Cleanup)
+- User-reported UX regression:
+  - timeline controls looked squished/stacked,
+  - live vs play/record states were visually confusing,
+  - scope graph was over-dense with too many overlapping traces.
+- Fixes in `src/gauge_render.c`:
+  - removed timeline/scope overlap by setting `TIMELINE_Y1 = SCOPE_Y - 2`,
+  - shortened record button label from `RECORD` to `REC`,
+  - simplified scope rendering to core channels only: `AX`, `AY`, `AZ`, and `T`.
+- Legend text under scope now matches plotted channels (`AX AY AZ T`).
+- Verification:
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` (PASS)
+  - `./tools/flash_frdmmcxn947.sh mcuxsdk_ws/build_adaptive_reasoning/edgeai_package_transport_anomaly_demo_cm33_core0.bin` (PASS, probe `2PZWMSBKUXU22`)
+
 ## Update 2026-02-22 (AI Toggle Settings-Only)
 - Updated UI/control flow so AI enable/disable is no longer touch-toggleable from the main screen.
 - AI mode is now controlled only from Settings:

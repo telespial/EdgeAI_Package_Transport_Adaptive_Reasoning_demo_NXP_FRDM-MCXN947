@@ -188,7 +188,7 @@ enum
     TIMELINE_X0 = SCOPE_X,
     TIMELINE_Y0 = 4,
     TIMELINE_X1 = SCOPE_X + SCOPE_W,
-    TIMELINE_Y1 = 30,
+    TIMELINE_Y1 = SCOPE_Y - 2,
     REC_CONFIRM_X0 = 108,
     REC_CONFIRM_Y0 = 110,
     REC_CONFIRM_X1 = 372,
@@ -978,7 +978,7 @@ static void DrawScopeFrame(const gauge_style_preset_t *style)
                    1,
                    gScopePaused ? "PLAY" : "STOP",
                    gScopePaused ? RGB565(232, 255, 232) : RGB565(210, 236, 255));
-        DrawTextUi(rx0 + ((rx1 - rx0 + 1 - edgeai_text5x7_width(1, "RECORD")) / 2), ty, 1, "RECORD", RGB565(255, 232, 232));
+        DrawTextUi(rx0 + ((rx1 - rx0 + 1 - edgeai_text5x7_width(1, "REC")) / 2), ty, 1, "REC", RGB565(255, 232, 232));
     }
 }
 
@@ -1847,19 +1847,10 @@ static void DrawScopeDynamic(const gauge_style_preset_t *style, bool ai_enabled)
     int32_t prev_ax = 0;
     int32_t prev_ay = 0;
     int32_t prev_az = 0;
-    int32_t prev_gx = 0;
-    int32_t prev_gy = 0;
-    int32_t prev_gz = 0;
     int32_t prev_tp = 0;
-    int32_t prev_bp = 0;
-    int32_t prev_mg = 0;
-    int32_t prev_rh = 0;
     uint16_t ax_color = TRACE_AX_COLOR;
     uint16_t ay_color = TRACE_AY_COLOR;
     uint16_t az_color = TRACE_AZ_COLOR;
-    uint16_t gx_color = TRACE_GX_COLOR;
-    uint16_t gy_color = TRACE_GY_COLOR;
-    uint16_t gz_color = TRACE_GZ_COLOR;
     uint16_t i;
     (void)ai_enabled;
 
@@ -1879,13 +1870,7 @@ static void DrawScopeDynamic(const gauge_style_preset_t *style, bool ai_enabled)
         int32_t y_ax = y_bottom - (int32_t)((gTraceAx[idx] * (uint32_t)(ph - 4)) / 255u);
         int32_t y_ay = y_bottom - (int32_t)((gTraceAy[idx] * (uint32_t)(ph - 4)) / 255u);
         int32_t y_az = y_bottom - (int32_t)((gTraceAz[idx] * (uint32_t)(ph - 4)) / 255u);
-        int32_t y_gx = y_bottom - (int32_t)((gTraceGx[idx] * (uint32_t)(ph - 4)) / 255u);
-        int32_t y_gy = y_bottom - (int32_t)((gTraceGy[idx] * (uint32_t)(ph - 4)) / 255u);
-        int32_t y_gz = y_bottom - (int32_t)((gTraceGz[idx] * (uint32_t)(ph - 4)) / 255u);
         int32_t y_tp = y_bottom - (int32_t)((gTraceTemp[idx] * (uint32_t)(ph - 4)) / 255u);
-        int32_t y_bp = y_bottom - (int32_t)((gTraceBaro[idx] * (uint32_t)(ph - 4)) / 255u);
-        int32_t y_mg = y_bottom - (int32_t)((gTraceMag[idx] * (uint32_t)(ph - 4)) / 255u);
-        int32_t y_rh = y_bottom - (int32_t)((gTraceRh[idx] * (uint32_t)(ph - 4)) / 255u);
 
         if (i > 0u)
         {
@@ -1893,26 +1878,14 @@ static void DrawScopeDynamic(const gauge_style_preset_t *style, bool ai_enabled)
             DrawLine(prev_x, prev_ax, x, y_ax, 1, ax_color);
             DrawLine(prev_x, prev_ay, x, y_ay, 1, ay_color);
             DrawLine(prev_x, prev_az, x, y_az, 1, az_color);
-            DrawLine(prev_x, prev_gx, x, y_gx, 1, gx_color);
-            DrawLine(prev_x, prev_gy, x, y_gy, 1, gy_color);
-            DrawLine(prev_x, prev_gz, x, y_gz, 1, gz_color);
             DrawLine(prev_x, prev_tp, x, y_tp, 1, tp_color);
-            DrawLine(prev_x, prev_bp, x, y_bp, 1, TRACE_BARO_COLOR);
-            DrawLine(prev_x, prev_mg, x, y_mg, 1, TRACE_MAG_COLOR);
-            DrawLine(prev_x, prev_rh, x, y_rh, 1, TRACE_RH_COLOR);
         }
 
         prev_x = x;
         prev_ax = y_ax;
         prev_ay = y_ay;
         prev_az = y_az;
-        prev_gx = y_gx;
-        prev_gy = y_gy;
-        prev_gz = y_gz;
         prev_tp = y_tp;
-        prev_bp = y_bp;
-        prev_mg = y_mg;
-        prev_rh = y_rh;
     }
 
     if (gPlayheadValid)
@@ -1975,7 +1948,7 @@ static void DrawScopeDynamic(const gauge_style_preset_t *style, bool ai_enabled)
                        1,
                        gScopePaused ? "PLAY" : "STOP",
                        gScopePaused ? RGB565(232, 255, 232) : RGB565(210, 236, 255));
-            DrawTextUi(rx0 + ((rx1 - rx0 + 1 - edgeai_text5x7_width(1, "RECORD")) / 2), ty, 1, "RECORD", RGB565(255, 232, 232));
+            DrawTextUi(rx0 + ((rx1 - rx0 + 1 - edgeai_text5x7_width(1, "REC")) / 2), ty, 1, "REC", RGB565(255, 232, 232));
         }
     }
 
@@ -2469,12 +2442,12 @@ void GaugeRender_DrawFrame(const power_sample_t *sample, bool ai_enabled, power_
         int32_t lx = SCOPE_X + 8;
         int32_t ly = SCOPE_Y + SCOPE_H + 1;
         uint16_t t_color = TempTraceColorFromC10(DisplayTempC10(sample));
-        DrawTextUi(lx, ly, 1, "GX", TRACE_AX_COLOR);
-        lx += edgeai_text5x7_width(1, "GX ");
-        DrawTextUi(lx, ly, 1, "GY", TRACE_AY_COLOR);
-        lx += edgeai_text5x7_width(1, "GY ");
-        DrawTextUi(lx, ly, 1, "GZ", TRACE_AZ_COLOR);
-        lx += edgeai_text5x7_width(1, "GZ ");
+        DrawTextUi(lx, ly, 1, "AX", TRACE_AX_COLOR);
+        lx += edgeai_text5x7_width(1, "AX ");
+        DrawTextUi(lx, ly, 1, "AY", TRACE_AY_COLOR);
+        lx += edgeai_text5x7_width(1, "AY ");
+        DrawTextUi(lx, ly, 1, "AZ", TRACE_AZ_COLOR);
+        lx += edgeai_text5x7_width(1, "AZ ");
         DrawTextUi(lx, ly, 1, "T", t_color);
     }
     DrawLeftBargraphDynamic(style, DisplayTempC10(sample));

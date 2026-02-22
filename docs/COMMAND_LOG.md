@@ -482,3 +482,8 @@ Format:
 - 2026-02-22 02:10:45 | `./tools/flash_frdmmcxn947.sh mcuxsdk_ws/build_adaptive_reasoning/edgeai_package_transport_anomaly_demo_cm33_core0.bin` | flashed LCD responsiveness hotfix to FRDM-MCXN947 (PASS, probe `2PZWMSBKUXU22`)
 - 2026-02-22 02:11:05 | update `docs/PROJECT_STATE.md` and `STATUS.md` | documented LCD responsiveness hotfix root cause, fix details, and verification
 - 2026-02-22 02:11:40 | `git add src/par_lcd_s035.c docs/PROJECT_STATE.md docs/COMMAND_LOG.md STATUS.md && git commit -m "Fix LCD/touch responsiveness after buffered fill change" && git push origin main` | committed and pushed LCD/touch responsiveness hotfix (`8f48e3f`)
+- 2026-02-22 02:13:10 | `rg -n` + `sed -n` on `src/gauge_render.c`, `src/gauge_render.h`, `src/edgeai_package_transport_anomaly_demo.c` | inspected timeline/state/render paths for squished controls and over-dense graph report
+- 2026-02-22 02:14:00 | patch `src/gauge_render.c` | fixed timeline/scope overlap (`TIMELINE_Y1 = SCOPE_Y - 2`), shortened timeline right label (`REC`), and reduced scope plotting to core traces (`AX/AY/AZ/T`)
+- 2026-02-22 02:14:20 | `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` | rebuilt firmware with timeline/scope cleanup (PASS)
+- 2026-02-22 02:14:35 | `./tools/flash_frdmmcxn947.sh mcuxsdk_ws/build_adaptive_reasoning/edgeai_package_transport_anomaly_demo_cm33_core0.bin` | flashed timeline/scope cleanup fix to FRDM-MCXN947 (PASS, probe `2PZWMSBKUXU22`)
+- 2026-02-22 02:14:55 | update `docs/PROJECT_STATE.md` | documented timeline/scope cleanup root cause, code changes, and validation

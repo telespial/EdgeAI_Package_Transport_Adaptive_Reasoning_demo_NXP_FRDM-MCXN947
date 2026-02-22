@@ -1662,10 +1662,10 @@ static void BuildAnomalyReason(const power_sample_t *sample, char *out, size_t o
             snprintf(out, out_len, "GYRO WARN");
             break;
         case ALERT_REASON_SCORE_FAIL:
-            snprintf(out, out_len, "SCORE FAIL");
+            snprintf(out, out_len, "BREAK");
             break;
         case ALERT_REASON_SCORE_WARN:
-            snprintf(out, out_len, "SCORE WARN");
+            snprintf(out, out_len, "SHIFT");
             break;
         case ALERT_REASON_ANOMALY_WATCH:
             snprintf(out, out_len, "WATCH STATE");

@@ -82,6 +82,15 @@ Project: `EdgeAI_Package_Transport_Anomaly_demo_NXP_FRDM-MCXN947`
   - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` (PASS)
   - `./tools/flash_frdmmcxn947.sh mcuxsdk_ws/build_adaptive_reasoning/edgeai_package_transport_anomaly_demo_cm33_core0.bin` (PASS, probe `2PZWMSBKUXU22`)
 
+## Update 2026-02-22 (Reason Label Rename: SHIFT/BREAK)
+- Updated score-driven alert labels for clearer operator language:
+  - `ALERT_REASON_SCORE_WARN` text: `SHIFT`
+  - `ALERT_REASON_SCORE_FAIL` text: `BREAK`
+- Underlying reason codes and trigger logic are unchanged; only displayed labels were updated.
+- Verification:
+  - `BUILD_DIR=mcuxsdk_ws/build_adaptive_reasoning ./tools/build_frdmmcxn947.sh debug` (PASS)
+  - `./tools/flash_frdmmcxn947.sh mcuxsdk_ws/build_adaptive_reasoning/edgeai_package_transport_anomaly_demo_cm33_core0.bin` (PASS, probe `2PZWMSBKUXU22`)
+
 ## Update 2026-02-22 (Golden/Failsafe Refresh Before Alert-Pipeline Simplification)
 - Cut fresh local golden and promoted active failsafe from current build output:
   - golden tag: `GOLDEN-20260222-032039`

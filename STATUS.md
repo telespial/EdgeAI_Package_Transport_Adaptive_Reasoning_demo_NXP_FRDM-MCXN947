@@ -12,6 +12,7 @@ Last updated: 2026-02-22
 - Latest predictive warning update: PASS (inverted/tilt, temp-approach, erratic-motion warning reasons, 2026-02-22)
 - Latest capture fidelity update: PASS (100Hz accel buffering with interval peak capture for logs/flash, 2026-02-22)
 - Latest buffer extension update: PASS (gyro + magnetometer interval-peak buffering; temp/baro unchanged, 2026-02-22)
+- Latest label update: PASS (`SCORE WARN/FAIL` display renamed to `SHIFT/BREAK`, 2026-02-22)
 
 ## UI Control Scope (Updated)
 - AI enable/disable is settings-only.
